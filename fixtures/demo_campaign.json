@@ -1,0 +1,25 @@
+{
+    "name": "Ciel's Angels",
+    "party": [
+        {
+            "name": "Etiquette",
+            "player": "Tequila"
+        },
+        {
+            "name": "Obsidian",
+            "player": "Hastur"
+        },
+        {
+            "name": "Grease Thunder",
+            "player": "Jessie"
+        },
+        {
+            "name": "Valorah Banebridge",
+            "player": "Hope"
+        },
+        {
+            "name": "Proph Falconwing",
+            "player": "Gregory"
+        }
+    ]
+}

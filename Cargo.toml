@@ -1,0 +1,19 @@
+[package]
+name = "machete"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = { version = "0.27.2", default-features = false, features = [  "web_screen_reader" ] }
+egui = { version = "0.27.2", features = ["callstack", "default", "log"] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.117"
+primitive-types = "0.12.2"
+base58 = "0.2"
+hex = "0.4.3"
+
+[features]
+default = ["offline"]
+
+offline = ["eframe/glow"]
