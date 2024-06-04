@@ -1,5 +1,7 @@
 use crate::{
-    apps::summary::SummaryApp, models::campaign::Campaign, settings_panel::SettingsPanel,
+    apps::{logbook::LogbookApp, summary::SummaryApp},
+    models::campaign::Campaign,
+    settings_panel::SettingsPanel,
     update_context::UpdateWithContext,
 };
 
@@ -8,10 +10,10 @@ pub struct MainApp {
 }
 
 /// Application-level GUI + context state.
-#[derive(Default)]
 pub struct State {
     // GUI state:
     summary: SummaryApp,
+    logbook: LogbookApp,
     settings_panel: SettingsPanel,
     selected_anchor: Anchor,
 
@@ -21,37 +23,55 @@ pub struct State {
 
 impl MainApp {
     pub fn new(_: &eframe::CreationContext<'_>) -> Self {
-        #[allow(unused_mut)]
-        let mut slf = Self {
-            state: State::default(),
-        };
-
         // TODO: Allow storing state into file, onto web, etc.
         // This currently just loads a test fixture.
         let fixture = include_str!("../fixtures/demo_campaign.json");
-        slf.state.campaign = serde_json::from_str(fixture).expect("Failed to load test fixture.");
+        let campaign: Campaign =
+            serde_json::from_str(fixture).expect("Failed to load test fixture.");
 
+        // TODO: Not sure if I like this pattern to just be able to pass a clone into LogbookApp.
+        #[allow(unused_mut)]
+        let mut slf = Self {
+            state: State {
+                logbook: LogbookApp::start(&campaign),
+                campaign,
+                summary: SummaryApp::default(),
+                settings_panel: SettingsPanel::default(),
+                selected_anchor: Anchor::default(),
+            },
+        };
         slf
     }
 
+    // TODO: Clean this up a little bit. The two tuples is so we can pass &mut Campaign to each app.
     /// Get an iterator over all the apps that can be shown.
     /// The return type is a tuple of:
-    /// (iterator over (app_name, anchor, app, campaign) tuples)
+    /// (iterator over (app_name, anchor, app), campaign)
     fn apps_iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&str, Anchor, &mut dyn UpdateWithContext, &mut Campaign)> {
-        let vec = vec![(
-            "Summary",
-            Anchor::Summary,
-            &mut self.state.summary as &mut dyn UpdateWithContext,
-            &mut self.state.campaign,
-        )];
-        vec.into_iter()
+    ) -> (
+        impl Iterator<Item = (&str, Anchor, &mut dyn UpdateWithContext)>,
+        &mut Campaign,
+    ) {
+        let vec = vec![
+            (
+                "Summary",
+                Anchor::Summary,
+                &mut self.state.summary as &mut dyn UpdateWithContext,
+            ),
+            (
+                "Logbook",
+                Anchor::Logbook,
+                &mut self.state.logbook as &mut dyn UpdateWithContext,
+            ),
+        ];
+        (vec.into_iter(), &mut self.state.campaign)
     }
 
     fn show_selected_app(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let selected_anchor = self.state.selected_anchor;
-        for (_name, anchor, app, campaign) in self.apps_iter_mut() {
+        let (apps_iter, campaign) = self.apps_iter_mut();
+        for (_name, anchor, app) in apps_iter {
             if anchor == selected_anchor || ctx.memory(|mem| mem.everything_is_visible()) {
                 app.update(ctx, frame, campaign);
             }
@@ -69,7 +89,8 @@ impl MainApp {
         ui.separator();
 
         let mut selected_anchor = self.state.selected_anchor;
-        for (name, anchor, _app, _) in self.apps_iter_mut() {
+        let (apps_iter, _) = self.apps_iter_mut();
+        for (name, anchor, _app) in apps_iter {
             if ui
                 .selectable_label(selected_anchor == anchor, name)
                 .clicked()
@@ -127,6 +148,7 @@ impl eframe::App for MainApp {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Anchor {
     Summary,
+    Logbook,
 }
 
 impl std::fmt::Display for Anchor {

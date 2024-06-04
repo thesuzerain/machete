@@ -21,5 +21,59 @@
             "name": "Proph Falconwing",
             "player": "Gregory"
         }
-    ]
+    ],
+    "log": {
+        "event_groups": {
+            "100": {
+                "id": 100,
+                "name": "Killed the Bandit Leader",
+                "timestamp": 0,
+                "events": {
+                    "201":
+                    {
+                        "id": 201,
+                        "character": "Etiquette",
+                        "event_type": "CurrencyGain",
+                        "currency": 100
+
+                    },
+                    "202":
+                    {
+                        "id": 202,
+                        "character": "Grease Thunder",
+                        "event_type": "CurrencyGain",
+                        "currency": 100
+                    }
+                }
+            },
+            "501": {
+                "id": 501,
+                "name": "Saved the Town",
+                "timestamp": 5,
+                "events": {
+                    "601":
+                    {
+                        "id": 601,
+                        "character": "Obsidian",
+                        "event_type": "CurrencyGain",
+                        "currency": 10
+                    },
+                    "602":
+                    {
+                        "id": 602,
+                        "character": "Valorah Banebridge",
+                        "event_type": "ExperienceGain",
+                        "experience": 50
+                    },
+                    "603":
+                    {
+                        "id": 603,
+                        "character": "Proph Falconwing",
+                        "event_type": "CurrencyGain",
+                        "currency": 10
+                    }
+                }
+            }
+        }
+    }
 }
