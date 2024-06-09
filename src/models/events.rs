@@ -3,25 +3,27 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
+use super::ids::InternalId;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct EventLog {
-    pub event_groups: HashMap<u64, EventGroup>,
+    pub event_groups: HashMap<InternalId, EventGroup>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EventGroup {
     // TODO: A more robust ID system (uuid, base62, etc.)
-    pub id: u64,
+    pub id: InternalId,
     pub name: String,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub timestamp: DateTime<Utc>,
-    pub events: HashMap<u64, Event>,
+    pub events: HashMap<InternalId, Event>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
     // TODO: A more robust ID system (uuid, base62, etc.)
-    pub id: u64,
+    pub id: InternalId,
     pub character: Option<String>,
     #[serde(flatten)]
     pub event_type: EventType,
@@ -30,7 +32,7 @@ pub struct Event {
 impl Default for Event {
     fn default() -> Self {
         Event {
-            id: 0,
+            id: InternalId::new(),
             character: None,
             event_type: EventType::CurrencyGain { currency: 0 },
         }
