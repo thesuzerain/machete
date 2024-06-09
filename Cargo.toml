@@ -3,9 +3,13 @@ name = "machete"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 eframe = { version = "0.27.2", default-features = false, features = [  "web_screen_reader" ] }
 egui = { version = "0.27.2", features = ["callstack", "default", "log"] }
+egui_extras = { version = "0.27.2", features = ["default", "image", "datepicker"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.117"
@@ -15,10 +19,35 @@ hex = "0.4.3"
 chrono = {version = "0.4.38", features = ["serde"]}
 itertools = "0.13.0"
 
+# TODO: tracing
+log = { version = "0.4", features = ["std"] }
+
 regex = "1.10.4"
 lazy_static = "1.4.0"
+
+# feature "http":
+ehttp = { version = "0.5", optional = true }
+image = { version = "0.25", optional = true, features = ["jpeg", "png"] }
+poll-promise = { version = "0.3", optional = true, default-features = false }
+
+wasm-bindgen = { version = "=0.2.92", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = {version = "0.3.58", optional = true}
+
+# Downstream random crate needs 'js' enabled for wasm
+[dependencies.getrandom]
+features = ["js"]
 
 [features]
 default = ["offline"]
 
 offline = ["eframe/glow"]
+
+# Using web_app also will require a compilation target of: wasm32 (wasm32-unknown-unknown)
+# "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+# image_viewer adds about 0.9 MB of WASM
+web_app = ["http", "persistence", "wasm-bindgen", "wasm-bindgen-futures", "web-sys"]
+
+http = ["ehttp", "image", "poll-promise", "egui_extras/image"]
+persistence = ["eframe/persistence", "egui/persistence"]
+glow = ["eframe/glow"]
