@@ -4,6 +4,7 @@ use egui::{Response, RichText, Ui, Widget};
 
 use crate::utils::SelectableOption;
 
+/// ComboBox (dropdown option menu) that is hidden and disguised as text until hovered.
 pub struct HiddenComboBox<'a, F: FnOnce(bool), T: SelectableOption, Id: Hash> {
     id: Id,
     selected: &'a mut T,

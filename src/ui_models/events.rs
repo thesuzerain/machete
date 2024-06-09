@@ -1,6 +1,9 @@
-use egui::Ui;
+use egui::{Ui, Widget};
 
-use crate::{apps::logbook::event_group_creator::EventGroupTemplate, models::events::EventType};
+use crate::{
+    apps::logbook::event_group_creator::EventGroupTemplate, models::events::EventType,
+    widgets::restricted_text_edit::RestrictedTextEdit,
+};
 
 use super::DisplayFields;
 
@@ -11,16 +14,8 @@ impl DisplayFields for EventType {
             EventType::ExperienceGain { experience } => {
                 ui.horizontal(|ui| {
                     ui.label("Experience:");
-                    // TODO: Awful pattern here. Make a new widget for this.
-                    // https://github.com/emilk/egui/issues/1348
-
-                    let mut experience_string = experience.to_string();
-                    let response = ui.text_edit_singleline(&mut experience_string);
+                    let response = RestrictedTextEdit::new(experience).ui(ui);
                     if response.changed() {
-                        *experience = match experience_string.parse() {
-                            Ok(e) => e,
-                            Err(_) => *experience,
-                        };
                         updated = true;
                     }
                 });
@@ -28,14 +23,8 @@ impl DisplayFields for EventType {
             EventType::CurrencyGain { currency } => {
                 ui.horizontal(|ui| {
                     ui.label("Currency:");
-                    let mut currency_string = currency.to_string();
-                    let response = ui.text_edit_singleline(&mut currency_string);
-
+                    let response = RestrictedTextEdit::new(currency).ui(ui);
                     if response.changed() {
-                        *currency = match currency_string.parse() {
-                            Ok(c) => c,
-                            Err(_) => *currency,
-                        };
                         updated = true;
                     }
                 });
@@ -53,16 +42,8 @@ impl DisplayFields for EventGroupTemplate {
             EventGroupTemplate::ExperienceGain { experience } => {
                 ui.horizontal(|ui| {
                     ui.label("Experience:");
-                    // TODO: Awful pattern here. Make a new widget for this.
-                    // https://github.com/emilk/egui/issues/1348
-
-                    let mut experience_string = experience.to_string();
-                    let response = ui.text_edit_singleline(&mut experience_string);
+                    let response = RestrictedTextEdit::new(experience).ui(ui);
                     if response.changed() {
-                        *experience = match experience_string.parse() {
-                            Ok(e) => e,
-                            Err(_) => *experience,
-                        };
                         updated = true;
                     }
                 });
@@ -70,14 +51,8 @@ impl DisplayFields for EventGroupTemplate {
             EventGroupTemplate::CurrencyGain { currency } => {
                 ui.horizontal(|ui| {
                     ui.label("Currency:");
-                    let mut currency_string = currency.to_string();
-                    let response = ui.text_edit_singleline(&mut currency_string);
-
+                    let response = RestrictedTextEdit::new(currency).ui(ui);
                     if response.changed() {
-                        *currency = match currency_string.parse() {
-                            Ok(c) => c,
-                            Err(_) => *currency,
-                        };
                         updated = true;
                     }
                 });
