@@ -1,14 +1,16 @@
-use super::log::LogDisplayUiContext;
 use crate::{
     models::{
         campaign::Campaign,
         events::{Event, EventGroup, EventType},
     },
+    ui_models::DisplayFields,
     utils::SelectableOption,
 };
 use chrono::{DateTime, Utc};
 use egui::{ahash::HashMap, ComboBox, Ui};
 use itertools::Itertools;
+
+use super::log::LogDisplayUiContext;
 
 /// Add an EventGroup to the log.
 /// TODO: This should be separated later when the UI is extricated from the core processing lib.
@@ -22,8 +24,10 @@ pub struct EventGroupCreator {
     // TODO: should this be within Template? Should it be an id?
     pub characters: HashMap<String, bool>,
 
+    /// Current event group being edited.
     pub event_group: EventGroup,
-    // TODO: This is also used by log.rs- extract?
+
+    /// Event group display context (allows for editing events in the log)
     pub event_group_log_context: LogDisplayUiContext,
 }
 
@@ -33,11 +37,10 @@ pub struct EventGroupCreator {
 pub enum EventGroupTemplate {
     #[default]
     None,
-    // TODO: Do these really need to be different named than the Events enum
-    GetExperience {
+    ExperienceGain {
         experience: u64,
     },
-    GetCurrency {
+    CurrencyGain {
         // TODO: Currency should be its own struct, allowing for different types of currency.
         currency: u64,
     }, // TODO: Add 'custom' for a custom added template
@@ -49,50 +52,9 @@ impl EventGroupTemplate {
         match self {
             EventGroupTemplate::None => false,
 
-            EventGroupTemplate::GetExperience { .. } => true,
-            EventGroupTemplate::GetCurrency { .. } => true,
+            EventGroupTemplate::ExperienceGain { .. } => true,
+            EventGroupTemplate::CurrencyGain { .. } => true,
         }
-    }
-
-    // TODO: Turn into a trait
-    fn display_fields(&mut self, ui: &mut Ui) -> bool {
-        let mut updated = false;
-        match self {
-            EventGroupTemplate::GetExperience { experience } => {
-                ui.horizontal(|ui| {
-                    ui.label("Experience:");
-                    // TODO: Awful pattern here. Make a new widget for this.
-                    // https://github.com/emilk/egui/issues/1348
-
-                    let mut experience_string = experience.to_string();
-                    let response = ui.text_edit_singleline(&mut experience_string);
-                    if response.changed() {
-                        *experience = match experience_string.parse() {
-                            Ok(e) => e,
-                            Err(_) => *experience,
-                        };
-                        updated = true;
-                    }
-                });
-            }
-            EventGroupTemplate::GetCurrency { currency } => {
-                ui.horizontal(|ui| {
-                    ui.label("Currency:");
-                    let mut currency_string = currency.to_string();
-                    let response = ui.text_edit_singleline(&mut currency_string);
-
-                    if response.changed() {
-                        *currency = match currency_string.parse() {
-                            Ok(c) => c,
-                            Err(_) => *currency,
-                        };
-                        updated = true;
-                    }
-                });
-            }
-            EventGroupTemplate::None => {}
-        }
-        updated
     }
 
     fn generate(&self, characters: &[String]) -> EventGroup {
@@ -104,7 +66,7 @@ impl EventGroupTemplate {
             events: Default::default(),
         };
         match self {
-            EventGroupTemplate::GetExperience { experience } => {
+            EventGroupTemplate::ExperienceGain { experience } => {
                 for (i, character) in characters.iter().enumerate() {
                     event_group.events.insert(
                         i as u64,
@@ -118,7 +80,7 @@ impl EventGroupTemplate {
                     );
                 }
             }
-            EventGroupTemplate::GetCurrency { currency } => {
+            EventGroupTemplate::CurrencyGain { currency } => {
                 for (i, character) in characters.iter().enumerate() {
                     event_group.events.insert(
                         i as u64,
@@ -141,8 +103,8 @@ impl EventGroupTemplate {
 impl SelectableOption for EventGroupTemplate {
     fn as_selectable_str(&self) -> &'static str {
         match self {
-            EventGroupTemplate::GetCurrency { .. } => "Currency Gain",
-            EventGroupTemplate::GetExperience { .. } => "Experience Gain",
+            EventGroupTemplate::CurrencyGain { .. } => "Currency Gain",
+            EventGroupTemplate::ExperienceGain { .. } => "Experience Gain",
             EventGroupTemplate::None => "None",
         }
     }
@@ -150,8 +112,8 @@ impl SelectableOption for EventGroupTemplate {
     fn iter_options() -> Vec<Self> {
         vec![
             EventGroupTemplate::None,
-            EventGroupTemplate::GetCurrency { currency: 0 },
-            EventGroupTemplate::GetExperience { experience: 0 },
+            EventGroupTemplate::CurrencyGain { currency: 0 },
+            EventGroupTemplate::ExperienceGain { experience: 0 },
         ]
     }
 }

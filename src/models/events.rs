@@ -1,10 +1,7 @@
-use std::{collections::HashMap, fmt::Display};
-
-use chrono::{DateTime, Utc};
-use egui::Ui;
-use serde::{Deserialize, Serialize};
-
 use crate::utils::SelectableOption;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct EventLog {
@@ -71,48 +68,5 @@ impl SelectableOption for EventType {
             EventType::CurrencyGain { currency: 0 },
             EventType::ExperienceGain { experience: 0 },
         ]
-    }
-}
-
-impl EventType {
-    // TODO: Turn into a trait
-    // Also, shouldn't be stored in 'models', so it can `models` can be modular
-    pub fn display_fields(&mut self, ui: &mut Ui) -> bool {
-        let mut updated = false;
-        match self {
-            EventType::ExperienceGain { experience } => {
-                ui.horizontal(|ui| {
-                    ui.label("Experience:");
-                    // TODO: Awful pattern here. Make a new widget for this.
-                    // https://github.com/emilk/egui/issues/1348
-
-                    let mut experience_string = experience.to_string();
-                    let response = ui.text_edit_singleline(&mut experience_string);
-                    if response.changed() {
-                        *experience = match experience_string.parse() {
-                            Ok(e) => e,
-                            Err(_) => *experience,
-                        };
-                        updated = true;
-                    }
-                });
-            }
-            EventType::CurrencyGain { currency } => {
-                ui.horizontal(|ui| {
-                    ui.label("Currency:");
-                    let mut currency_string = currency.to_string();
-                    let response = ui.text_edit_singleline(&mut currency_string);
-
-                    if response.changed() {
-                        *currency = match currency_string.parse() {
-                            Ok(c) => c,
-                            Err(_) => *currency,
-                        };
-                        updated = true;
-                    }
-                });
-            }
-        }
-        updated
     }
 }

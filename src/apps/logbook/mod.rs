@@ -23,12 +23,12 @@ impl LogbookApp {
 
 impl UpdateWithContext for LogbookApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame, campaign: &mut Campaign) {
-        egui::TopBottomPanel::top("Logbook").show(ctx, |ui| {
-            self.party_display.ui(ui, campaign);
-        });
-
         egui::TopBottomPanel::top("Event Creator").show(ctx, |ui| {
             self.event_creator.ui(ui, campaign);
+        });
+
+        egui::TopBottomPanel::top("Logbook").show(ctx, |ui| {
+            self.party_display.ui(ui, campaign);
         });
 
         egui::CentralPanel::default()

@@ -3,6 +3,7 @@ use crate::{
         campaign::Campaign,
         events::{Event, EventGroup, EventLog},
     },
+    ui_models::DisplayFields,
     widgets::hidden_combo_box::HiddenComboBox,
 };
 use egui::{ComboBox, RichText, Ui};
@@ -15,7 +16,7 @@ pub struct LogDisplay {
     // TODO: With increasing size of the log, the cloning may become a performance issue (or we may need to implement partitioning)
     modified_log: EventLog,
 
-    //TODO: comment
+    /// Event group display context (allows for editing events in the log)
     ui_context: LogDisplayUiContext,
 
     // TODO: Is this necessary?
@@ -62,6 +63,7 @@ impl LogDisplay {
     pub fn ui(&mut self, ui: &mut Ui, campaign: &mut Campaign) {
         ui.label("Logbook:");
 
+        // Save and reset buttons.
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.frozen, "Frozen");
 
@@ -82,12 +84,14 @@ impl LogDisplay {
         ui.vertical(|ui| {
             for (id, event_group) in self.modified_log.event_groups.iter_mut() {
                 let original_event_group = campaign.log.event_groups.get(id);
-                self.ui_context.display_event_group(
-                    ui,
-                    event_group,
-                    original_event_group,
-                    campaign,
-                );
+                ui.collapsing(event_group.name.clone(), |ui: &mut Ui| {
+                    self.ui_context.display_event_group(
+                        ui,
+                        event_group,
+                        original_event_group,
+                        campaign,
+                    );
+                });
             }
         });
     }
@@ -103,34 +107,32 @@ impl LogDisplayUiContext {
         original_event_group: Option<&EventGroup>,
         campaign: &Campaign,
     ) {
-        ui.collapsing(event_group.name.clone(), |ui: &mut Ui| {
-            ui.label(&event_group.timestamp.to_string());
-            ui.vertical(|ui| {
-                // TODO: Is sorting a hashmap here ideal?
-                for (id, event) in &mut event_group.events.iter_mut().sorted_by_key(|(k, _)| *k) {
-                    let original_event = original_event_group.and_then(|og| og.events.get(id));
-                    self.display_event(ui, event, original_event, campaign);
-                }
+        ui.label(&event_group.timestamp.to_string());
+        ui.vertical(|ui| {
+            // TODO: Is sorting a hashmap here ideal?
+            for (id, event) in &mut event_group.events.iter_mut().sorted_by_key(|(k, _)| *k) {
+                let original_event = original_event_group.and_then(|og| og.events.get(id));
+                self.display_event(ui, event, original_event, campaign);
+            }
 
-                // 'Add event' button.
-                let add_event = ui.button("Add event");
-                if add_event.clicked() {
-                    // Favour copying the last event over a default.
-                    // TODO: Ugly- uses sorted, doen't need to be sorted.
-                    let mut new_event = event_group
-                        .events
-                        .iter()
-                        .sorted_by_key(|e| e.0)
-                        .map(|e| e.1)
-                        .last()
-                        .cloned()
-                        .unwrap_or_default();
+            // 'Add event' button.
+            let add_event = ui.button("Add event");
+            if add_event.clicked() {
+                // Favour copying the last event over a default.
+                // TODO: Ugly- uses sorted, doen't need to be sorted.
+                let mut new_event = event_group
+                    .events
+                    .iter()
+                    .sorted_by_key(|e| e.0)
+                    .map(|e| e.1)
+                    .last()
+                    .cloned()
+                    .unwrap_or_default();
 
-                    // TODO: Find a better method of id generation rather than incrementing.
-                    new_event.id += 1;
-                    event_group.events.insert(new_event.id, new_event);
-                }
-            });
+                // TODO: Find a better method of id generation rather than incrementing.
+                new_event.id += 1;
+                event_group.events.insert(new_event.id, new_event);
+            }
         });
     }
 
@@ -198,7 +200,8 @@ impl LogDisplayUiContext {
                                     .party
                                     .iter()
                                     .map(|character| character.name.clone()),
-                            ); // TODO: smell
+                            );
+                            // TODO: smell
                             for character in options {
                                 if ui
                                     .selectable_label(
@@ -207,7 +210,6 @@ impl LogDisplayUiContext {
                                     )
                                     .clicked()
                                 {
-                                    // TODO: smell
                                     if character == "None" {
                                         event.character = None;
                                     } else {
