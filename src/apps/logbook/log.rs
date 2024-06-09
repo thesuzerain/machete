@@ -2,11 +2,12 @@ use crate::{
     models::{
         campaign::Campaign,
         events::{Event, EventGroup, EventLog},
+        ids::InternalId,
     },
     ui_models::DisplayFields,
     widgets::hidden_combo_box::HiddenComboBox,
 };
-use egui::{ComboBox, RichText, Ui};
+use egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use itertools::Itertools;
 
 /// Display a list of all events in the log.
@@ -29,7 +30,12 @@ pub struct LogDisplayUiContext {
 }
 
 impl LogDisplayUiContext {
-    pub fn is_editing(&self, event_group_id: u64, event_id: u64, field: EditingField) -> bool {
+    pub fn is_editing(
+        &self,
+        event_group_id: InternalId,
+        event_id: InternalId,
+        field: EditingField,
+    ) -> bool {
         self.editing
             .as_ref()
             .map(|e| {
@@ -40,8 +46,8 @@ impl LogDisplayUiContext {
 }
 
 pub struct EditorSelection {
-    pub event_group_id: u64,
-    pub event_id: u64,
+    pub event_group_id: InternalId,
+    pub event_id: InternalId,
     pub field: EditingField,
 }
 
@@ -129,9 +135,9 @@ impl LogDisplayUiContext {
                     .cloned()
                     .unwrap_or_default();
 
-                // TODO: Find a better method of id generation rather than incrementing.
-                new_event.id += 1;
-                event_group.events.insert(new_event.id, new_event);
+                let new_id = InternalId::new();
+                new_event.id = new_id;
+                event_group.events.insert(new_id, new_event);
             }
         });
     }
@@ -147,82 +153,82 @@ impl LogDisplayUiContext {
         let collapsing_header_name = format!("{character} - {}", event.event_type);
 
         let is_modified = original_event.map(|oe| oe != event).unwrap_or(true);
-        ui.collapsing(
-            {
-                RichText::new(collapsing_header_name).color(if is_modified {
-                    egui::Color32::GREEN
+        CollapsingHeader::new(RichText::new(collapsing_header_name).color(if is_modified {
+            egui::Color32::GREEN
+        } else {
+            egui::Color32::WHITE
+        }))
+        .id_source(event.id)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                // Event type display
+                let is_editing = self.is_editing(event.id, event.id, EditingField::EventType); // TODO: This is wrong.
+                let is_modified = original_event
+                    .map(|oe| oe.event_type != event.event_type)
+                    .unwrap_or(true);
+                // TODO: When you add ID, it can have some kidn of 'hash with' function to make calling these easier.
+                let dropdown = HiddenComboBox::new(
+                    event.id.hash_with("event_type_selector"),
+                    &mut event.event_type,
+                    is_editing,
+                    |e| {
+                        if e {
+                            self.editing = Some(EditorSelection {
+                                event_group_id: event.id, // TODO: This is wrong.
+                                event_id: event.id,
+                                field: EditingField::EventType,
+                            });
+                        } else if is_editing {
+                            self.editing = None;
+                        }
+                    },
+                );
+                if is_modified {
+                    ui.add(dropdown.with_rich_text(|rt| rt.color(egui::Color32::GREEN).weak()));
                 } else {
-                    egui::Color32::WHITE
-                })
-            },
-            |ui| {
-                ui.horizontal(|ui| {
-                    // Event type display
-                    let is_editing = self.is_editing(event.id, event.id, EditingField::EventType); // TODO: This is wrong.
-                    let is_modified = original_event
-                        .map(|oe| oe.event_type != event.event_type)
-                        .unwrap_or(true);
-                    // TODO: When you add ID, it can have some kidn of 'hash with' function to make calling these easier.
-                    let dropdown =
-                        HiddenComboBox::new(event.id, &mut event.event_type, is_editing, |e| {
-                            if e {
-                                self.editing = Some(EditorSelection {
-                                    event_group_id: event.id, // TODO: This is wrong.
-                                    event_id: event.id,
-                                    field: EditingField::EventType,
-                                });
-                            } else if is_editing {
-                                self.editing = None;
-                            }
-                        });
-                    if is_modified {
-                        ui.add(dropdown.with_rich_text(|rt| rt.color(egui::Color32::GREEN).weak()));
-                    } else {
-                        ui.add(dropdown);
-                    }
+                    ui.add(dropdown);
+                }
 
-                    // Character display
-                    let is_modified = original_event
-                        .map(|oe| oe.character != event.character)
-                        .unwrap_or(true);
-                    let character_display = if is_modified {
-                        RichText::new(character).color(egui::Color32::GREEN).weak()
-                    } else {
-                        RichText::new(character)
-                    };
-                    // TODO: Can we make this a HiddenComboBox with SelectableOption?
-                    // TODO: Better hashing here. Search all 'from_id_source' type things
-                    ComboBox::from_id_source(event.id + 50)
-                        .selected_text(character_display)
-                        .show_ui(ui, |ui| {
-                            let options = vec!["None".to_string()].into_iter().chain(
-                                campaign
-                                    .party
-                                    .iter()
-                                    .map(|character| character.name.clone()),
-                            );
-                            // TODO: smell
-                            for character in options {
-                                if ui
-                                    .selectable_label(
-                                        character == event.character.as_deref().unwrap_or("None"),
-                                        &character,
-                                    )
-                                    .clicked()
-                                {
-                                    if character == "None" {
-                                        event.character = None;
-                                    } else {
-                                        event.character = Some(character);
-                                    }
+                // Character display
+                let is_modified = original_event
+                    .map(|oe| oe.character != event.character)
+                    .unwrap_or(true);
+                let character_display = if is_modified {
+                    RichText::new(character).color(egui::Color32::GREEN).weak()
+                } else {
+                    RichText::new(character)
+                };
+                // TODO: Can we make this a HiddenComboBox with SelectableOption?
+                ComboBox::from_id_source(event.id.hash_with("character_selector"))
+                    .selected_text(character_display)
+                    .show_ui(ui, |ui| {
+                        let options = vec!["None".to_string()].into_iter().chain(
+                            campaign
+                                .party
+                                .iter()
+                                .map(|character| character.name.clone()),
+                        );
+                        // TODO: smell
+                        for character in options {
+                            if ui
+                                .selectable_label(
+                                    character == event.character.as_deref().unwrap_or("None"),
+                                    &character,
+                                )
+                                .clicked()
+                            {
+                                if character == "None" {
+                                    event.character = None;
+                                } else {
+                                    event.character = Some(character);
                                 }
                             }
-                        });
-                });
+                        }
+                    });
+            });
 
-                // Display fields for the event type.
-                event.event_type.display_fields(ui);
-            },
-        );
+            // Display fields for the event type.
+            event.event_type.display_fields(ui);
+        });
     }
 }
