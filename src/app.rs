@@ -1,6 +1,6 @@
 use crate::{
-    apps::{logbook::LogbookApp, summary::SummaryApp},
-    models::campaign::Campaign,
+    apps::{library::LibraryApp, logbook::LogbookApp, summary::SummaryApp},
+    models::{campaign::Campaign, library::Library},
     settings_panel::SettingsPanel,
     update_context::UpdateWithContext,
 };
@@ -14,11 +14,17 @@ pub struct State {
     // GUI state:
     summary: SummaryApp,
     logbook: LogbookApp,
+    library: LibraryApp,
     settings_panel: SettingsPanel,
     selected_anchor: Anchor,
 
     // Application state:
-    campaign: Campaign, // TODO: should this be in State or MainApp or somewhere else?
+    context: StateContext,
+}
+
+pub struct StateContext {
+    pub campaign: Campaign, // TODO: should this be in State or MainApp or somewhere else?
+    pub library: Library,   // TODO: should this be in State or MainApp or somewhere else?
 }
 
 impl MainApp {
@@ -29,12 +35,16 @@ impl MainApp {
         let campaign: Campaign =
             serde_json::from_str(fixture).expect("Failed to load test fixture.");
 
+        let fixture = include_str!("../fixtures/demo_library.json");
+        let library: Library = serde_json::from_str(fixture).expect("Failed to load test fixture.");
+
         // TODO: Not sure if I like this pattern to just be able to pass a clone into LogbookApp.
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State {
                 logbook: LogbookApp::start(&campaign),
-                campaign,
+                library: LibraryApp::start(),
+                context: StateContext { campaign, library },
                 summary: SummaryApp::default(),
                 settings_panel: SettingsPanel::default(),
                 selected_anchor: Anchor::default(),
@@ -51,7 +61,7 @@ impl MainApp {
         &mut self,
     ) -> (
         impl Iterator<Item = (&str, Anchor, &mut dyn UpdateWithContext)>,
-        &mut Campaign,
+        &mut StateContext,
     ) {
         let vec = vec![
             (
@@ -64,16 +74,21 @@ impl MainApp {
                 Anchor::Logbook,
                 &mut self.state.logbook as &mut dyn UpdateWithContext,
             ),
+            (
+                "Library",
+                Anchor::Library,
+                &mut self.state.library as &mut dyn UpdateWithContext,
+            ),
         ];
-        (vec.into_iter(), &mut self.state.campaign)
+        (vec.into_iter(), &mut self.state.context)
     }
 
     fn show_selected_app(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let selected_anchor = self.state.selected_anchor;
-        let (apps_iter, campaign) = self.apps_iter_mut();
+        let (apps_iter, state_context) = self.apps_iter_mut();
         for (_name, anchor, app) in apps_iter {
             if anchor == selected_anchor || ctx.memory(|mem| mem.everything_is_visible()) {
-                app.update(ctx, frame, campaign);
+                app.update(ctx, frame, state_context);
             }
         }
     }
@@ -149,6 +164,7 @@ impl eframe::App for MainApp {
 enum Anchor {
     Summary,
     Logbook,
+    Library,
 }
 
 impl std::fmt::Display for Anchor {

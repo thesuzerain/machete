@@ -1,5 +1,5 @@
 use self::party_display::PartyDisplay;
-use crate::{models::campaign::Campaign, update_context::UpdateWithContext};
+use crate::{app::StateContext, update_context::UpdateWithContext};
 
 pub mod party_display;
 
@@ -10,9 +10,14 @@ pub struct SummaryApp {
 }
 
 impl UpdateWithContext for SummaryApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame, campaign: &mut Campaign) {
+    fn update(
+        &mut self,
+        ctx: &egui::Context,
+        _frame: &mut eframe::Frame,
+        context: &mut StateContext,
+    ) {
         egui::TopBottomPanel::top("Summary").show(ctx, |ui| {
-            self.party_display.ui(ui, &campaign.party);
+            self.party_display.ui(ui, &context.campaign.party);
         });
 
         egui::CentralPanel::default()

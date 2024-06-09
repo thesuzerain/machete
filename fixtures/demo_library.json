@@ -1,0 +1,44 @@
+{
+    "items" : [
+        {
+            "name" : "Little Scroll",
+            "price" : 100,
+            "game_system" : "pf2e",
+            "rarity" : "common",
+            "level" : 1,
+            "tags" : ["scroll", "little", "magic"]
+        },
+        {
+            "name" : "Medium Scroll",
+            "price" : 200,
+            "game_system" : "pf2e",
+            "rarity" : "common",
+            "level" : 3,
+            "tags" : ["scroll", "medium", "magic"]
+        },
+        {
+            "name" : "Large Scroll",
+            "price" : 300,
+            "game_system" : "pf2e",
+            "rarity" : "uncommon",
+            "level" : 5,
+            "tags" : ["scroll", "large", "big", "magic"]
+        },
+        {
+            "name" : "Giant Scroll",
+            "price" : 400,
+            "game_system" : "pf2e",
+            "rarity" : "rare",
+            "level" : 7,
+            "tags" : ["scroll", "giant", "big", "magic"]
+        },
+        {
+            "name" : "Ultimate Scroll",
+            "price" : 500,
+            "game_system" : "pf2e",
+            "rarity" : "unique",
+            "level" : 9,
+            "tags" : ["scroll", "ultimate", "best", "big", "magic"]
+        }
+    ]
+}

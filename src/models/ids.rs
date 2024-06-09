@@ -27,7 +27,7 @@ impl InternalId {
 
     /// Hash this ID with another hashable object.
     /// This is useful for consistent but unique hashing for UI elements.
-    pub fn hash_with(&self, other: impl std::hash::Hash) -> u64 {
+    pub fn hash_with(self, other: impl std::hash::Hash) -> u64 {
         let mut hasher = DefaultHasher::default();
         hasher.write_u32(self.0);
         other.hash(&mut hasher);
