@@ -1,6 +1,6 @@
 use crate::{
     models::library::{Library, LibraryItem},
-    ui_models::{Filter, FilterableFields},
+    ui_models::filters::Filter,
 };
 use egui::Ui;
 use egui_extras::{Column, TableBuilder};
@@ -38,7 +38,12 @@ impl LibraryDisplay {
             .items
             .clone()
             .into_iter()
-            .filter(|item| filters.iter().all(|filter| item.filter(filter)))
+            // TODO: unwrap(), smell
+            .filter(|item| {
+                filters
+                    .iter()
+                    .all(|filter| filter.apply_filter(item).unwrap())
+            })
             .collect::<Vec<_>>();
 
         let num_items = filtered_items.len();

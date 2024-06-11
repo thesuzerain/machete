@@ -1,5 +1,5 @@
 use crate::{
-    app::StateContext, models::library::LibraryItem, ui_models::Filter,
+    app::StateContext, models::library::LibraryItem, ui_models::filters::Filter,
     update_context::UpdateWithContext,
 };
 use display::LibraryDisplay;

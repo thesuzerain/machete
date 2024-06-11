@@ -1,18 +1,14 @@
 use crate::models::library::LibraryItem;
-use crate::ui_models::{DisplayFields, Filter, FilterType};
+use crate::ui_models::filters::{Filter, FilterableStruct};
+use crate::ui_models::DisplayFields;
 use egui::Ui;
 
 /// Display a list of all filters and queryable fields for the library data.
-pub struct FilterDisplay {
-    pub adding_filter: Filter<LibraryItem>,
-}
+pub struct FilterDisplay {}
 
 impl FilterDisplay {
     pub fn start() -> Self {
-        FilterDisplay {
-            // TODO: smell
-            adding_filter: Filter::new("name".to_string(), FilterType::Contains("".to_string())),
-        }
+        FilterDisplay {}
     }
 
     pub fn ui(&mut self, ui: &mut Ui, filters: &mut Vec<Filter<LibraryItem>>) {
@@ -33,10 +29,7 @@ impl FilterDisplay {
         }
 
         if ui.button("Add filter").clicked() {
-            filters.push(Filter::new(
-                "name".to_string(),
-                FilterType::Contains("".to_string()),
-            ));
+            filters.push(LibraryItem::create_default_filter());
         }
     }
 }
