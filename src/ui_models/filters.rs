@@ -1,4 +1,5 @@
-use egui::ComboBox;
+use egui::{ComboBox, Ui};
+use egui_extras::{Column, TableBuilder};
 use std::hash::{Hash, Hasher};
 
 use crate::models::{ids::InternalId, library::LibraryItem};
@@ -7,6 +8,23 @@ use super::DisplayFields;
 
 // TODO: This will need to be dynamic or changed. This is just a placeholder.
 const MAX_SLIDER: f32 = 1000.0;
+
+/// A filter over structure fields.
+/// For example: "Name contains 'Bob'" or "Level is greater than 5".
+#[derive(Debug)]
+pub struct Filter<F: FilterableStruct> {
+    /// Unique identifier for this filter.
+    pub id: InternalId,
+    /// The field to filter on by name.
+    /// TODO: This is a code smell to use a String here (and the FilterableStruct `is_numeric` etc.) and is worth coming back to.
+    pub field: String,
+    /// The nature of the filter: "less than 5", for instance.
+    /// This must match the type of the field in 'field'.
+    // TODO: This same code smell.
+    pub filter_type: FilterType,
+
+    pub _phantom: std::marker::PhantomData<F>,
+}
 
 /// A struct that Filter can be applied to.
 // TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes.
@@ -45,23 +63,77 @@ where
     /// Returns whether the given field is numeric.
     /// This should return false if the field does not exist.
     fn is_field_numeric(field: &str) -> bool;
-}
 
-/// A filter over structure fields.
-/// For example: "Name contains 'Bob'" or "Level is greater than 5".
-#[derive(Debug)]
-pub struct Filter<F: FilterableStruct> {
-    /// Unique identifier for this filter.
-    pub id: InternalId,
-    /// The field to filter on by name.
-    /// TODO: This is a code smell to use a String here (and the FilterableStruct `is_numeric` etc.) and is worth coming back to.
-    pub field: String,
-    /// The nature of the filter: "less than 5", for instance.
-    /// This must match the type of the field in 'field'.
-    // TODO: This same code smell.
-    pub filter_type: FilterType,
+    fn display_table(ui: &mut Ui, filtered_items: Vec<&LibraryItem>) {
+        let num_items = filtered_items.len();
+        let mut items = filtered_items.iter();
 
-    pub _phantom: std::marker::PhantomData<F>,
+        let available_height = ui.available_height();
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            // Name
+            .column(Column::auto().at_least(150.0))
+            // Game System
+            .column(Column::auto().at_least(100.0))
+            // Level
+            .column(Column::auto().at_least(50.0))
+            // Price
+            .column(Column::auto().at_least(50.0))
+            // Rarity
+            .column(Column::auto().at_least(100.0))
+            // Tags
+            .column(Column::remainder())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height);
+
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Name");
+                });
+                header.col(|ui| {
+                    ui.strong("Game System");
+                });
+                header.col(|ui| {
+                    ui.strong("Level");
+                });
+                header.col(|ui| {
+                    ui.strong("Price");
+                });
+                header.col(|ui| {
+                    ui.strong("Rarity");
+                });
+                header.col(|ui| {
+                    ui.strong("Tags");
+                });
+            })
+            .body(|body| {
+                body.rows(32.0, num_items, |mut row| {
+                    let item = items.next().unwrap();
+
+                    row.col(|ui| {
+                        ui.label(item.name.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.game_system.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.level.to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.price.to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.rarity.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.tags.join(", "));
+                    });
+                });
+            })
+    }
 }
 
 impl<F: FilterableStruct> Hash for Filter<F> {
@@ -192,7 +264,9 @@ impl StringFilter {
     /// This is useful for filtering on fields that may have a list of values (ie: 'traits').
     pub fn filter_any(&self, value: Vec<&str>) -> bool {
         match self {
-            StringFilter::Contains(ref string) => value.iter().any(|v| v.contains(string)),
+            StringFilter::Contains(ref string) => value
+                .iter()
+                .any(|v| v.to_lowercase().contains(&string.to_lowercase())),
         }
     }
 
@@ -314,16 +388,10 @@ impl FilterableStruct for LibraryItem {
     }
 
     fn is_field_numeric(field: &str) -> bool {
-        match field {
-            "price" | "level" => true,
-            _ => false,
-        }
+        matches!(field, "price" | "level")
     }
 
     fn is_field_string(field: &str) -> bool {
-        match field {
-            "name" | "game_system" | "rarity" | "tags" => true,
-            _ => false,
-        }
+        matches!(field, "name" | "game_system" | "rarity" | "tags")
     }
 }

@@ -62,10 +62,10 @@ pub struct FilteredLibrary {
 }
 
 impl FilteredLibrary {
-    pub fn new<'a>(library: &'a Library) -> FilteredLibrary {
+    pub fn new(library: &Library) -> FilteredLibrary {
         FilteredLibrary {
             filters: Vec::new(),
-            items: library.items.iter().map(|(k, _)| *k).collect(),
+            items: library.items.keys().copied().collect(),
         }
     }
 

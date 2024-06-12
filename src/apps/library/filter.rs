@@ -37,7 +37,7 @@ impl FilterDisplay {
                     filters.push(LibraryItem::create_default_filter());
                 }
             },
-            &library,
+            library,
         );
     }
 }
