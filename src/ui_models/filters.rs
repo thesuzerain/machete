@@ -2,7 +2,10 @@ use egui::{ComboBox, Ui};
 use egui_extras::{Column, TableBuilder};
 use std::hash::{Hash, Hasher};
 
-use crate::models::{ids::InternalId, library::LibraryItem};
+use crate::models::{
+    ids::InternalId,
+    library::{Currency, LibraryItem, Rarity},
+};
 
 use super::DisplayFields;
 
@@ -27,7 +30,7 @@ pub struct Filter<F: FilterableStruct> {
 }
 
 /// A struct that Filter can be applied to.
-// TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes.
+// TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes. A lot of the functions were intentionally designed with this in mind.
 pub trait FilterableStruct
 where
     Self: Sized + Clone + PartialEq,
@@ -126,7 +129,7 @@ where
                         ui.label(item.price.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(item.rarity.clone());
+                        ui.label(item.rarity.clone().to_string());
                     });
                     row.col(|ui| {
                         ui.label(item.tags.join(", "));
@@ -370,8 +373,12 @@ impl FilterableStruct for LibraryItem {
 
     fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
         match field {
-            "price" => Some(vec![self.price as f32]),
-            "level" => Some(vec![self.level as f32]),
+            "name" => self.name.as_numerics(),
+            "level" => self.level.as_numerics(),
+            "price" => self.price.as_numerics(),
+            "game_system" => self.game_system.as_numerics(),
+            "rarity" => self.rarity.as_numerics(),
+            "tags" => self.tags.as_numerics(),
             _ => None,
         }
     }
@@ -379,19 +386,155 @@ impl FilterableStruct for LibraryItem {
     fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
         // TODO: clones, smell
         match field {
-            "name" => Some(vec![self.name.clone()]),
-            "game_system" => Some(vec![self.game_system.clone()]),
-            "rarity" => Some(vec![self.rarity.clone()]),
-            "tags" => Some(self.tags.clone()),
+            "name" => self.name.as_strings(),
+            "level" => self.level.as_strings(),
+            "price" => self.price.as_strings(),
+            "game_system" => self.game_system.as_strings(),
+            "rarity" => self.rarity.as_strings(),
+            "tags" => self.tags.as_strings(),
             _ => None,
         }
     }
 
     fn is_field_numeric(field: &str) -> bool {
-        matches!(field, "price" | "level")
+        match field {
+            "name" => String::is_numeric(),
+            "level" => u8::is_numeric(),
+            "price" => Currency::is_numeric(),
+            "game_system" => String::is_numeric(),
+            "rarity" => Rarity::is_numeric(),
+            "tags" => Vec::<String>::is_numeric(),
+            _ => false,
+        }
     }
 
     fn is_field_string(field: &str) -> bool {
-        matches!(field, "name" | "game_system" | "rarity" | "tags")
+        match field {
+            "name" => String::is_string(),
+            "level" => u8::is_string(),
+            "price" => Currency::is_string(),
+            "game_system" => String::is_string(),
+            "rarity" => Rarity::is_string(),
+            "tags" => Vec::<String>::is_string(),
+            _ => false,
+        }
+    }
+}
+
+// TODO: Separate into another crate probably
+// TODO: avoid clones in these
+pub trait FilterableDataType {
+    fn as_numerics(&self) -> Option<Vec<f32>>;
+    fn as_strings(&self) -> Option<Vec<String>>;
+
+    fn is_numeric() -> bool;
+    fn is_string() -> bool;
+}
+
+impl FilterableDataType for String {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        None
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        Some(vec![self.clone()])
+    }
+
+    fn is_numeric() -> bool {
+        false
+    }
+
+    fn is_string() -> bool {
+        true
+    }
+}
+
+impl FilterableDataType for f32 {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        Some(vec![*self])
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    fn is_numeric() -> bool {
+        true
+    }
+
+    fn is_string() -> bool {
+        false
+    }
+}
+
+impl FilterableDataType for Vec<String> {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        None
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        Some(self.clone())
+    }
+
+    fn is_numeric() -> bool {
+        false
+    }
+
+    fn is_string() -> bool {
+        true
+    }
+}
+
+impl FilterableDataType for u8 {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        Some(vec![*self as f32])
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    fn is_numeric() -> bool {
+        true
+    }
+
+    fn is_string() -> bool {
+        false
+    }
+}
+
+impl FilterableDataType for Currency {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        Some(vec![self.as_base_unit() as f32])
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        Some(vec![self.to_string()])
+    }
+
+    fn is_numeric() -> bool {
+        true
+    }
+
+    fn is_string() -> bool {
+        true
+    }
+}
+
+impl FilterableDataType for Rarity {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        None
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        Some(vec![self.to_string()])
+    }
+
+    fn is_numeric() -> bool {
+        false
+    }
+
+    fn is_string() -> bool {
+        true
     }
 }
