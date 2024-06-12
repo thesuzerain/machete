@@ -22,7 +22,6 @@ pub struct EventGroup {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
-    // TODO: A more robust ID system (uuid, base62, etc.)
     pub id: InternalId,
     pub character: Option<String>,
     #[serde(flatten)]

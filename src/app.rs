@@ -43,7 +43,7 @@ impl MainApp {
         let mut slf = Self {
             state: State {
                 logbook: LogbookApp::start(&campaign),
-                library: LibraryApp::start(),
+                library: LibraryApp::start(&library),
                 context: StateContext { campaign, library },
                 summary: SummaryApp::default(),
                 settings_panel: SettingsPanel::default(),

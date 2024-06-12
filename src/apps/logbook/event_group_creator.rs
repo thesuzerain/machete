@@ -183,12 +183,12 @@ impl EventGroupCreator {
 
         ui.horizontal(|ui| {
             ui.label("Date:");
-            // TODO: datetime editor struct
+            // TODO: This should be replaceable with RestrictedText
             let mut datetime_string = self.datetime.to_rfc3339();
             ui.text_edit_singleline(&mut datetime_string);
             self.datetime = match datetime_string.parse() {
                 Ok(dt) => dt,
-                Err(_) => self.datetime, // tODO: Better error handling here
+                Err(_) => self.datetime,
             };
             if ui.button("Now").clicked() {
                 self.datetime = Utc::now();

@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+
+use super::ids::InternalId;
 
 // TODO: It may be prudent here to remove Clone, to prevent accidental duplication of what may be large data structures.
 /// A library of all items that a campaign might reference.
@@ -6,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// Currently serving as an application level model for campaign context.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Library {
-    pub items: Vec<LibraryItem>,
+    pub items: HashMap<InternalId, LibraryItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

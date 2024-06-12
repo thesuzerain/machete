@@ -1,51 +1,43 @@
-use crate::{
-    models::library::{Library, LibraryItem},
-    ui_models::filters::Filter,
-};
+use crate::models::library::LibraryItem;
 use egui::Ui;
 use egui_extras::{Column, TableBuilder};
+use itertools::Itertools;
 
 /// Display a list of all items  in the library.
 pub struct LibraryDisplay {}
 
 // TODO: Should this mimic the campaign display? (That one can use tables too for events)
 impl LibraryDisplay {
-    pub fn start() -> Self {
+    pub fn start() -> LibraryDisplay {
         LibraryDisplay {}
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, library: &mut Library, filters: &[Filter<LibraryItem>]) {
+    pub fn ui(&mut self, ui: &mut Ui, filtered_library_items: &[&LibraryItem]) {
         ui.label("Library:");
 
+        // Define table for display
+        // TODO: May be able to make modular and not have two definitions one after the other
         let available_height = ui.available_height();
-        // TODO: column sizes
         let table = TableBuilder::new(ui)
             .striped(true)
             .resizable(false)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            // Name
             .column(Column::auto().at_least(150.0))
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto())
+            // Game System
+            .column(Column::auto().at_least(100.0))
+            // Level
+            .column(Column::auto().at_least(50.0))
+            // Price
+            .column(Column::auto().at_least(50.0))
+            // Rarity
+            .column(Column::auto().at_least(100.0))
+            // Tags
             .column(Column::remainder())
             .min_scrolled_height(0.0)
             .max_scroll_height(available_height);
 
-        // TODO: We do NOT want to re-apply filters every frame.
-        // This is just a placeholder for now.
-        let filtered_items = library
-            .items
-            .clone()
-            .into_iter()
-            // TODO: unwrap(), smell
-            .filter(|item| {
-                filters
-                    .iter()
-                    .all(|filter| filter.apply_filter(item).unwrap())
-            })
-            .collect::<Vec<_>>();
-
+        let filtered_items = filtered_library_items.iter().collect_vec();
         let num_items = filtered_items.len();
         let mut items = filtered_items.iter();
 
@@ -94,8 +86,5 @@ impl LibraryDisplay {
                     });
                 });
             });
-
-        // TODO: Seems like an element after the table is needed to render
-        ui.separator();
     }
 }

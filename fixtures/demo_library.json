@@ -1,6 +1,6 @@
 {
-    "items" : [
-        {
+    "items" : {
+        "1": {
             "name" : "Little Scroll",
             "price" : 100,
             "game_system" : "pf2e",
@@ -8,7 +8,7 @@
             "level" : 1,
             "tags" : ["scroll", "little", "magic"]
         },
-        {
+        "2": {
             "name" : "Medium Scroll",
             "price" : 200,
             "game_system" : "pf2e",
@@ -16,7 +16,7 @@
             "level" : 3,
             "tags" : ["scroll", "medium", "magic"]
         },
-        {
+        "3":{
             "name" : "Large Scroll",
             "price" : 300,
             "game_system" : "pf2e",
@@ -24,7 +24,7 @@
             "level" : 5,
             "tags" : ["scroll", "large", "big", "magic"]
         },
-        {
+        "4":{
             "name" : "Giant Scroll",
             "price" : 400,
             "game_system" : "pf2e",
@@ -32,7 +32,7 @@
             "level" : 7,
             "tags" : ["scroll", "giant", "big", "magic"]
         },
-        {
+        "5":{
             "name" : "Ultimate Scroll",
             "price" : 500,
             "game_system" : "pf2e",
@@ -40,5 +40,5 @@
             "level" : 9,
             "tags" : ["scroll", "ultimate", "best", "big", "magic"]
         }
-    ]
+    }
 }

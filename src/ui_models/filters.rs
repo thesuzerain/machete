@@ -1,89 +1,76 @@
 use egui::ComboBox;
+use std::hash::{Hash, Hasher};
 
-use crate::models::ids::InternalId;
+use crate::models::{ids::InternalId, library::LibraryItem};
 
 use super::DisplayFields;
 
 // TODO: This will need to be dynamic or changed. This is just a placeholder.
-const MAX_SCROLLBAR: f32 = 1000.0;
+const MAX_SLIDER: f32 = 1000.0;
 
-#[derive(Clone, PartialEq)]
-pub struct Example {
-    pub level: f32,
-    pub name: String,
-}
-
+/// A struct that Filter can be applied to.
+// TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes.
 pub trait FilterableStruct
 where
     Self: Sized + Clone + PartialEq,
 {
+    /// Creates a default filter for this struct.
+    /// The Filter must be consistent with the FilterType and fields of the struct.
+    /// This is used to create a new filter when the user requests one (by switching to this struct, for instance)
     fn create_default_filter() -> Filter<Self>;
 
+    /// Iterate over the fields that can be filtered on.
+    /// These are returned as strings for display purposes.
     fn iter_fields() -> Vec<&'static str>;
 
-    // TODO: this pattern is a smell
-    fn get_field_string(&self, field: &str) -> Option<String>;
-    fn get_field_numeric(&self, field: &str) -> Option<f32>;
+    /// Get the values of a field as strings.
+    /// This returns a Vec of strings for the field, even if there is only one value (to allow for consistency in the return type).
+    /// This allows for `get_field_strings` to be used on String and Vec<String> fields (etc.), allowing for a simple trait definition.
+    /// This should return None if the field does not exist or is not a String.
+    /// These should correspond to the values provided by `iter_fields`.
+    fn get_field_strings(&self, field: &str) -> Option<Vec<String>>;
+
+    /// Get the values of a field as numerics.
+    /// This returns a Vec of f32 for the field, even if there is only one value (to allow for consistency in the return type).
+    /// This allows for `get_field_numerics` to be used on f32 and Vec<f32> fields (etc.), allowing for a simple trait definition.
+    /// This should return None if the field does not exist or is not a numeric type.
+    /// These should correspond to the values provided by `iter_fields`.
+    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>>;
 
     // TODO: redundant?
-    fn is_field_numeric(field: &str) -> bool;
+    /// Returns whether the given field is a string.
+    /// This should return false if the field does not exist.
     fn is_field_string(field: &str) -> bool;
+
+    /// Returns whether the given field is numeric.
+    /// This should return false if the field does not exist.
+    fn is_field_numeric(field: &str) -> bool;
 }
 
-impl FilterableStruct for Example {
-    // TODO: this is a smell
-    fn create_default_filter() -> Filter<Self> {
-        Filter {
-            id: InternalId::new(),
-            field: "name".to_string(),
-            filter_type: FilterType::String(StringFilter::Contains("".to_string())),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    fn iter_fields() -> Vec<&'static str> {
-        vec!["level", "name"]
-    }
-
-    fn get_field_string(&self, field: &str) -> Option<String> {
-        match field {
-            "name" => Some(self.name.clone()),
-            _ => None,
-        }
-    }
-
-    fn get_field_numeric(&self, field: &str) -> Option<f32> {
-        match field {
-            "level" => Some(self.level),
-            _ => None,
-        }
-    }
-
-    fn is_field_numeric(field: &str) -> bool {
-        match field {
-            "level" => true,
-            _ => false,
-        }
-    }
-
-    fn is_field_string(field: &str) -> bool {
-        match field {
-            "name" => true,
-            _ => false,
-        }
-    }
-}
-
+/// A filter over structure fields.
+/// For example: "Name contains 'Bob'" or "Level is greater than 5".
 #[derive(Debug)]
 pub struct Filter<F: FilterableStruct> {
+    /// Unique identifier for this filter.
     pub id: InternalId,
-    pub field: String, // TODO: Not a string
+    /// The field to filter on by name.
+    /// TODO: This is a code smell to use a String here (and the FilterableStruct `is_numeric` etc.) and is worth coming back to.
+    pub field: String,
+    /// The nature of the filter: "less than 5", for instance.
+    /// This must match the type of the field in 'field'.
+    // TODO: This same code smell.
     pub filter_type: FilterType,
 
-    // TODO: is this needed
     pub _phantom: std::marker::PhantomData<F>,
 }
 
+impl<F: FilterableStruct> Hash for Filter<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+/// Types of filters based on the data type of the filter's field.
 #[derive(Debug)]
 pub enum FilterType {
     Number(NumberFilter),
@@ -91,23 +78,29 @@ pub enum FilterType {
 }
 
 impl<F: FilterableStruct> Filter<F> {
-    // TODO: Should this be an option? currently is an option if fields dont match- maybe can isolate and make a result or panic
+    /// Applies a given filter to the struct, returning whether the filter passes.
+    /// It returns None if the field does not exist in the struct, is not properly implemented by FilterableStruct,
+    /// or if the filter type does not match the field type.
     pub fn apply_filter(&self, field_struct: &F) -> Option<bool> {
         match self.filter_type {
             FilterType::Number(ref number_filter) => {
-                if let Some(value) = field_struct.get_field_numeric(&self.field) {
-                    return Some(number_filter.filter(value));
+                if let Some(value) = field_struct.get_field_numerics(&self.field) {
+                    return Some(number_filter.filter_any(value));
                 }
             }
             FilterType::String(ref string_filter) => {
-                if let Some(value) = field_struct.get_field_string(&self.field) {
-                    return Some(string_filter.filter(&value));
+                if let Some(value) = field_struct.get_field_strings(&self.field) {
+                    return Some(
+                        string_filter.filter_any(value.iter().map(|s| s.as_str()).collect()),
+                    );
                 }
             }
         }
         None
     }
 
+    /// Returns a list of all possible filters for numerical fields.
+    /// Filters are listed in their default state.
     pub fn iter_number_filters() -> Vec<NumberFilter> {
         vec![
             NumberFilter::LessThan(0.0),
@@ -116,11 +109,15 @@ impl<F: FilterableStruct> Filter<F> {
         ]
     }
 
+    /// Returns a list of all possible filters for string fields.
+    /// Filters are listed in their default state.
     pub fn iter_string_filters() -> Vec<StringFilter> {
         vec![StringFilter::Contains("".to_string())]
     }
 }
 
+/// A filter for numerical fields.
+/// Numerical fields will be converted to f32 when compared to the filter.
 #[derive(Clone, PartialEq, Debug)]
 pub enum NumberFilter {
     LessThan(f32),
@@ -141,14 +138,22 @@ impl From<NumberFilter> for FilterType {
 }
 
 impl NumberFilter {
+    /// Returns whether the given value passes the filter.
+    /// TODO: This is currently unused.
     pub fn filter(&self, value: f32) -> bool {
+        self.filter_any(vec![value])
+    }
+
+    /// Returns whether any of the given values pass the filter.
+    pub fn filter_any(&self, value: Vec<f32>) -> bool {
         match self {
-            NumberFilter::LessThan(ref number) => value < *number,
-            NumberFilter::GreaterThan(ref number) => value > *number,
-            NumberFilter::EqualTo(ref number) => value == *number,
+            NumberFilter::LessThan(ref number) => value.iter().any(|v| v < number),
+            NumberFilter::GreaterThan(ref number) => value.iter().any(|v| v > number),
+            NumberFilter::EqualTo(ref number) => value.iter().any(|v| v == number),
         }
     }
 
+    /// The string representation of the type of the filter (absent the value itself)
     pub fn as_str(&self) -> &str {
         match self {
             NumberFilter::LessThan(_) => "Less than",
@@ -158,6 +163,7 @@ impl NumberFilter {
     }
 }
 
+/// A filter for string fields.
 #[derive(Clone, PartialEq, Debug)]
 pub enum StringFilter {
     Contains(String),
@@ -176,12 +182,21 @@ impl From<StringFilter> for FilterType {
 }
 
 impl StringFilter {
+    /// Returns whether the given value passes the filter.
+    /// TODO: This is currently unused.
     pub fn filter(&self, value: &str) -> bool {
+        self.filter_any(vec![value])
+    }
+
+    /// Returns whether any of the given values pass the filter.
+    /// This is useful for filtering on fields that may have a list of values (ie: 'traits').
+    pub fn filter_any(&self, value: Vec<&str>) -> bool {
         match self {
-            StringFilter::Contains(ref string) => value.contains(string),
+            StringFilter::Contains(ref string) => value.iter().any(|v| v.contains(string)),
         }
     }
 
+    /// The string representation of the type of the filter (absent the value itself)
     pub fn as_str(&self) -> &str {
         match self {
             StringFilter::Contains(_) => "Contains",
@@ -193,7 +208,7 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
     fn display_fields(&mut self, ui: &mut egui::Ui) -> bool {
         let id = self.id;
 
-        let mut field_editable = self.field.clone(); //todo: needed?
+        let mut field_editable = self.field.clone();
         ComboBox::from_id_source(id.hash_with("display_filterable_fields"))
             .selected_text(field_editable.to_string())
             .show_ui(ui, |ui| {
@@ -201,11 +216,9 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
                     ui.selectable_value(&mut field_editable, field.to_string(), field.to_string());
                 }
             });
-        // todo: smell?
+
         if self.field != field_editable {
             // If field changed, update the filter type to match the new field
-            // TODO: smell here, awkward,
-            // TODO: doing two if let fields for get_field_string and get_field_numeric is a smell
             if F::is_field_string(&field_editable) {
                 self.filter_type = StringFilter::default().into();
                 self.field = field_editable;
@@ -249,18 +262,68 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
                 match number_filter {
                     NumberFilter::LessThan(f) => {
                         // TODO: maybe use the RestrictedText for this
-                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SCROLLBAR)).changed();
+                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SLIDER)).changed();
                     }
                     NumberFilter::GreaterThan(f) => {
-                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SCROLLBAR)).changed();
+                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SLIDER)).changed();
                     }
                     NumberFilter::EqualTo(f) => {
-                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SCROLLBAR)).changed();
+                        edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SLIDER)).changed();
                     }
                 }
             }
         }
 
         edited
+    }
+}
+
+impl FilterableStruct for LibraryItem {
+    fn create_default_filter() -> super::filters::Filter<Self> {
+        super::filters::Filter {
+            id: InternalId::new(),
+            field: "name".to_string(),
+            filter_type: super::filters::FilterType::String(
+                super::filters::StringFilter::Contains("".to_string()),
+            ),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    fn iter_fields() -> Vec<&'static str> {
+        ["name", "price", "game_system", "rarity", "level", "tags"].to_vec()
+    }
+
+    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
+        match field {
+            "price" => Some(vec![self.price as f32]),
+            "level" => Some(vec![self.level as f32]),
+            _ => None,
+        }
+    }
+
+    fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
+        // TODO: clones, smell
+        match field {
+            "name" => Some(vec![self.name.clone()]),
+            "game_system" => Some(vec![self.game_system.clone()]),
+            "rarity" => Some(vec![self.rarity.clone()]),
+            "tags" => Some(self.tags.clone()),
+            _ => None,
+        }
+    }
+
+    fn is_field_numeric(field: &str) -> bool {
+        match field {
+            "price" | "level" => true,
+            _ => false,
+        }
+    }
+
+    fn is_field_string(field: &str) -> bool {
+        match field {
+            "name" | "game_system" | "rarity" | "tags" => true,
+            _ => false,
+        }
     }
 }
