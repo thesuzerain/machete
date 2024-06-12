@@ -2,6 +2,7 @@ use crate::{
     models::{
         campaign::Campaign,
         events::{Event, EventGroup, EventType},
+        ids::InternalId,
     },
     ui_models::DisplayFields,
     utils::SelectableOption,
@@ -59,19 +60,19 @@ impl EventGroupTemplate {
 
     fn generate(&self, characters: &[String]) -> EventGroup {
         let mut event_group = EventGroup {
-            // TODO: Id generation.
-            id: 0,
+            id: InternalId::new(),
             name: "New Event Group".to_string(),
             timestamp: Utc::now(),
             events: Default::default(),
         };
         match self {
             EventGroupTemplate::ExperienceGain { experience } => {
-                for (i, character) in characters.iter().enumerate() {
+                for character in characters.iter() {
+                    let id = InternalId::new();
                     event_group.events.insert(
-                        i as u64,
+                        id,
                         Event {
-                            id: i as u64,
+                            id,
                             event_type: EventType::ExperienceGain {
                                 experience: *experience,
                             },
@@ -81,11 +82,12 @@ impl EventGroupTemplate {
                 }
             }
             EventGroupTemplate::CurrencyGain { currency } => {
-                for (i, character) in characters.iter().enumerate() {
+                for character in characters.iter() {
+                    let id = InternalId::new();
                     event_group.events.insert(
-                        i as u64,
+                        id,
                         Event {
-                            id: i as u64,
+                            id,
                             event_type: EventType::CurrencyGain {
                                 currency: *currency,
                             },
@@ -149,11 +151,10 @@ impl EventGroupCreator {
 
             if ui.button("Add").clicked() {
                 // Add event as it is now.
-                // TODO: Id generation. Search for '(0' and 'insert('
                 campaign
                     .log
                     .event_groups
-                    .insert(0, self.event_group.clone());
+                    .insert(self.event_group.id, self.event_group.clone());
             }
         });
 
