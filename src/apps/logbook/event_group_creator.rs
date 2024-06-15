@@ -6,9 +6,10 @@ use crate::{
     },
     ui_models::DisplayFields,
     utils::SelectableOption,
+    widgets::restricted_text_edit::RestrictedTextEdit,
 };
 use chrono::{DateTime, Utc};
-use egui::{ahash::HashMap, ComboBox, Ui};
+use egui::{ahash::HashMap, Color32, ComboBox, Ui, Widget};
 use itertools::Itertools;
 
 use super::log::LogDisplayUiContext;
@@ -19,7 +20,10 @@ pub struct EventGroupCreator {
     pub name: String,
     pub custom_name: bool,
 
+    /// Date and time of the event group.
     pub datetime: DateTime<Utc>,
+    /// String representation of the datetime for editing (allowing intermediate incorrect values while typing)
+    pub datetime_editing_string: String,
 
     pub template: EventGroupTemplate,
     // TODO: should this be within Template? Should it be an id?
@@ -133,6 +137,7 @@ impl EventGroupCreator {
             name: "New Event Group".to_string(),
             custom_name: false,
             datetime: Utc::now(),
+            datetime_editing_string: Utc::now().to_string(),
             event_group: template.generate(&characters),
             characters: characters
                 .into_iter()
@@ -184,12 +189,9 @@ impl EventGroupCreator {
         ui.horizontal(|ui| {
             ui.label("Date:");
             // TODO: datetime editor struct
-            let mut datetime_string = self.datetime.to_rfc3339();
-            ui.text_edit_singleline(&mut datetime_string);
-            self.datetime = match datetime_string.parse() {
-                Ok(dt) => dt,
-                Err(_) => self.datetime, // tODO: Better error handling here
-            };
+            RestrictedTextEdit::new(&mut self.datetime)
+                .allow_failure(&mut self.datetime_editing_string, Color32::RED)
+                .ui(ui);
             if ui.button("Now").clicked() {
                 self.datetime = Utc::now();
             }
