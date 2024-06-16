@@ -4,7 +4,7 @@ use crate::{
         events::{Event, EventGroup, EventType},
         ids::InternalId,
     },
-    ui_models::DisplayFields,
+    ui_models::{events::EventGroupTemplateDisplayWrapper, DisplayFields},
     utils::SelectableOption,
     widgets::restricted_text_edit::RestrictedTextEdit,
 };
@@ -26,6 +26,8 @@ pub struct EventGroupCreator {
     pub datetime_editing_string: String,
 
     pub template: EventGroupTemplate,
+    pub event_group_template_editing_string: String,
+
     // TODO: should this be within Template? Should it be an id?
     pub characters: HashMap<String, bool>,
 
@@ -139,6 +141,7 @@ impl EventGroupCreator {
             datetime: Utc::now(),
             datetime_editing_string: Utc::now().to_string(),
             event_group: template.generate(&characters),
+            event_group_template_editing_string: "".to_string(),
             characters: characters
                 .into_iter()
                 .map(|character| (character, true))
@@ -189,11 +192,15 @@ impl EventGroupCreator {
         ui.horizontal(|ui| {
             ui.label("Date:");
             // TODO: datetime editor struct
-            RestrictedTextEdit::new(&mut self.datetime)
-                .allow_failure(&mut self.datetime_editing_string, Color32::RED)
-                .ui(ui);
+            RestrictedTextEdit::new_from_persistent_string(
+                &mut self.datetime,
+                &mut self.datetime_editing_string,
+            )
+            .allow_failure(Some(Color32::RED))
+            .ui(ui);
             if ui.button("Now").clicked() {
                 self.datetime = Utc::now();
+                self.datetime_editing_string = self.datetime.to_string();
             }
         });
 
@@ -203,7 +210,11 @@ impl EventGroupCreator {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label("Fields:");
-                let response_updated = self.template.display_fields(ui);
+                let response_updated = EventGroupTemplateDisplayWrapper {
+                    event_group_template: &mut self.template,
+                    editable_string: &mut self.event_group_template_editing_string,
+                }
+                .display_fields(ui);
                 updated_template |= response_updated;
             });
 

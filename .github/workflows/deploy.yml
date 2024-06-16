@@ -33,6 +33,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.79.0  # Specify the Rust version you need
+          components: cargo  # Ensure cargo is included
+          profile: minimal  # Optionally reduce installation size
+          override: true
+
       - name: Build web code
         env:
           NODE_ENV: production

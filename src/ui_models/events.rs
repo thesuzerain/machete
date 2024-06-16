@@ -1,29 +1,52 @@
+use std::collections::HashMap;
+
 use egui::{Ui, Widget};
 
 use crate::{
-    apps::logbook::event_group_creator::EventGroupTemplate, models::events::EventType,
+    apps::logbook::event_group_creator::EventGroupTemplate,
+    models::{events::EventType, ids::InternalId},
     widgets::restricted_text_edit::RestrictedTextEdit,
 };
 
 use super::DisplayFields;
 
-impl DisplayFields for EventType {
+pub struct EventTypeDisplayWrapper<'a> {
+    pub event_type: &'a mut EventType,
+    pub id: InternalId,
+    // TODO: not a great datatype
+    pub editable_strings: &'a mut HashMap<u64, String>,
+}
+
+impl DisplayFields for EventTypeDisplayWrapper<'_> {
     fn display_fields(&mut self, ui: &mut Ui) -> bool {
         let mut updated = false;
-        match self {
-            EventType::ExperienceGain { experience } => {
+        match self.event_type {
+            EventType::ExperienceGain { ref mut experience } => {
                 ui.horizontal(|ui| {
                     ui.label("Experience:");
-                    let response = RestrictedTextEdit::new(experience).ui(ui);
+                    // TODO: condense this hashmap pattern into a possible implementation for RestrictedText (like how string, &mut string, etc)
+                    let editable_string = self
+                        .editable_strings
+                        .entry(self.id.hash_with("experience"))
+                        .or_insert(experience.to_string());
+                    let response =
+                        RestrictedTextEdit::new_from_persistent_string(experience, editable_string)
+                            .ui(ui);
                     if response.changed() {
                         updated = true;
                     }
                 });
             }
-            EventType::CurrencyGain { currency } => {
+            EventType::CurrencyGain { ref mut currency } => {
                 ui.horizontal(|ui| {
                     ui.label("Currency:");
-                    let response = RestrictedTextEdit::new(currency).ui(ui);
+                    let editable_string = self
+                        .editable_strings
+                        .entry(self.id.hash_with("currency"))
+                        .or_insert(currency.to_string());
+                    let response =
+                        RestrictedTextEdit::new_from_persistent_string(currency, editable_string)
+                            .ui(ui);
                     if response.changed() {
                         updated = true;
                     }
@@ -34,24 +57,37 @@ impl DisplayFields for EventType {
     }
 }
 
-impl DisplayFields for EventGroupTemplate {
+pub struct EventGroupTemplateDisplayWrapper<'a> {
+    pub event_group_template: &'a mut EventGroupTemplate,
+    pub editable_string: &'a mut String,
+}
+
+impl DisplayFields for EventGroupTemplateDisplayWrapper<'_> {
     // TODO: Turn into a trait
     fn display_fields(&mut self, ui: &mut Ui) -> bool {
         let mut updated = false;
-        match self {
-            EventGroupTemplate::ExperienceGain { experience } => {
+        match self.event_group_template {
+            EventGroupTemplate::ExperienceGain { ref mut experience } => {
                 ui.horizontal(|ui| {
                     ui.label("Experience:");
-                    let response = RestrictedTextEdit::new(experience).ui(ui);
+                    let response = RestrictedTextEdit::new_from_persistent_string(
+                        experience,
+                        self.editable_string,
+                    )
+                    .ui(ui);
                     if response.changed() {
                         updated = true;
                     }
                 });
             }
-            EventGroupTemplate::CurrencyGain { currency } => {
+            EventGroupTemplate::CurrencyGain { ref mut currency } => {
                 ui.horizontal(|ui| {
                     ui.label("Currency:");
-                    let response = RestrictedTextEdit::new(currency).ui(ui);
+                    let response = RestrictedTextEdit::new_from_persistent_string(
+                        currency,
+                        self.editable_string,
+                    )
+                    .ui(ui);
                     if response.changed() {
                         updated = true;
                     }
