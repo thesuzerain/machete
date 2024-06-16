@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use crate::{
     models::{
         campaign::Campaign,
         events::{Event, EventGroup, EventLog},
         ids::InternalId,
     },
-    ui_models::DisplayFields,
+    ui_models::{events::EventTypeDisplayWrapper, DisplayFields},
     widgets::hidden_combo_box::HiddenComboBox,
 };
 use egui::{CollapsingHeader, ComboBox, RichText, Ui};
@@ -27,6 +29,7 @@ pub struct LogDisplay {
 #[derive(Default)]
 pub struct LogDisplayUiContext {
     pub editing: Option<EditorSelection>,
+    pub editable_strings: HashMap<u64, String>,
 }
 
 impl LogDisplayUiContext {
@@ -228,7 +231,13 @@ impl LogDisplayUiContext {
             });
 
             // Display fields for the event type.
-            event.event_type.display_fields(ui);
+            EventTypeDisplayWrapper {
+                event_type: &mut event.event_type,
+                id: event.id,
+                // TODO: unwrap()?
+                editable_strings: &mut self.editable_strings,
+            }
+            .display_fields(ui);
         });
     }
 }
