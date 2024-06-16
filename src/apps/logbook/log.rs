@@ -234,7 +234,6 @@ impl LogDisplayUiContext {
             EventTypeDisplayWrapper {
                 event_type: &mut event.event_type,
                 id: event.id,
-                // TODO: unwrap()?
                 editable_strings: &mut self.editable_strings,
             }
             .display_fields(ui);
