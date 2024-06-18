@@ -2,9 +2,9 @@ use crate::{
     app::StateContext,
     models::{
         ids::InternalId,
-        library::{Library, LibraryItem},
+        library::{creature::LibraryCreature, item::LibraryItem, Library},
     },
-    ui_models::filters::Filter,
+    ui_models::filters::{Filter, FilterableStruct},
     update_context::UpdateWithContext,
 };
 use display::LibraryDisplay;
@@ -20,7 +20,10 @@ pub struct LibraryApp {
     pub filters_display: FilterDisplay,
     pub viewer: LibraryDisplay,
 
-    pub filtered_library: FilteredLibrary,
+    pub collection_showing: LibraryCollectionType,
+
+    pub filtered_library_items: FilteredLibrary<LibraryItem>,
+    pub filtered_library_creatures: FilteredLibrary<LibraryCreature>,
 }
 
 impl LibraryApp {
@@ -29,9 +32,18 @@ impl LibraryApp {
             filters_display: FilterDisplay::start(),
             viewer: LibraryDisplay::start(),
 
-            filtered_library: FilteredLibrary::new(library),
+            collection_showing: LibraryCollectionType::Items,
+
+            filtered_library_items: FilteredLibrary::new(library),
+            filtered_library_creatures: FilteredLibrary::new(library),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LibraryCollectionType {
+    Items,
+    Creatures,
 }
 
 impl UpdateWithContext for LibraryApp {
@@ -41,14 +53,34 @@ impl UpdateWithContext for LibraryApp {
         _frame: &mut eframe::Frame,
         context: &mut StateContext,
     ) {
-        let filtered_items = self.filtered_library.items(&context.library);
-        egui::TopBottomPanel::top("Filters").show(ctx, |ui| {
-            self.filters_display
-                .ui(ui, &mut self.filtered_library, &context.library);
+        let filtered_items = self.filtered_library_items.items(&context.library);
+        let filtered_creatures = self.filtered_library_creatures.items(&context.library);
+
+        egui::TopBottomPanel::top("Collection").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Items").clicked() {
+                    self.collection_showing = LibraryCollectionType::Items;
+                }
+                if ui.button("Creatures").clicked() {
+                    self.collection_showing = LibraryCollectionType::Creatures;
+                }
+            });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.viewer.ui(ui, &filtered_items);
+        egui::TopBottomPanel::top("Filters").show(ctx, |ui| match self.collection_showing {
+            LibraryCollectionType::Items => {
+                self.filters_display
+                    .ui(ui, &mut self.filtered_library_items, &context.library)
+            }
+            LibraryCollectionType::Creatures => {
+                self.filters_display
+                    .ui(ui, &mut self.filtered_library_creatures, &context.library)
+            }
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| match self.collection_showing {
+            LibraryCollectionType::Items => self.viewer.ui(ui, &filtered_items),
+            LibraryCollectionType::Creatures => self.viewer.ui(ui, &filtered_creatures),
         });
     }
 }
@@ -56,32 +88,34 @@ impl UpdateWithContext for LibraryApp {
 /// A struct for maintaining persistence of filters and filtered items.
 /// This is kept as a separate struct to allow auto-updating of the filtered items when filters are modified.
 /// This assumes that the library's id-to-item mapping will not change.
-pub struct FilteredLibrary {
-    filters: Vec<Filter<LibraryItem>>,
-    items: Vec<InternalId>,
+pub struct FilteredLibrary<T: FilterableStruct> {
+    // TODO: Is there a better pattern for this?
+    filters: Vec<Filter<T>>,
+    ids: Vec<InternalId>,
 }
 
-impl FilteredLibrary {
-    pub fn new(library: &Library) -> FilteredLibrary {
+impl<T: FilterableStruct> FilteredLibrary<T> {
+    pub fn new(library: &Library) -> Self {
         FilteredLibrary {
-            filters: Vec::new(),
-            items: library.items.keys().copied().collect(),
+            filters: vec![T::create_default_filter()],
+            ids: library.items.keys().copied().collect(),
         }
     }
 
     /// Get the list of all items filtered from the library.
-    pub fn items<'a>(&self, library: &'a Library) -> Vec<&'a LibraryItem> {
+    /// TODO: Rename to 'ids'?
+    pub fn items<'a>(&self, library: &'a Library) -> Vec<&'a T> {
         // TODO: Is there a faster way to do this?
-        self.items
+        self.ids
             .iter()
-            .filter_map(|id| library.items.get(id))
+            .filter_map(|id| T::items(library).get(id))
             .collect_vec()
     }
 
     /// Apply a closure to the filters, then recalculate the filtered table.
     pub fn apply_to_filters_mut(
         &mut self,
-        closure: impl FnOnce(&mut Vec<Filter<LibraryItem>>),
+        closure: impl FnOnce(&mut Vec<Filter<T>>),
         library: &Library,
     ) {
         closure(&mut self.filters);
@@ -90,8 +124,7 @@ impl FilteredLibrary {
 
     /// Recalculate the filtered table based on the current filters.
     fn recalculate_filtered_table(&mut self, library: &Library) {
-        let items = library
-            .items
+        let items = T::items(library)
             .iter()
             .filter(|(_, item)| {
                 self.filters
@@ -100,6 +133,6 @@ impl FilteredLibrary {
             })
             .map(|(k, _)| *k)
             .collect();
-        self.items = items;
+        self.ids = items;
     }
 }

@@ -1,4 +1,4 @@
-use crate::models::library::{Library, LibraryItem};
+use crate::models::library::Library;
 use crate::ui_models::filters::FilterableStruct;
 use crate::ui_models::DisplayFields;
 use egui::Ui;
@@ -13,7 +13,12 @@ impl FilterDisplay {
         FilterDisplay {}
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, filters: &mut FilteredLibrary, library: &Library) {
+    pub fn ui<T: FilterableStruct>(
+        &mut self,
+        ui: &mut Ui,
+        filters: &mut FilteredLibrary<T>,
+        library: &Library,
+    ) {
         ui.label("Filters:");
 
         let mut remove = None;
@@ -34,7 +39,7 @@ impl FilterDisplay {
                 }
 
                 if ui.button("Add filter").clicked() {
-                    filters.push(LibraryItem::create_default_filter());
+                    filters.push(T::create_default_filter());
                 }
             },
             library,

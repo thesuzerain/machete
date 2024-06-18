@@ -2,7 +2,9 @@
     "items" : {
         "1": {
             "name" : "Little Scroll",
-            "price" : 100,
+            "price" : {
+                "gold" : 100
+            },
             "game_system" : "pf2e",
             "rarity" : "common",
             "level" : 1,
@@ -10,7 +12,9 @@
         },
         "2": {
             "name" : "Medium Scroll",
-            "price" : 200,
+            "price" : {
+                "gold" : 200
+            },
             "game_system" : "pf2e",
             "rarity" : "common",
             "level" : 3,
@@ -18,7 +22,9 @@
         },
         "3":{
             "name" : "Large Scroll",
-            "price" : 300,
+            "price" : {
+                "gold" : 300
+            },
             "game_system" : "pf2e",
             "rarity" : "uncommon",
             "level" : 5,
@@ -26,7 +32,9 @@
         },
         "4":{
             "name" : "Giant Scroll",
-            "price" : 400,
+            "price" : {
+                "gold" : 400
+            },
             "game_system" : "pf2e",
             "rarity" : "rare",
             "level" : 7,
@@ -34,11 +42,33 @@
         },
         "5":{
             "name" : "Ultimate Scroll",
-            "price" : 500,
+            "price" : {
+                "gold" : 500
+            },
             "game_system" : "pf2e",
             "rarity" : "unique",
             "level" : 9,
             "tags" : ["scroll", "ultimate", "best", "big", "magic"]
+        }
+    },
+    "creatures": {
+        "50":{
+            "name" : "Brainchild",
+            "game_system" : "pf2e",
+            "rarity" : "rare",
+            "level" : 10,
+            "tags" : ["magic", "scary"],
+            "alignment" : "ce",
+            "size" : "medium"
+        },
+        "51":{
+            "name": "Adult Magma Dragon",
+            "game_system" : "pf2e",
+            "rarity" : "uncommon",
+            "level" : 13,
+            "tags" : ["dragon", "fire", "big"],
+            "alignment" : "cn",
+            "size" : "huge"
         }
     }
 }
