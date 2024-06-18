@@ -1,6 +1,6 @@
-use crate::models::campaign::Campaign;
+use crate::app::StateContext;
 
-/// a trait for any struct that can be updated (like egui::App) with the campaign context.
+/// A trait for any struct that can be updated (like egui::App) with the state context.
 pub trait UpdateWithContext {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame, campaign: &mut Campaign);
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame, state: &mut StateContext);
 }

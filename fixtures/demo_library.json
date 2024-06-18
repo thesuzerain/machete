@@ -1,0 +1,74 @@
+{
+    "items" : {
+        "1": {
+            "name" : "Little Scroll",
+            "price" : {
+                "gold" : 100
+            },
+            "game_system" : "pf2e",
+            "rarity" : "common",
+            "level" : 1,
+            "tags" : ["scroll", "little", "magic"]
+        },
+        "2": {
+            "name" : "Medium Scroll",
+            "price" : {
+                "gold" : 200
+            },
+            "game_system" : "pf2e",
+            "rarity" : "common",
+            "level" : 3,
+            "tags" : ["scroll", "medium", "magic"]
+        },
+        "3":{
+            "name" : "Large Scroll",
+            "price" : {
+                "gold" : 300
+            },
+            "game_system" : "pf2e",
+            "rarity" : "uncommon",
+            "level" : 5,
+            "tags" : ["scroll", "large", "big", "magic"]
+        },
+        "4":{
+            "name" : "Giant Scroll",
+            "price" : {
+                "gold" : 400
+            },
+            "game_system" : "pf2e",
+            "rarity" : "rare",
+            "level" : 7,
+            "tags" : ["scroll", "giant", "big", "magic"]
+        },
+        "5":{
+            "name" : "Ultimate Scroll",
+            "price" : {
+                "gold" : 500
+            },
+            "game_system" : "pf2e",
+            "rarity" : "unique",
+            "level" : 9,
+            "tags" : ["scroll", "ultimate", "best", "big", "magic"]
+        }
+    },
+    "creatures": {
+        "50":{
+            "name" : "Brainchild",
+            "game_system" : "pf2e",
+            "rarity" : "rare",
+            "level" : 10,
+            "tags" : ["magic", "scary"],
+            "alignment" : "ce",
+            "size" : "medium"
+        },
+        "51":{
+            "name": "Adult Magma Dragon",
+            "game_system" : "pf2e",
+            "rarity" : "uncommon",
+            "level" : 13,
+            "tags" : ["dragon", "fire", "big"],
+            "alignment" : "cn",
+            "size" : "huge"
+        }
+    }
+}

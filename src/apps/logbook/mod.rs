@@ -1,7 +1,7 @@
 use event_group_creator::EventGroupCreator;
 
 use self::log::LogDisplay;
-use crate::{models::campaign::Campaign, update_context::UpdateWithContext};
+use crate::{app::StateContext, models::campaign::Campaign, update_context::UpdateWithContext};
 
 pub mod event_group_creator;
 pub mod log;
@@ -22,13 +22,18 @@ impl LogbookApp {
 }
 
 impl UpdateWithContext for LogbookApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame, campaign: &mut Campaign) {
+    fn update(
+        &mut self,
+        ctx: &egui::Context,
+        _frame: &mut eframe::Frame,
+        context: &mut StateContext,
+    ) {
         egui::TopBottomPanel::top("Event Creator").show(ctx, |ui| {
-            self.event_creator.ui(ui, campaign);
+            self.event_creator.ui(ui, &mut context.campaign);
         });
 
         egui::TopBottomPanel::top("Logbook").show(ctx, |ui| {
-            self.party_display.ui(ui, campaign);
+            self.party_display.ui(ui, &mut context.campaign);
         });
 
         egui::CentralPanel::default()

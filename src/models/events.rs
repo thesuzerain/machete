@@ -12,7 +12,7 @@ pub struct EventLog {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EventGroup {
-    // TODO: A more robust ID system (uuid, base62, etc.)
+    // TODO: Should all of these ids be referenced inside the object as well as the containing map?
     pub id: InternalId,
     pub name: String,
     #[serde(with = "chrono::serde::ts_seconds")]
@@ -22,7 +22,6 @@ pub struct EventGroup {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
-    // TODO: A more robust ID system (uuid, base62, etc.)
     pub id: InternalId,
     pub character: Option<String>,
     #[serde(flatten)]
