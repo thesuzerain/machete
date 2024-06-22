@@ -1,4 +1,42 @@
 {
+    "spells" : {
+      "11908999364538601790": {
+        "name": "Animate Rope",
+        "game_system": "pf2e",
+        "rarity": "common",
+        "rank": 1,
+        "tags": [
+          "Transmutation",
+          "Spell"
+        ]
+      },
+      "7707185323665915188": {
+        "name": "Invisibility",
+        "game_system": "pf2e",
+        "rarity": "common",
+        "rank": 2,
+        "tags": [
+          "Illusion",
+          "Manipulate",
+          "Subtle",
+          "Spell"
+        ]
+      },
+      "2040149440282591397": {
+        "name": "Cloak of Light",
+        "game_system": "pf2e",
+        "rarity": "uncommon",
+        "rank": 4,
+        "tags": [
+          "Healing",
+          "Light",
+          "Necromancy",
+          "Positive",
+          "Uncommon",
+          "Spell"
+        ]
+      }
+    },
     "items" : {
         "1": {
             "name" : "Little Scroll",
