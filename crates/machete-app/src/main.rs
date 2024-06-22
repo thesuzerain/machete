@@ -22,6 +22,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "machete",
         options,
-        Box::new(|cc| Box::new(machete::MainApp::new(cc))),
+        Box::new(|cc| Box::new(machete_app::MainApp::new(cc))),
     )
 }

@@ -2,6 +2,10 @@
 resolver = "2"
 members = [
     "crates/machete",
+    "crates/machete-app"
+]
+default-members = [
+    "crates/machete-app"
 ]
 
 [workspace.package]

@@ -1,9 +1,9 @@
 use crate::{
     apps::{library::LibraryApp, logbook::LogbookApp, summary::SummaryApp},
-    models::{campaign::Campaign, library::Library},
     settings_panel::SettingsPanel,
     update_context::UpdateWithContext,
 };
+use machete::models::{campaign::Campaign, library::Library};
 
 pub struct MainApp {
     state: State,

@@ -1,12 +1,12 @@
 use crate::{
-    models::{
-        campaign::Campaign,
-        events::{Event, EventGroup, EventType},
-        ids::InternalId,
-    },
     ui_models::{events::EventGroupTemplateDisplayWrapper, DisplayFields},
     utils::SelectableOption,
     widgets::restricted_text_edit::RestrictedTextEdit,
+};
+use machete::models::{
+    campaign::Campaign,
+    events::{Event, EventGroup, EventType},
+    ids::InternalId,
 };
 use chrono::{DateTime, Utc};
 use egui::{ahash::HashMap, Color32, ComboBox, Ui, Widget};

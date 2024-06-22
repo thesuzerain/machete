@@ -1,4 +1,4 @@
-use crate::models::library::Library;
+use machete::models::library::Library;
 use crate::ui_models::filters::FilterableStruct;
 use crate::ui_models::DisplayFields;
 use egui::Ui;

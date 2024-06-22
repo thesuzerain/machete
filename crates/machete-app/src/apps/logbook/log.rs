@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-
 use crate::{
-    models::{
-        campaign::Campaign,
-        events::{Event, EventGroup, EventLog},
-        ids::InternalId,
-    },
     ui_models::{events::EventTypeDisplayWrapper, DisplayFields},
     widgets::hidden_combo_box::HiddenComboBox,
+};
+use machete::models::{
+    campaign::Campaign,
+    events::{Event, EventGroup, EventLog},
+    ids::InternalId,
 };
 use egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use itertools::Itertools;

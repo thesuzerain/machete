@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-
 use egui::Ui;
 use egui_extras::{Column, TableBuilder};
-
-use crate::models::{
+use machete::models::{
     ids::InternalId,
     library::{
-        creature::{Alignment, LibraryCreature, Size}, item::{Currency, LibraryItem}, spell::LibrarySpell, Rarity
+        creature::{Alignment, LibraryCreature, Size}, item::{Currency, LibraryItem}, spell::LibrarySpell, Library, Rarity
     },
 };
 
@@ -80,7 +78,7 @@ impl FilterableStruct for LibraryItem {
         }
     }
 
-    fn items(library: &crate::models::library::Library) -> &HashMap<InternalId, LibraryItem> {
+    fn items(library: &Library) -> &HashMap<InternalId, LibraryItem> {
         &library.items
     }
 
@@ -236,7 +234,7 @@ impl FilterableStruct for LibraryCreature {
         }
     }
 
-    fn items(library: &crate::models::library::Library) -> &HashMap<InternalId, LibraryCreature> {
+    fn items(library: &Library) -> &HashMap<InternalId, LibraryCreature> {
         &library.creatures
     }
 
@@ -389,7 +387,7 @@ impl FilterableStruct for LibrarySpell {
         }
     }
 
-    fn items(library: &crate::models::library::Library) -> &HashMap<InternalId, LibrarySpell> {
+    fn items(library: &Library) -> &HashMap<InternalId, LibrarySpell> {
         &library.spells
     }
 

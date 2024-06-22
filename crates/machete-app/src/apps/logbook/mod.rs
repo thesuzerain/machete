@@ -1,7 +1,7 @@
 use event_group_creator::EventGroupCreator;
-
-use self::log::LogDisplay;
-use crate::{app::StateContext, models::campaign::Campaign, update_context::UpdateWithContext};
+use log::LogDisplay;
+use machete::models::campaign::Campaign;
+use crate::{app::StateContext, update_context::UpdateWithContext};
 
 pub mod event_group_creator;
 pub mod log;

@@ -1,4 +1,3 @@
-use crate::utils::SelectableOption;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
@@ -53,21 +52,5 @@ impl Display for EventType {
                 write!(f, "Experience Gain: {}", experience)
             }
         }
-    }
-}
-
-impl SelectableOption for EventType {
-    fn as_selectable_str(&self) -> &'static str {
-        match self {
-            EventType::CurrencyGain { .. } => "Currency Gain",
-            EventType::ExperienceGain { .. } => "Experience Gain",
-        }
-    }
-
-    fn iter_options() -> Vec<Self> {
-        vec![
-            EventType::CurrencyGain { currency: 0 },
-            EventType::ExperienceGain { experience: 0 },
-        ]
     }
 }

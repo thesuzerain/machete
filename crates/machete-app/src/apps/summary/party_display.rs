@@ -1,6 +1,5 @@
 use egui::{containers::*, *};
-
-use crate::models::campaign::Character;
+use machete::models::campaign::Character;
 
 /// Display a simple summary of the party members.
 // TODO: We may want to add fields here (fields on the GUI itself)

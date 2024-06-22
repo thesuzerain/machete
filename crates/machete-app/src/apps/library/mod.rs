@@ -1,11 +1,11 @@
 use crate::{
     app::StateContext,
-    models::{
-        ids::InternalId,
-        library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell, Library},
-    },
     ui_models::filters::{Filter, FilterableStruct},
     update_context::UpdateWithContext,
+};
+use machete::models::{
+    ids::InternalId,
+    library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell, Library},
 };
 use display::LibraryDisplay;
 use filter::FilterDisplay;

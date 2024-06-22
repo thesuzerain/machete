@@ -3,8 +3,7 @@ use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
 };
-
-use crate::models::{
+use machete::models::{
     ids::InternalId,
     library::{
         creature::{Alignment, Size},
