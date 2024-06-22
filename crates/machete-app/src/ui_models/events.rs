@@ -1,12 +1,9 @@
 use std::collections::HashMap;
-
 use egui::{Ui, Widget};
-
 use crate::{
-    apps::logbook::event_group_creator::EventGroupTemplate,
-    models::{events::EventType, ids::InternalId},
-    widgets::restricted_text_edit::RestrictedTextEdit,
+    apps::logbook::event_group_creator::EventGroupTemplate, utils::SelectableOption, widgets::restricted_text_edit::RestrictedTextEdit
 };
+use machete::models::{events::EventType, ids::InternalId};
 
 use super::DisplayFields;
 
@@ -96,5 +93,21 @@ impl DisplayFields for EventGroupTemplateDisplayWrapper<'_> {
             EventGroupTemplate::None => {}
         }
         updated
+    }
+}
+
+impl SelectableOption for EventType {
+    fn as_selectable_str(&self) -> &'static str {
+        match self {
+            EventType::CurrencyGain { .. } => "Currency Gain",
+            EventType::ExperienceGain { .. } => "Experience Gain",
+        }
+    }
+
+    fn iter_options() -> Vec<Self> {
+        vec![
+            EventType::CurrencyGain { currency: 0 },
+            EventType::ExperienceGain { experience: 0 },
+        ]
     }
 }

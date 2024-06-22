@@ -1,9 +1,9 @@
 use crate::{
     apps::{library::LibraryApp, logbook::LogbookApp, summary::SummaryApp},
-    models::{campaign::Campaign, library::Library},
     settings_panel::SettingsPanel,
     update_context::UpdateWithContext,
 };
+use machete::models::{campaign::Campaign, library::Library};
 
 pub struct MainApp {
     state: State,
@@ -31,11 +31,11 @@ impl MainApp {
     pub fn new(_: &eframe::CreationContext<'_>) -> Self {
         // TODO: Allow storing state into file, onto web, etc.
         // This currently just loads a test fixture.
-        let fixture = include_str!("../fixtures/demo_campaign.json");
+        let fixture = include_str!("../../../fixtures/demo_campaign.json");
         let campaign: Campaign =
             serde_json::from_str(fixture).expect("Failed to load test fixture.");
 
-        let fixture = include_str!("../fixtures/demo_library.json");
+        let fixture = include_str!("../../../fixtures/demo_library.json");
         let library: Library = serde_json::from_str(fixture).expect("Failed to load test fixture.");
 
         // TODO: Not sure if I like this pattern to just be able to pass a clone into LogbookApp.

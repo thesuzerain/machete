@@ -3,8 +3,7 @@ use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
 };
-
-use crate::models::{
+use machete::models::{
     ids::InternalId,
     library::{
         creature::{Alignment, Size},
@@ -358,6 +357,24 @@ impl FilterableDataType for Vec<String> {
 
     fn is_string() -> bool {
         true
+    }
+}
+
+impl FilterableDataType for i8 {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        Some(vec![*self as f32])
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    fn is_numeric() -> bool {
+        true
+    }
+
+    fn is_string() -> bool {
+        false
     }
 }
 

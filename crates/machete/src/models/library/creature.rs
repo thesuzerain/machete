@@ -7,7 +7,7 @@ pub struct LibraryCreature {
     pub name: String,
     pub game_system: String,
     pub rarity: Rarity,
-    pub level: u8,
+    pub level: i8,
     pub tags: Vec<String>,
 
     pub alignment: Alignment,
@@ -58,11 +58,17 @@ impl ToString for Alignment {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Size {
+    #[serde(alias = "Tiny")]
     Tiny,
+    #[serde(alias = "Small")]
     Small,
+    #[serde(alias = "Medium")]
     Medium,
+    #[serde(alias = "Large")]
     Large,
+    #[serde(alias = "Huge")]
     Huge,
+    #[serde(alias = "Gargantuan")]
     Gargantuan,
 }
 

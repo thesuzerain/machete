@@ -1,0 +1,54 @@
+[package]
+name = "machete-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+machete = { path = "../machete" }
+
+
+eframe = { workspace = true, default-features = false, features = [  "web_screen_reader" ] }
+egui = { workspace = true, features = ["callstack", "default", "log"] }
+egui_extras = { workspace = true, features = ["default", "image", "datepicker"] }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = {workspace = true}
+chrono = {workspace = true, features = ["serde"]}
+itertools = { workspace = true}
+
+# TODO: tracing
+log = { workspace = true, features = ["std"] }
+
+regex = { workspace = true }
+lazy_static = { workspace = true}
+
+# feature "http":
+ehttp = { workspace = true, optional = true }
+image = { workspace = true, optional = true, features = ["jpeg", "png"] }
+poll-promise = { workspace = true, optional = true, default-features = false }
+
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+web-sys = {workspace = true, optional = true}
+
+# Downstream random crate needs 'js' enabled for wasm
+[dependencies.getrandom]
+workspace = true
+features = ["js"]
+
+[features]
+default = ["offline"]
+
+offline = ["eframe/glow"]
+
+# Using web_app also will require a compilation target of: wasm32 (wasm32-unknown-unknown)
+# "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+# image_viewer adds about 0.9 MB of WASM
+web_app = ["http", "persistence", "wasm-bindgen", "wasm-bindgen-futures", "web-sys"]
+
+http = ["ehttp", "image", "poll-promise", "egui_extras/image"]
+persistence = ["eframe/persistence", "egui/persistence"]
+glow = ["eframe/glow"]

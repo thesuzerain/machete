@@ -6,9 +6,8 @@ pub struct LibraryItem {
     pub name: String,
     pub game_system: String,
     pub rarity: Rarity,
-    pub level: u8,
+    pub level: i8,
     pub tags: Vec<String>,
-
     pub price: Currency,
 }
 
@@ -38,5 +37,15 @@ impl ToString for Currency {
 impl Currency {
     pub fn as_base_unit(&self) -> u32 {
         self.gold * 100 + self.silver * 10 + self.copper
+    }
+}
+
+impl Default for Currency {
+    fn default() -> Self {
+        Currency {
+            gold: 0,
+            silver: 0,
+            copper: 0,
+        }
     }
 }
