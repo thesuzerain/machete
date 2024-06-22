@@ -6,9 +6,7 @@ use egui_extras::{Column, TableBuilder};
 use crate::models::{
     ids::InternalId,
     library::{
-        creature::{Alignment, LibraryCreature, Size},
-        item::{Currency, LibraryItem},
-        Rarity,
+        creature::{Alignment, LibraryCreature, Size}, item::{Currency, LibraryItem}, spell::LibrarySpell, Rarity
     },
 };
 
@@ -61,7 +59,7 @@ impl FilterableStruct for LibraryItem {
     fn is_field_numeric(field: &str) -> bool {
         match field {
             "name" => String::is_numeric(),
-            "level" => u8::is_numeric(),
+            "level" => i8::is_numeric(),
             "price" => Currency::is_numeric(),
             "game_system" => String::is_numeric(),
             "rarity" => Rarity::is_numeric(),
@@ -73,7 +71,7 @@ impl FilterableStruct for LibraryItem {
     fn is_field_string(field: &str) -> bool {
         match field {
             "name" => String::is_string(),
-            "level" => u8::is_string(),
+            "level" => i8::is_string(),
             "price" => Currency::is_string(),
             "game_system" => String::is_string(),
             "rarity" => Rarity::is_string(),
@@ -88,7 +86,6 @@ impl FilterableStruct for LibraryItem {
 
     fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
         let num_items = filtered_items.len();
-        let mut items = filtered_items.iter();
 
         let available_height = ui.available_height();
         let table = TableBuilder::new(ui)
@@ -133,7 +130,9 @@ impl FilterableStruct for LibraryItem {
             })
             .body(|body| {
                 body.rows(32.0, num_items, |mut row| {
-                    let item = items.next().unwrap();
+                    let Some(item) = filtered_items.get(row.index()) else {
+                        return;
+                    };
 
                     row.col(|ui| {
                         ui.label(item.name.clone());
@@ -213,7 +212,7 @@ impl FilterableStruct for LibraryCreature {
     fn is_field_numeric(field: &str) -> bool {
         match field {
             "name" => String::is_numeric(),
-            "level" => u8::is_numeric(),
+            "level" => i8::is_numeric(),
             "game_system" => String::is_numeric(),
             "rarity" => Rarity::is_numeric(),
             "tags" => Vec::<String>::is_numeric(),
@@ -226,7 +225,7 @@ impl FilterableStruct for LibraryCreature {
     fn is_field_string(field: &str) -> bool {
         match field {
             "name" => String::is_string(),
-            "level" => u8::is_string(),
+            "level" => i8::is_string(),
             "price" => Currency::is_string(),
             "game_system" => String::is_string(),
             "rarity" => Rarity::is_string(),
@@ -243,7 +242,6 @@ impl FilterableStruct for LibraryCreature {
 
     fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
         let num_items = filtered_items.len();
-        let mut items = filtered_items.iter();
 
         let available_height = ui.available_height();
         let table = TableBuilder::new(ui)
@@ -293,7 +291,9 @@ impl FilterableStruct for LibraryCreature {
             })
             .body(|body| {
                 body.rows(32.0, num_items, |mut row| {
-                    let item = items.next().unwrap();
+                    let Some(item) = filtered_items.get(row.index()) else {
+                        return;
+                    };
 
                     row.col(|ui| {
                         ui.label(item.name.clone());
@@ -312,6 +312,143 @@ impl FilterableStruct for LibraryCreature {
                     });
                     row.col(|ui| {
                         ui.label(item.size.clone().to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.tags.join(", "));
+                    });
+                });
+            })
+    }
+}
+
+impl FilterableStruct for LibrarySpell {
+    fn create_default_filter() -> super::filters::Filter<Self> {
+        super::filters::Filter {
+            id: InternalId::new(),
+            field: "name".to_string(),
+            filter_type: super::filters::FilterType::String(
+                super::filters::StringFilter::Contains("".to_string()),
+            ),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    fn iter_fields() -> Vec<&'static str> {
+        [
+            "name",
+            "game_system",
+            "rarity",
+            "rank",
+            "tags",
+        ]
+        .to_vec()
+    }
+
+    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
+        match field {
+            "name" => self.name.as_numerics(),
+            "game_system" => self.game_system.as_numerics(),
+            "rarity" => self.rarity.as_numerics(),
+            "rank" => self.rank.as_numerics(),
+            "tags" => self.tags.as_numerics(),
+            _ => None,
+        }
+    }
+
+    fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
+        // TODO: clones, smell
+        match field {
+            "name" => self.name.as_strings(),
+            "game_system" => self.game_system.as_strings(),
+            "rarity" => self.rarity.as_strings(),
+            "rank" => self.rank.as_strings(),
+            "tags" => self.tags.as_strings(),
+            _ => None,
+        }
+    }
+
+    fn is_field_numeric(field: &str) -> bool {
+        match field {
+            "name" => String::is_numeric(),
+            "game_system" => String::is_numeric(),
+            "rarity" => Rarity::is_numeric(),
+            "rank" => i8::is_numeric(),
+            "tags" => Vec::<String>::is_numeric(),
+            _ => false,
+        }
+    }
+
+    fn is_field_string(field: &str) -> bool {
+        match field {
+            "name" => String::is_string(),
+            "game_system" => String::is_string(),
+            "rarity" => Rarity::is_string(),
+            "rank" => i8::is_string(),
+            "tags" => Vec::<String>::is_string(),
+            _ => false,
+        }
+    }
+
+    fn items(library: &crate::models::library::Library) -> &HashMap<InternalId, LibrarySpell> {
+        &library.spells
+    }
+
+    fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
+        let num_items = filtered_items.len();
+
+        let available_height = ui.available_height();
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            // Name
+            .column(Column::auto().at_least(150.0))
+            // Game System
+            .column(Column::auto().at_least(100.0))
+            // Rarity
+            .column(Column::auto().at_least(100.0))
+            // Rank
+            .column(Column::auto().at_least(50.0))
+            // Tags
+            .column(Column::remainder())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height);
+
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Name");
+                });
+                header.col(|ui| {
+                    ui.strong("Game System");
+                });
+                header.col(|ui| {
+                    ui.strong("Rarity");
+                });
+                header.col(|ui| {
+                    ui.strong("Rank");
+                });
+                header.col(|ui| {
+                    ui.strong("Tags");
+                });
+            })
+            .body(|body| {
+                body.rows(32.0, num_items, |mut row| {
+                    let Some(item) = filtered_items.get(row.index()) else {
+                        return;
+                    };
+
+                    row.col(|ui| {
+                        ui.label(item.name.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.game_system.clone());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.rarity.clone().to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(item.rank.to_string());
                     });
                     row.col(|ui| {
                         ui.label(item.tags.join(", "));

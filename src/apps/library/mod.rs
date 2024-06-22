@@ -2,7 +2,7 @@ use crate::{
     app::StateContext,
     models::{
         ids::InternalId,
-        library::{creature::LibraryCreature, item::LibraryItem, Library},
+        library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell, Library},
     },
     ui_models::filters::{Filter, FilterableStruct},
     update_context::UpdateWithContext,
@@ -24,6 +24,7 @@ pub struct LibraryApp {
 
     pub filtered_library_items: FilteredLibrary<LibraryItem>,
     pub filtered_library_creatures: FilteredLibrary<LibraryCreature>,
+    pub filtered_library_spells: FilteredLibrary<LibrarySpell>,
 }
 
 impl LibraryApp {
@@ -36,6 +37,7 @@ impl LibraryApp {
 
             filtered_library_items: FilteredLibrary::new(library),
             filtered_library_creatures: FilteredLibrary::new(library),
+            filtered_library_spells: FilteredLibrary::new(library),
         }
     }
 }
@@ -44,6 +46,7 @@ impl LibraryApp {
 pub enum LibraryCollectionType {
     Items,
     Creatures,
+    Spells
 }
 
 impl UpdateWithContext for LibraryApp {
@@ -55,6 +58,7 @@ impl UpdateWithContext for LibraryApp {
     ) {
         let filtered_items = self.filtered_library_items.items(&context.library);
         let filtered_creatures = self.filtered_library_creatures.items(&context.library);
+        let filtered_spells = self.filtered_library_spells.items(&context.library);
 
         egui::TopBottomPanel::top("Collection").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -63,6 +67,9 @@ impl UpdateWithContext for LibraryApp {
                 }
                 if ui.button("Creatures").clicked() {
                     self.collection_showing = LibraryCollectionType::Creatures;
+                }
+                if ui.button("Spells").clicked() {
+                    self.collection_showing = LibraryCollectionType::Spells;
                 }
             });
         });
@@ -75,12 +82,17 @@ impl UpdateWithContext for LibraryApp {
             LibraryCollectionType::Creatures => {
                 self.filters_display
                     .ui(ui, &mut self.filtered_library_creatures, &context.library)
+            },
+            LibraryCollectionType::Spells => {
+                self.filters_display
+                    .ui(ui, &mut self.filtered_library_spells, &context.library)
             }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.collection_showing {
             LibraryCollectionType::Items => self.viewer.ui(ui, &filtered_items),
             LibraryCollectionType::Creatures => self.viewer.ui(ui, &filtered_creatures),
+            LibraryCollectionType::Spells => self.viewer.ui(ui, &filtered_spells),
         });
     }
 }

@@ -361,6 +361,24 @@ impl FilterableDataType for Vec<String> {
     }
 }
 
+impl FilterableDataType for i8 {
+    fn as_numerics(&self) -> Option<Vec<f32>> {
+        Some(vec![*self as f32])
+    }
+
+    fn as_strings(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    fn is_numeric() -> bool {
+        true
+    }
+
+    fn is_string() -> bool {
+        false
+    }
+}
+
 impl FilterableDataType for u8 {
     fn as_numerics(&self) -> Option<Vec<f32>> {
         Some(vec![*self as f32])
