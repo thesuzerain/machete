@@ -1,87 +1,13 @@
-use std::collections::HashMap;
 use egui::Ui;
 use egui_extras::{Column, TableBuilder};
-use machete::models::{
-    ids::InternalId,
-    library::{
-        creature::{Alignment, LibraryCreature, Size}, item::{Currency, LibraryItem}, spell::LibrarySpell, Library, Rarity
-    },
-};
+use machete::models::library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell};
 
-use super::filters::{FilterableDataType, FilterableStruct};
+use super::filters::DisplayableStruct;
 
 /// Implements 'filters.rs' traits on library structs.
 /// TODO: May be in the wrong file.
 // TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes. A lot of the functions were intentionally designed with this in mind.
-impl FilterableStruct for LibraryItem {
-    fn create_default_filter() -> super::filters::Filter<Self> {
-        super::filters::Filter {
-            id: InternalId::new(),
-            field: "name".to_string(),
-            filter_type: super::filters::FilterType::String(
-                super::filters::StringFilter::Contains("".to_string()),
-            ),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    fn iter_fields() -> Vec<&'static str> {
-        ["name", "price", "game_system", "rarity", "level", "tags"].to_vec()
-    }
-
-    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
-        match field {
-            "name" => self.name.as_numerics(),
-            "level" => self.level.as_numerics(),
-            "price" => self.price.as_numerics(),
-            "game_system" => self.game_system.as_numerics(),
-            "rarity" => self.rarity.as_numerics(),
-            "tags" => self.tags.as_numerics(),
-            _ => None,
-        }
-    }
-
-    fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
-        // TODO: clones, smell
-        match field {
-            "name" => self.name.as_strings(),
-            "level" => self.level.as_strings(),
-            "price" => self.price.as_strings(),
-            "game_system" => self.game_system.as_strings(),
-            "rarity" => self.rarity.as_strings(),
-            "tags" => self.tags.as_strings(),
-            _ => None,
-        }
-    }
-
-    fn is_field_numeric(field: &str) -> bool {
-        match field {
-            "name" => String::is_numeric(),
-            "level" => i8::is_numeric(),
-            "price" => Currency::is_numeric(),
-            "game_system" => String::is_numeric(),
-            "rarity" => Rarity::is_numeric(),
-            "tags" => Vec::<String>::is_numeric(),
-            _ => false,
-        }
-    }
-
-    fn is_field_string(field: &str) -> bool {
-        match field {
-            "name" => String::is_string(),
-            "level" => i8::is_string(),
-            "price" => Currency::is_string(),
-            "game_system" => String::is_string(),
-            "rarity" => Rarity::is_string(),
-            "tags" => Vec::<String>::is_string(),
-            _ => false,
-        }
-    }
-
-    fn items(library: &Library) -> &HashMap<InternalId, LibraryItem> {
-        &library.items
-    }
-
+impl DisplayableStruct for LibraryItem {
     fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
         let num_items = filtered_items.len();
 
@@ -136,7 +62,7 @@ impl FilterableStruct for LibraryItem {
                         ui.label(item.name.clone());
                     });
                     row.col(|ui| {
-                        ui.label(item.game_system.clone());
+                        ui.label(item.game_system.to_string());
                     });
                     row.col(|ui| {
                         ui.label(item.level.to_string());
@@ -155,89 +81,7 @@ impl FilterableStruct for LibraryItem {
     }
 }
 
-impl FilterableStruct for LibraryCreature {
-    fn create_default_filter() -> super::filters::Filter<Self> {
-        super::filters::Filter {
-            id: InternalId::new(),
-            field: "name".to_string(),
-            filter_type: super::filters::FilterType::String(
-                super::filters::StringFilter::Contains("".to_string()),
-            ),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    fn iter_fields() -> Vec<&'static str> {
-        [
-            "name",
-            "game_system",
-            "rarity",
-            "level",
-            "tags",
-            "size",
-            "alignment",
-        ]
-        .to_vec()
-    }
-
-    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
-        match field {
-            "name" => self.name.as_numerics(),
-            "level" => self.level.as_numerics(),
-            "game_system" => self.game_system.as_numerics(),
-            "rarity" => self.rarity.as_numerics(),
-            "tags" => self.tags.as_numerics(),
-            "size" => self.size.as_numerics(),
-            "alignment" => self.alignment.as_numerics(),
-            _ => None,
-        }
-    }
-
-    fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
-        // TODO: clones, smell
-        match field {
-            "name" => self.name.as_strings(),
-            "level" => self.level.as_strings(),
-            "game_system" => self.game_system.as_strings(),
-            "rarity" => self.rarity.as_strings(),
-            "tags" => self.tags.as_strings(),
-            "size" => self.size.as_strings(),
-            "alignment" => self.alignment.as_strings(),
-            _ => None,
-        }
-    }
-
-    fn is_field_numeric(field: &str) -> bool {
-        match field {
-            "name" => String::is_numeric(),
-            "level" => i8::is_numeric(),
-            "game_system" => String::is_numeric(),
-            "rarity" => Rarity::is_numeric(),
-            "tags" => Vec::<String>::is_numeric(),
-            "size" => Size::is_numeric(),
-            "alignment" => Alignment::is_numeric(),
-            _ => false,
-        }
-    }
-
-    fn is_field_string(field: &str) -> bool {
-        match field {
-            "name" => String::is_string(),
-            "level" => i8::is_string(),
-            "price" => Currency::is_string(),
-            "game_system" => String::is_string(),
-            "rarity" => Rarity::is_string(),
-            "tags" => Vec::<String>::is_string(),
-            "size" => Size::is_string(),
-            "alignment" => Alignment::is_string(),
-            _ => false,
-        }
-    }
-
-    fn items(library: &Library) -> &HashMap<InternalId, LibraryCreature> {
-        &library.creatures
-    }
-
+impl DisplayableStruct for LibraryCreature {
     fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
         let num_items = filtered_items.len();
 
@@ -297,7 +141,7 @@ impl FilterableStruct for LibraryCreature {
                         ui.label(item.name.clone());
                     });
                     row.col(|ui| {
-                        ui.label(item.game_system.clone());
+                        ui.label(item.game_system.to_string());
                     });
                     row.col(|ui| {
                         ui.label(item.level.to_string());
@@ -319,78 +163,7 @@ impl FilterableStruct for LibraryCreature {
     }
 }
 
-impl FilterableStruct for LibrarySpell {
-    fn create_default_filter() -> super::filters::Filter<Self> {
-        super::filters::Filter {
-            id: InternalId::new(),
-            field: "name".to_string(),
-            filter_type: super::filters::FilterType::String(
-                super::filters::StringFilter::Contains("".to_string()),
-            ),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    fn iter_fields() -> Vec<&'static str> {
-        [
-            "name",
-            "game_system",
-            "rarity",
-            "rank",
-            "tags",
-        ]
-        .to_vec()
-    }
-
-    fn get_field_numerics(&self, field: &str) -> Option<Vec<f32>> {
-        match field {
-            "name" => self.name.as_numerics(),
-            "game_system" => self.game_system.as_numerics(),
-            "rarity" => self.rarity.as_numerics(),
-            "rank" => self.rank.as_numerics(),
-            "tags" => self.tags.as_numerics(),
-            _ => None,
-        }
-    }
-
-    fn get_field_strings(&self, field: &str) -> Option<Vec<String>> {
-        // TODO: clones, smell
-        match field {
-            "name" => self.name.as_strings(),
-            "game_system" => self.game_system.as_strings(),
-            "rarity" => self.rarity.as_strings(),
-            "rank" => self.rank.as_strings(),
-            "tags" => self.tags.as_strings(),
-            _ => None,
-        }
-    }
-
-    fn is_field_numeric(field: &str) -> bool {
-        match field {
-            "name" => String::is_numeric(),
-            "game_system" => String::is_numeric(),
-            "rarity" => Rarity::is_numeric(),
-            "rank" => i8::is_numeric(),
-            "tags" => Vec::<String>::is_numeric(),
-            _ => false,
-        }
-    }
-
-    fn is_field_string(field: &str) -> bool {
-        match field {
-            "name" => String::is_string(),
-            "game_system" => String::is_string(),
-            "rarity" => Rarity::is_string(),
-            "rank" => i8::is_string(),
-            "tags" => Vec::<String>::is_string(),
-            _ => false,
-        }
-    }
-
-    fn items(library: &Library) -> &HashMap<InternalId, LibrarySpell> {
-        &library.spells
-    }
-
+impl DisplayableStruct for LibrarySpell {
     fn display_table(ui: &mut Ui, filtered_items: Vec<&Self>) {
         let num_items = filtered_items.len();
 
@@ -440,7 +213,7 @@ impl FilterableStruct for LibrarySpell {
                         ui.label(item.name.clone());
                     });
                     row.col(|ui| {
-                        ui.label(item.game_system.clone());
+                        ui.label(item.game_system.to_string());
                     });
                     row.col(|ui| {
                         ui.label(item.rarity.clone().to_string());

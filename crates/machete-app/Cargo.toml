@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 machete = { path = "../machete" }
 
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 
 eframe = { workspace = true, default-features = false, features = [  "web_screen_reader" ] }
 egui = { workspace = true, features = ["callstack", "default", "log"] }
