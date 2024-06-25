@@ -1,8 +1,7 @@
 use chrono::{DateTime, Utc};
+use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
-
-use super::ids::InternalId;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct EventLog {

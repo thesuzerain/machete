@@ -1,15 +1,15 @@
-use std::collections::HashMap;
 use crate::{
     ui_models::{events::EventTypeDisplayWrapper, DisplayFields},
     widgets::hidden_combo_box::HiddenComboBox,
 };
+use egui::{CollapsingHeader, ComboBox, RichText, Ui};
+use itertools::Itertools;
 use machete::models::{
     campaign::Campaign,
     events::{Event, EventGroup, EventLog},
-    ids::InternalId,
 };
-use egui::{CollapsingHeader, ComboBox, RichText, Ui};
-use itertools::Itertools;
+use machete_core::ids::InternalId;
+use std::collections::HashMap;
 
 /// Display a list of all events in the log.
 pub struct LogDisplay {

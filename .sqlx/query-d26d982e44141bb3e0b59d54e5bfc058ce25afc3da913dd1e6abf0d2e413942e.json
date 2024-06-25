@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            name,\n            game_system,\n            rarity,\n            level,\n            price,\n            GROUP_CONCAT(tag) AS tags\n        FROM library_objects lo\n        INNER JOIN library_items li ON lo.id = li.id\n        INNER JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n        INNER JOIN tags t ON lot.tag_id = t.id\n        GROUP BY lo.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "game_system",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "rarity",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "level",
+        "ordinal": 3,
+        "type_info": "Int64"
+      },
+      {
+        "name": "price",
+        "ordinal": 4,
+        "type_info": "Int64"
+      },
+      {
+        "name": "tags",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "d26d982e44141bb3e0b59d54e5bfc058ce25afc3da913dd1e6abf0d2e413942e"
+}

@@ -1,7 +1,7 @@
+use crate::{app::StateContext, update_context::UpdateWithContext};
 use event_group_creator::EventGroupCreator;
 use log::LogDisplay;
 use machete::models::campaign::Campaign;
-use crate::{app::StateContext, update_context::UpdateWithContext};
 
 pub mod event_group_creator;
 pub mod log;
