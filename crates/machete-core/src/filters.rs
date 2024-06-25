@@ -4,6 +4,8 @@ use crate::ids::InternalId;
 
 /// A filter over structure fields.
 /// For example: "Name contains 'Bob'" or "Level is greater than 5".
+/// TODO: This may not be the best way to represent filters. We use a 'CreatureFilters' struct later- that might be more coherent to just use that all the way.
+/// TODO: I think we will need macros no matter what though.
 #[derive(Debug, Clone)]
 pub struct Filter<F: FilterableStruct> {
     /// Unique identifier for this filter.
