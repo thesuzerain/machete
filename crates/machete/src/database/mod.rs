@@ -1,8 +1,7 @@
 use std::future::Future;
 
+use machete_core::filters::{Filter, FilterableStruct};
 use sqlx::SqlitePool;
-
-use crate::filters::filter::{Filter, FilterableStruct};
 
 pub mod creatures;
 pub mod events;

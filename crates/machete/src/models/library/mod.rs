@@ -1,6 +1,6 @@
-use super::ids::InternalId;
 use creature::LibraryCreature;
 use item::LibraryItem;
+use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
 use spell::LibrarySpell;
 use std::{collections::HashMap, str::FromStr};

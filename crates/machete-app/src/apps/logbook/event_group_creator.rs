@@ -9,8 +9,8 @@ use itertools::Itertools;
 use machete::models::{
     campaign::Campaign,
     events::{Event, EventGroup, EventType},
-    ids::InternalId,
 };
+use machete_core::ids::InternalId;
 
 use super::log::LogDisplayUiContext;
 

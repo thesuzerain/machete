@@ -1,16 +1,21 @@
 use std::str::FromStr;
 
-use crate::filters::filter::{Filter, FilterType};
-
 use super::{GameSystem, Rarity};
+use machete_core::filters::{Filter, FilterType};
+use machete_macros::Filterable;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Filterable)]
 pub struct LibrarySpell {
+    #[filter(default, string)]
     pub name: String,
+    #[filter(iter(GameSystem))]
     pub game_system: GameSystem,
+    #[filter(iter(Rarity))]
     pub rarity: Rarity,
+    #[filter(number)]
     pub rank: u8,
+    #[filter(string)]
     pub tags: Vec<String>,
 }
 
@@ -25,13 +30,15 @@ pub struct SpellFilters {
 }
 
 // TODO: mov e these
-impl Filter<LibrarySpell> {
+impl TryFrom<Filter<LibrarySpell>> for SpellFilters {
+    type Error = String;
+
     // todo: should these be returning result instead?
     // TODO: &self or self?
-    pub fn to_spell_filter(self) -> Option<SpellFilters> {
+    fn try_from(value: Filter<LibrarySpell>) -> Result<SpellFilters, Self::Error> {
         let mut creature_filters = SpellFilters::default();
-        if self.field == "rank" {
-            match self.filter_type {
+        if value.field == "rank" {
+            match value.filter_type {
                 FilterType::GreaterThan(value) => {
                     creature_filters.min_rank = Some(value as u8);
                 }
@@ -44,38 +51,38 @@ impl Filter<LibrarySpell> {
                 }
                 _ => {}
             }
-        } else if self.field == "name" {
-            match self.filter_type {
+        } else if value.field == "name" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.name = Some(value);
                 }
                 _ => {}
             }
-        } else if self.field == "rarity" {
-            match self.filter_type {
+        } else if value.field == "rarity" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.rarity = Some(Rarity::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "game_system" {
-            match self.filter_type {
+        } else if value.field == "game_system" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.game_system = Some(GameSystem::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "tags" {
-            match self.filter_type {
+        } else if value.field == "tags" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.tags.push(value);
                 }
                 _ => {}
             }
         } else {
-            return None;
+            return Err(format!("Invalid field: {}", value.field));
         }
-        Some(creature_filters)
+        Ok(creature_filters)
     }
 }
 // TODO: doesn't work for duplicate Some values

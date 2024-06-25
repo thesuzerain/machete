@@ -6,9 +6,9 @@ use filter::FilterDisplay;
 use itertools::Itertools;
 use machete::{
     database::QueryableStruct,
-    filters::filter::{Filter, FilterableStruct},
     models::library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell},
 };
+use machete_core::filters::{Filter, FilterableStruct};
 
 pub mod display;
 pub mod filter;
@@ -113,6 +113,12 @@ pub struct FilteredLibrary<T: FilterableStruct + QueryableStruct + std::fmt::Deb
     values: Vec<T>,
 }
 
+impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> Default for FilteredLibrary<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> FilteredLibrary<T> {
     pub fn new() -> Self {
         let default_filters = vec![T::create_default_filter()];
@@ -131,7 +137,7 @@ impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> FilteredLibrary<T>
 
     /// Get the list of all items filtered from the library.
     /// TODO: Rename to 'ids'?
-    pub fn items<'a>(&self) -> &Vec<T> {
+    pub fn items(&self) -> &Vec<T> {
         // TODO: Is there a faster way to do this?
         &self.values
     }

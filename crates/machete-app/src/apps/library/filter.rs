@@ -1,5 +1,6 @@
 use egui::Ui;
-use machete::{database::QueryableStruct, filters::filter::FilterableStruct};
+use machete::database::QueryableStruct;
+use machete_core::filters::FilterableStruct;
 
 use crate::ui_models::{filters::DisplayableStruct, DisplayFields};
 

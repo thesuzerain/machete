@@ -7,8 +7,8 @@ use itertools::Itertools;
 use machete::models::{
     campaign::Campaign,
     events::{Event, EventGroup, EventLog},
-    ids::InternalId,
 };
+use machete_core::ids::InternalId;
 use std::collections::HashMap;
 
 /// Display a list of all events in the log.

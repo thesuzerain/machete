@@ -2,7 +2,9 @@
 resolver = "2"
 members = [
     "crates/machete",
-    "crates/machete-app"
+    "crates/machete-app",
+    "crates/machete-core",
+    "crates/machete-macros",
 ]
 default-members = [
     "crates/machete-app"

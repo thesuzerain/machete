@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use machete_core::filters::Filter;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::{
-    filters::filter::Filter,
     models::library::{
         item::{Currency, ItemFilters, LibraryItem},
         GameSystem, Rarity,
@@ -221,14 +221,16 @@ impl ItemFilters {
 }
 
 impl QueryableStruct for LibraryItem {
+    // TODO: bundle with macro?
     async fn query_get<'a>(
         exec: impl sqlx::Executor<'a, Database = sqlx::Sqlite>,
         filters: &Vec<Filter<LibraryItem>>,
     ) -> crate::Result<Vec<LibraryItem>> {
         let mut item_filters = ItemFilters::default();
         for filter in filters {
+            // TODO: clone
             let filter = filter.clone();
-            if let Some(filter) = filter.to_item_filter() {
+            if let Ok(filter) = ItemFilters::try_from(filter) {
                 item_filters = item_filters.merge(filter);
             }
         }

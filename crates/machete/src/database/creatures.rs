@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use machete_core::filters::Filter;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::{
-    filters::filter::Filter,
     models::library::{
         creature::{Alignment, CreatureFilters, LibraryCreature, Size},
         GameSystem, Rarity,
@@ -235,7 +235,7 @@ impl QueryableStruct for LibraryCreature {
             let filter = (*filter).clone();
             // TODO: include with macro...? or at least better functions?
             // todo: remove clone
-            if let Some(cf) = filter.to_creature_filter() {
+            if let Ok(cf) = CreatureFilters::try_from(filter) {
                 creature_filters = creature_filters.merge(cf);
             }
         }

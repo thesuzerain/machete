@@ -1,17 +1,22 @@
+use super::{GameSystem, Rarity};
+use machete_core::filters::{Filter, FilterType};
+use machete_macros::Filterable;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-use crate::filters::filter::{Filter, FilterType};
-
-use super::{GameSystem, Rarity};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Filterable)]
 pub struct LibraryItem {
+    #[filter(default, string)]
     pub name: String,
+    #[filter(iter(GameSystem))]
     pub game_system: GameSystem,
+    #[filter(iter(Rarity))]
     pub rarity: Rarity,
+    #[filter(number)]
     pub level: i8,
+    #[filter(string)]
     pub tags: Vec<String>,
+    #[filter(number)]
     pub price: Currency,
 }
 
@@ -27,13 +32,14 @@ pub struct ItemFilters {
     pub tags: Vec<String>,
 }
 
-impl Filter<LibraryItem> {
-    // todo: should these be returning result instead?
-    // TODO: &self or self?
-    pub fn to_item_filter(self) -> Option<ItemFilters> {
+// TODO: bundle with macro?
+impl TryFrom<Filter<LibraryItem>> for ItemFilters {
+    type Error = String;
+
+    fn try_from(value: Filter<LibraryItem>) -> Result<Self, Self::Error> {
         let mut creature_filters = ItemFilters::default();
-        if self.field == "level" {
-            match self.filter_type {
+        if value.field == "level" {
+            match value.filter_type {
                 FilterType::GreaterThan(value) => {
                     creature_filters.min_level = Some(value as i8);
                 }
@@ -46,36 +52,36 @@ impl Filter<LibraryItem> {
                 }
                 _ => {}
             }
-        } else if self.field == "name" {
-            match self.filter_type {
+        } else if value.field == "name" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.name = Some(value);
                 }
                 _ => {}
             }
-        } else if self.field == "rarity" {
-            match self.filter_type {
+        } else if value.field == "rarity" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.rarity = Some(Rarity::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "game_system" {
-            match self.filter_type {
+        } else if value.field == "game_system" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.game_system = Some(GameSystem::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "tags" {
-            match self.filter_type {
+        } else if value.field == "tags" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.tags.push(value);
                 }
                 _ => {}
             }
-        } else if self.field == "price" {
-            match self.filter_type {
+        } else if value.field == "price" {
+            match value.filter_type {
                 FilterType::GreaterThan(value) => {
                     creature_filters.min_price = Some(value as i32);
                 }
@@ -89,11 +95,12 @@ impl Filter<LibraryItem> {
                 _ => {}
             }
         } else {
-            return None;
+            return Err(format!("Invalid field: {}", value.field));
         }
-        Some(creature_filters)
+        Ok(creature_filters)
     }
 }
+
 // TODO: doesn't work for duplicate Some values
 impl ItemFilters {
     pub fn merge(self, other: Self) -> Self {

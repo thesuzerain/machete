@@ -1,5 +1,5 @@
 use egui::{ComboBox, Ui};
-use machete::filters::filter::{Filter, FilterType, FilterableStruct};
+use machete_core::filters::{Filter, FilterType, FilterableStruct};
 
 use super::DisplayFields;
 

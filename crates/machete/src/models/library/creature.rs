@@ -1,20 +1,27 @@
 use std::str::FromStr;
 
-use crate::filters::filter::{Filter, FilterType};
-
 use super::{GameSystem, Rarity};
+use machete_core::filters::{Filter, FilterType};
+use machete_macros::Filterable;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Filterable)]
 pub struct LibraryCreature {
     // TODO: Should these be modularized? (Same as LibraryItem)
+    #[filter(default, string)]
     pub name: String,
+    #[filter(iter(GameSystem))]
     pub game_system: GameSystem,
+    #[filter(iter(Rarity))]
     pub rarity: Rarity,
+    #[filter(number)]
     pub level: i8,
+    #[filter(string)]
     pub tags: Vec<String>,
 
+    #[filter(iter(Alignment))]
     pub alignment: Alignment,
+    #[filter(iter(Size))]
     pub size: Size,
 }
 
@@ -33,13 +40,15 @@ pub struct CreatureFilters {
 }
 
 // TODO: mov e these
-impl Filter<LibraryCreature> {
+impl TryFrom<Filter<LibraryCreature>> for CreatureFilters {
+    type Error = String;
+
     // todo: should these be returning result instead?
     // TODO: &self or self?
-    pub fn to_creature_filter(self) -> Option<CreatureFilters> {
+    fn try_from(value: Filter<LibraryCreature>) -> Result<CreatureFilters, Self::Error> {
         let mut creature_filters = CreatureFilters::default();
-        if self.field == "level" {
-            match self.filter_type {
+        if value.field == "level" {
+            match value.filter_type {
                 FilterType::GreaterThan(value) => {
                     creature_filters.min_level = Some(value as i8);
                 }
@@ -52,52 +61,52 @@ impl Filter<LibraryCreature> {
                 }
                 _ => {}
             }
-        } else if self.field == "name" {
-            match self.filter_type {
+        } else if value.field == "name" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.name = Some(value);
                 }
                 _ => {}
             }
-        } else if self.field == "rarity" {
-            match self.filter_type {
+        } else if value.field == "rarity" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.rarity = Some(Rarity::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "game_system" {
-            match self.filter_type {
+        } else if value.field == "game_system" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.game_system = Some(GameSystem::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "alignment" {
-            match self.filter_type {
+        } else if value.field == "alignment" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.alignment = Some(Alignment::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "size" {
-            match self.filter_type {
+        } else if value.field == "size" {
+            match value.filter_type {
                 FilterType::EqualToChoice(value) => {
                     creature_filters.size = Some(Size::from_str(&value).unwrap());
                 }
                 _ => {}
             }
-        } else if self.field == "tags" {
-            match self.filter_type {
+        } else if value.field == "tags" {
+            match value.filter_type {
                 FilterType::Contains(value) => {
                     creature_filters.tags.push(value);
                 }
                 _ => {}
             }
         } else {
-            return None;
+            return Err(format!("Invalid field: {}", value.field));
         }
-        Some(creature_filters)
+        Ok(creature_filters)
     }
 }
 // TODO: doesn't work for duplicate Some values

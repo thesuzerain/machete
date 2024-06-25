@@ -2,7 +2,6 @@ use thiserror::Error;
 
 // TODO: move
 pub mod database;
-pub mod filters;
 pub mod models;
 
 pub type Result<T> = std::result::Result<T, MacheteError>;

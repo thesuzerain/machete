@@ -1,6 +1,6 @@
 use egui::Ui;
 use itertools::Itertools;
-use machete::filters::filter::FilterableStruct;
+use machete_core::filters::FilterableStruct;
 
 use crate::ui_models::filters::DisplayableStruct;
 

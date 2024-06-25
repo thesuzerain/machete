@@ -1,8 +1,6 @@
-use crate::models::{ids::InternalId, library::Library};
-use std::{
-    collections::HashMap,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
+
+use crate::ids::InternalId;
 
 /// A filter over structure fields.
 /// For example: "Name contains 'Bob'" or "Level is greater than 5".
@@ -36,14 +34,14 @@ where
     /// These are returned as strings for display purposes.
     fn iter_fields() -> Vec<&'static str>;
 
-    fn iter_filter_variants_for_field(field: &str) -> Option<Vec<String>>;
-
-    // todo: comment
+    /// Iterate over the possible filter types for a field.
+    /// For example, if the field is "level", this would return a list of all possible filters for level.
     fn iter_filter_types_for_field(field: &str) -> Option<Vec<FilterType>>;
 
-    /// Gets all items that can be filtered on from a Library.
-    /// TODO: May make the macro difficult.
-    fn items(library: &Library) -> &HashMap<InternalId, Self>;
+    /// Iterate over the possible filter variants for a variant field.
+    /// For example, if the field is "rarity", this would return a list of all possible rarities.
+    /// These must correspond to the iterable fields in the struct, and are only where a EqualToChoice filter is used.
+    fn iter_filter_variants_for_field(field: &str) -> Option<Vec<String>>;
 }
 
 impl<F: FilterableStruct> Hash for Filter<F> {
@@ -59,10 +57,11 @@ impl<F: FilterableStruct> Hash for Filter<F> {
 pub enum FilterType {
     GreaterThan(f32),
     LessThan(f32),
+    /// Whether a number is equal to a given number.
     EqualToNumber(f32),
-    // todo: comment. also make exclusive with equaltonumber?
-    // TODO: maybe just use equaltonumber and use integer codes instead?
-    // todo: This needs fromstr whichi s gross
+    /// Whether a variant matches a specific choice.
+    // TODO: This might be better to use integers as variant codes and combine with EqualToNumber.
+    // TODO: Or, even better, find a way to use variants directly (Box<> wasn't working initially.)
     EqualToChoice(String),
     Contains(String),
 }
@@ -105,5 +104,4 @@ impl FilterType {
             FilterType::Contains(_) => "Contains",
         }
     }
-    // TODO: maybe also do iter_number_filters style thing here?
 }

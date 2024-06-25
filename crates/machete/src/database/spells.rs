@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use machete_core::filters::Filter;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::{
-    filters::filter::Filter,
     models::library::{
         spell::{LibrarySpell, SpellFilters},
         GameSystem, Rarity,
@@ -216,7 +216,7 @@ impl QueryableStruct for LibrarySpell {
         let mut spell_filters = SpellFilters::default();
         for filter in filters {
             let filter = filter.clone();
-            if let Some(filter) = filter.to_spell_filter() {
+            if let Ok(filter) = SpellFilters::try_from(filter) {
                 spell_filters = filter.merge(spell_filters);
             }
         }

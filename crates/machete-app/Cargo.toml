@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 machete = { path = "../machete" }
+machete-core = { path = "../machete-core" }
 
 tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 
