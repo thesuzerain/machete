@@ -1,7 +1,8 @@
 use egui::Ui;
 use itertools::Itertools;
+use machete_core::filters::FilterableStruct;
 
-use crate::ui_models::filters::FilterableStruct;
+use crate::ui_models::filters::DisplayableStruct;
 
 /// Display a list of all items  in the library.
 pub struct LibraryDisplay {}
@@ -12,7 +13,11 @@ impl LibraryDisplay {
         LibraryDisplay {}
     }
 
-    pub fn ui<T: FilterableStruct>(&mut self, ui: &mut Ui, filtered_library_items: &[&T]) {
+    pub fn ui<T: FilterableStruct + DisplayableStruct>(
+        &mut self,
+        ui: &mut Ui,
+        filtered_library_items: &[&T],
+    ) {
         ui.label("Library:");
 
         // Define table for display

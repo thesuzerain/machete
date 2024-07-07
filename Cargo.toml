@@ -2,7 +2,9 @@
 resolver = "2"
 members = [
     "crates/machete",
-    "crates/machete-app"
+    "crates/machete-app",
+    "crates/machete-core",
+    "crates/machete-macros",
 ]
 default-members = [
     "crates/machete-app"
@@ -26,9 +28,21 @@ itertools = "0.13.0"
 
 # TODO: tracing
 log = { version = "0.4", features = ["std"] }
+thiserror = "1.0.61"
+dotenvy = "0.15.7"
 
 regex = "1.10.4"
 lazy_static = "1.4.0"
+
+tokio = { version = "1.35.1", features = ["sync", "macros", "rt"] }
+sqlx = { version = "0.7.3", features = [
+    "runtime-tokio-rustls",
+    "sqlite",
+    "chrono",
+    "macros",
+    "migrate",
+    "json",
+] }
 
 # feature "http":
 ehttp = { version = "0.5" }

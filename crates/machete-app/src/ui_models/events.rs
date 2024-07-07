@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-use egui::{Ui, Widget};
 use crate::{
-    apps::logbook::event_group_creator::EventGroupTemplate, utils::SelectableOption, widgets::restricted_text_edit::RestrictedTextEdit
+    apps::logbook::event_group_creator::EventGroupTemplate, utils::SelectableOption,
+    widgets::restricted_text_edit::RestrictedTextEdit,
 };
-use machete::models::{events::EventType, ids::InternalId};
+use egui::{Ui, Widget};
+use machete::models::events::EventType;
+use machete_core::ids::InternalId;
+use std::collections::HashMap;
 
 use super::DisplayFields;
 

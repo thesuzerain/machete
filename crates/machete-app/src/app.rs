@@ -43,7 +43,9 @@ impl MainApp {
         let mut slf = Self {
             state: State {
                 logbook: LogbookApp::start(&campaign),
-                library: LibraryApp::start(&library),
+                library: LibraryApp::start(),
+                // todo: is passing this necessary?
+                // todo: is any of this library loading needed at all  here?
                 context: StateContext { campaign, library },
                 summary: SummaryApp::default(),
                 settings_panel: SettingsPanel::default(),

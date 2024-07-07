@@ -3,14 +3,14 @@ use crate::{
     utils::SelectableOption,
     widgets::restricted_text_edit::RestrictedTextEdit,
 };
-use machete::models::{
-    campaign::Campaign,
-    events::{Event, EventGroup, EventType},
-    ids::InternalId,
-};
 use chrono::{DateTime, Utc};
 use egui::{ahash::HashMap, Color32, ComboBox, Ui, Widget};
 use itertools::Itertools;
+use machete::models::{
+    campaign::Campaign,
+    events::{Event, EventGroup, EventType},
+};
+use machete_core::ids::InternalId;
 
 use super::log::LogDisplayUiContext;
 
