@@ -172,6 +172,7 @@ impl Alignment {
     }
 
     // TODO: macro Serializer_repr
+    // TODO: i32 for postgres? alongside these other ones that are like that
     pub fn as_i64(&self) -> i64 {
         match self {
             Alignment::LawfulGood => 0,

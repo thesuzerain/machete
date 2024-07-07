@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO library_objects (name, game_system)\n        SELECT * FROM UNNEST ($1::text[], $2::int[])  \n        RETURNING id  \n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4a30ee01383dd61cc4034f888cc85cd4dc1b1df8010c4d6cb976f569be921cfb"
+}

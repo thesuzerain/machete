@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO tags (tag)\n        SELECT * FROM UNNEST ($1::text[])\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32bd8931da95bf43d917bf8320d6b7dcc0e5fff87bc2b5e2b6ed524c321a2736"
+}
