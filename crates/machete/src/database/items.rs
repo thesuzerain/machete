@@ -27,21 +27,21 @@ pub async fn get_items(
             li.rarity,
             li.level,
             li.price,
-            ARRAY_AGG(tag) AS tags
+            ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
         FROM library_objects lo
         INNER JOIN library_items li ON lo.id = li.id
         LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
         LEFT JOIN tags t ON lot.tag_id = t.id
 
         WHERE
-            ($1::text IS NULL OR lo.name LIKE '%' || $1 || '%')
+            ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
             AND ($2::int IS NULL OR rarity = $2)
             AND ($3::int IS NULL OR game_system = $3)
             AND ($4::int IS NULL OR level >= $4)
             AND ($5::int IS NULL OR level <= $5)
             AND ($6::int IS NULL OR price >= $6)
             AND ($7::int IS NULL OR price <= $7)
-            AND ($8::text IS NULL OR tag LIKE '%' || $8 || '%')
+            AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
         
         GROUP BY lo.id, li.id ORDER BY lo.name
     "#,
