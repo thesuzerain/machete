@@ -3,6 +3,10 @@ name = "machete-server"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "machete-server"
+path = "src/main.rs"
+
 [dependencies]
 machete = { path = "../machete" }
 machete-core = { path = "../machete-core" }
