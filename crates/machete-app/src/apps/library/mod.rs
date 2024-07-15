@@ -1,7 +1,11 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::Arc,
+};
 
 use crate::{app::StateContext, update_context::UpdateWithContext};
 use display::LibraryDisplay;
+use egui::mutex::RwLock;
 use filter::FilterDisplay;
 use itertools::Itertools;
 use machete::{
@@ -9,7 +13,6 @@ use machete::{
     models::library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell},
 };
 use machete_core::filters::{Filter, FilterableStruct};
-
 pub mod display;
 pub mod filter;
 
@@ -56,9 +59,10 @@ impl UpdateWithContext for LibraryApp {
         _context: &mut StateContext,
     ) {
         // TODO: remove  clones here- beter system for this
-        let filtered_items = self.filtered_library_items.items().clone();
-        let filtered_creatures = self.filtered_library_creatures.items().clone();
-        let filtered_spells = self.filtered_library_spells.items().clone();
+        // TODO: may be better to use tokio async RwLock here
+        let filtered_items = self.filtered_library_items.values.read().clone();
+        let filtered_creatures = self.filtered_library_creatures.values.read().clone();
+        let filtered_spells = self.filtered_library_spells.values.read().clone();
 
         egui::TopBottomPanel::top("Collection").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -105,21 +109,31 @@ impl UpdateWithContext for LibraryApp {
 /// This assumes that the library's id-to-item mapping will not change.
 // TODO: Simplify traits
 // TODO: remove deubg
-pub struct FilteredLibrary<T: FilterableStruct + QueryableStruct + std::fmt::Debug> {
+pub struct FilteredLibrary<
+    T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+> {
     // TODO: Is there a better pattern for this?
     filters: Vec<Filter<T>>,
     // TODO: is there a better way to remember filter updates?
-    filters_hash: u64,
-    values: Vec<T>,
+    filters_hash: Arc<u64>,
+    // TODO: It might be better for this to be a tokio RwLock rather than an egui one to use async/await
+    values: Arc<RwLock<Vec<T>>>,
 }
 
-impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> Default for FilteredLibrary<T> {
+impl<
+        T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+    > Default for FilteredLibrary<T>
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> FilteredLibrary<T> {
+// TODO: simplify this type T
+impl<
+        T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+    > FilteredLibrary<T>
+{
     pub fn new() -> Self {
         let default_filters = vec![T::create_default_filter()];
         let default_filters_hash = {
@@ -129,46 +143,51 @@ impl<T: FilterableStruct + QueryableStruct + std::fmt::Debug> FilteredLibrary<T>
         };
         FilteredLibrary {
             filters: vec![T::create_default_filter()],
-            filters_hash: default_filters_hash,
+            filters_hash: Arc::new(default_filters_hash),
             // TODO: initialize with data
-            values: vec![],
+            values: Arc::new(RwLock::new(vec![])),
         }
     }
 
-    /// Get the list of all items filtered from the library.
-    /// TODO: Rename to 'ids'?
-    pub fn items(&self) -> &Vec<T> {
-        // TODO: Is there a faster way to do this?
-        &self.values
-    }
-
     /// Apply a closure to the filters, then recalculate the filtered table.
-    pub fn apply_to_filters_mut(&mut self, closure: impl FnOnce(&mut Vec<Filter<T>>)) {
+    pub fn apply_to_filters_mut(
+        &mut self,
+        closure: impl FnOnce(&mut Vec<Filter<T>>),
+        ctx: egui::Context,
+    ) {
         closure(&mut self.filters);
-        self.recalculate_filtered_table();
+        self.recalculate_filtered_table(ctx);
     }
 
     /// Recalculate the filtered table based on the current filters.
-    fn recalculate_filtered_table(&mut self) {
+    /// Spawns a new thread to query the database and update the values.
+    /// If multiple calls are made to this function before the query is complete, only the one with the 'latest' filters will be used.
+    /// (By checking the hash of the filters.)
+    fn recalculate_filtered_table(&mut self, ctx: egui::Context) {
         // Hash the filters to see if they have changed.
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.filters.hash(&mut hasher);
         let new_hash = hasher.finish();
-        if new_hash == self.filters_hash {
+        if new_hash == *self.filters_hash {
             return;
         }
-        self.filters_hash = new_hash;
+        self.filters_hash = Arc::new(new_hash);
 
-        // TODO: get this connection elsewhere and reuse it
-        // TODO better tokio async- not a blocking thread
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let values_clone = self.values.clone();
+        let filters_hash_clone = self.filters_hash.clone();
+        let filters_clone = self.filters.clone(); // TODO: no clone here? maybe just move?
+        tokio::spawn(async move {
+            let filters_clone = filters_clone.clone();
+            let pool = machete::database::get_database_pool().await;
+            let values = T::query_get(pool, &filters_clone).await.unwrap();
 
-        rt.block_on(async {
-            let pool = machete::database::connect().await.unwrap();
-            self.values = T::query_get(&pool, &self.filters).await.unwrap();
+            let mut values_clone = values_clone.write();
+
+            // Only write to the values if the filters have not changed since the query was made.
+            if *filters_hash_clone == new_hash {
+                values_clone.clone_from(&values);
+                ctx.request_repaint();
+            }
         });
     }
 }

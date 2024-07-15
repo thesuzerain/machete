@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
+use super::QueryableStruct;
 use crate::models::library::{
     spell::{LibrarySpell, SpellFilters},
     GameSystem, Rarity,
 };
 use machete_core::filters::Filter;
-
-use super::QueryableStruct;
+use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
@@ -136,8 +134,8 @@ pub async fn insert_spells(
 }
 
 impl QueryableStruct for LibrarySpell {
-    async fn query_get<'a>(
-        exec: impl sqlx::Executor<'a, Database = sqlx::Postgres>,
+    async fn query_get(
+        pool: sqlx::PgPool,
         filters: &Vec<Filter<LibrarySpell>>,
     ) -> crate::Result<Vec<LibrarySpell>> {
         let mut spell_filters = SpellFilters::default();
@@ -147,6 +145,6 @@ impl QueryableStruct for LibrarySpell {
                 spell_filters = filter.merge(spell_filters);
             }
         }
-        get_spells(exec, &spell_filters).await
+        get_spells(&pool, &spell_filters).await
     }
 }

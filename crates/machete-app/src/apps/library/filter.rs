@@ -17,32 +17,43 @@ impl FilterDisplay {
     // TODO: Are these traits combinable? Should they be?
     // TODO: fix these traits
     // TODO: remove debug
-    pub fn ui<T: FilterableStruct + DisplayableStruct + QueryableStruct + std::fmt::Debug>(
+    pub fn ui<
+        T: FilterableStruct
+            + DisplayableStruct
+            + QueryableStruct
+            + std::fmt::Debug
+            + Send
+            + std::marker::Sync,
+    >(
         &mut self,
         ui: &mut Ui,
         filters: &mut FilteredLibrary<T>,
     ) {
         ui.label("Filters:");
+        let context = ui.ctx().clone();
 
         let mut remove = None;
-        filters.apply_to_filters_mut(|filters| {
-            for filter in filters.iter_mut() {
-                ui.horizontal(|ui| {
-                    filter.display_fields(ui);
+        filters.apply_to_filters_mut(
+            |filters| {
+                for filter in filters.iter_mut() {
+                    ui.horizontal(|ui| {
+                        filter.display_fields(ui);
 
-                    if ui.button("Remove").clicked() {
-                        remove = Some(filter.id);
-                    }
-                });
-            }
+                        if ui.button("Remove").clicked() {
+                            remove = Some(filter.id);
+                        }
+                    });
+                }
 
-            if let Some(id) = remove {
-                filters.retain(|filter| filter.id != id);
-            }
+                if let Some(id) = remove {
+                    filters.retain(|filter| filter.id != id);
+                }
 
-            if ui.button("Add filter").clicked() {
-                filters.push(T::create_default_filter());
-            }
-        });
+                if ui.button("Add filter").clicked() {
+                    filters.push(T::create_default_filter());
+                }
+            },
+            context,
+        );
     }
 }

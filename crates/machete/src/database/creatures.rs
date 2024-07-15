@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
+use super::QueryableStruct;
 use crate::models::library::{
     creature::{Alignment, CreatureFilters, LibraryCreature, Size},
     GameSystem, Rarity,
 };
 use machete_core::filters::Filter;
-
-use super::QueryableStruct;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
@@ -158,8 +157,8 @@ pub async fn insert_creatures(
 }
 
 impl QueryableStruct for LibraryCreature {
-    async fn query_get<'a>(
-        exec: impl sqlx::Executor<'a, Database = sqlx::Postgres>,
+    async fn query_get(
+        pool: sqlx::Pool<sqlx::Postgres>,
         filters: &Vec<Filter<LibraryCreature>>,
     ) -> crate::Result<Vec<LibraryCreature>> {
         let mut creature_filters = CreatureFilters::default();
@@ -172,6 +171,6 @@ impl QueryableStruct for LibraryCreature {
             }
         }
 
-        get_creatures(exec, &creature_filters).await
+        get_creatures(&pool, &creature_filters).await
     }
 }

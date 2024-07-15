@@ -27,6 +27,9 @@ log = { workspace = true, features = ["std"] }
 regex = { workspace = true }
 lazy_static = { workspace = true}
 
+# TODO: remove this from machete-app
+sqlx = {workspace = true}
+
 # feature "http":
 ehttp = { workspace = true, optional = true }
 image = { workspace = true, optional = true, features = ["jpeg", "png"] }

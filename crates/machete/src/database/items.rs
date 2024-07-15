@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
+use super::QueryableStruct;
 use crate::models::library::{
     item::{Currency, ItemFilters, LibraryItem},
     GameSystem, Rarity,
 };
 use machete_core::filters::Filter;
-
-use super::QueryableStruct;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_items(
@@ -150,8 +149,8 @@ pub async fn insert_items(
 
 impl QueryableStruct for LibraryItem {
     // TODO: bundle with macro?
-    async fn query_get<'a>(
-        exec: impl sqlx::Executor<'a, Database = sqlx::Postgres>,
+    async fn query_get(
+        pool: sqlx::PgPool,
         filters: &Vec<Filter<LibraryItem>>,
     ) -> crate::Result<Vec<LibraryItem>> {
         let mut item_filters = ItemFilters::default();
@@ -163,6 +162,6 @@ impl QueryableStruct for LibraryItem {
             }
         }
 
-        get_items(exec, &item_filters).await
+        get_items(&pool, &item_filters).await
     }
 }
