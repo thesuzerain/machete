@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
-use super::QueryableStruct;
-use crate::models::library::{
+use machete::models::library::{
     creature::{Alignment, CreatureFilters, LibraryCreature, Size},
     GameSystem, Rarity,
 };
-use machete_core::filters::Filter;
+use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
@@ -26,21 +23,21 @@ pub async fn get_creatures(
             level,
             alignment,
             size,
-            ARRAY_AGG(tag) AS tags
+            ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
         FROM library_objects lo
         INNER JOIN library_creatures lc ON lo.id = lc.id
         LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
         LEFT JOIN tags t ON lot.tag_id = t.id
 
         WHERE 
-            ($1::text IS NULL OR lo.name LIKE '%' || $1 || '%')
+            ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
             AND ($2::int IS NULL OR rarity = $2)
             AND ($3::int IS NULL OR game_system = $3)
             AND ($4::int IS NULL OR level >= $4)
             AND ($5::int IS NULL OR level <= $5)
             AND ($6::int IS NULL OR alignment = $6)
             AND ($7::int IS NULL OR size = $7)
-            AND ($8::text IS NULL OR tag LIKE '%' || $8 || '%')
+            AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
         
         GROUP BY lo.id, lc.id ORDER BY lo.name
     "#,
@@ -154,23 +151,4 @@ pub async fn insert_creatures(
     }
 
     Ok(())
-}
-
-impl QueryableStruct for LibraryCreature {
-    async fn query_get(
-        pool: sqlx::Pool<sqlx::Postgres>,
-        filters: &Vec<Filter<LibraryCreature>>,
-    ) -> crate::Result<Vec<LibraryCreature>> {
-        let mut creature_filters = CreatureFilters::default();
-        for filter in filters {
-            let filter = (*filter).clone();
-            // TODO: include with macro...? or at least better functions?
-            // todo: remove clone
-            if let Ok(cf) = CreatureFilters::try_from(filter) {
-                creature_filters = creature_filters.merge(cf);
-            }
-        }
-
-        get_creatures(&pool, &creature_filters).await
-    }
 }

@@ -5,6 +5,7 @@ members = [
     "crates/machete-app",
     "crates/machete-core",
     "crates/machete-macros",
+    "crates/machete-server"
 ]
 default-members = [
     "crates/machete-app"
@@ -35,6 +36,7 @@ regex = "1.10.4"
 lazy_static = "1.4.0"
 
 tokio = { version = "1.35.1", features = ["sync", "macros", "rt"] }
+
 sqlx = { version = "0.7.3", features = [
     "runtime-tokio-rustls",
     "postgres",
@@ -43,6 +45,7 @@ sqlx = { version = "0.7.3", features = [
     "migrate",
     "json",
 ] }
+axum = "0.7.5"
 
 # feature "http":
 ehttp = { version = "0.5" }

@@ -1,9 +1,7 @@
-use super::QueryableStruct;
-use crate::models::library::{
+use machete::models::library::{
     spell::{LibrarySpell, SpellFilters},
     GameSystem, Rarity,
 };
-use machete_core::filters::Filter;
 use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -23,19 +21,19 @@ pub async fn get_spells(
             lo.game_system,
             rarity,
             rank,
-            ARRAY_AGG(tag) AS tags
+            ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
         FROM library_objects lo
         INNER JOIN library_spells lc ON lo.id = lc.id
         LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
         LEFT JOIN tags t ON lot.tag_id = t.id
 
         WHERE 1=1
-            AND ($1::text IS NULL OR lo.name LIKE '%' || $1 || '%')
+            AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
             AND ($2::int IS NULL OR rarity = $2)
             AND ($3::int IS NULL OR game_system = $3)
             AND ($4::int IS NULL OR rank >= $4)
             AND ($5::int IS NULL OR rank <= $5)
-            AND ($6::text IS NULL OR tag LIKE '%' || $6 || '%')
+            AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
 
         GROUP BY lo.id, lc.id ORDER BY lo.name
     "#,
@@ -131,20 +129,4 @@ pub async fn insert_spells(
     }
 
     Ok(())
-}
-
-impl QueryableStruct for LibrarySpell {
-    async fn query_get(
-        pool: sqlx::PgPool,
-        filters: &Vec<Filter<LibrarySpell>>,
-    ) -> crate::Result<Vec<LibrarySpell>> {
-        let mut spell_filters = SpellFilters::default();
-        for filter in filters {
-            let filter = filter.clone();
-            if let Ok(filter) = SpellFilters::try_from(filter) {
-                spell_filters = filter.merge(spell_filters);
-            }
-        }
-        get_spells(&pool, &spell_filters).await
-    }
 }

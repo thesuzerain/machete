@@ -1,2 +1,2 @@
-machete_bg.wasm
-machete.js
+*.wasm
+*.js

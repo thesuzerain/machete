@@ -20,7 +20,7 @@ pub struct LibraryItem {
     pub price: Currency,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct ItemFilters {
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
@@ -29,6 +29,7 @@ pub struct ItemFilters {
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -115,13 +116,14 @@ impl ItemFilters {
             tags: self
                 .tags
                 .into_iter()
-                .chain(other.tags.into_iter())
+                .chain(other.tags)
                 .collect(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Default)]
 pub struct Currency {
     #[serde(default)]
     pub gold: u32,
@@ -161,12 +163,3 @@ impl Currency {
     }
 }
 
-impl Default for Currency {
-    fn default() -> Self {
-        Currency {
-            gold: 0,
-            silver: 0,
-            copper: 0,
-        }
-    }
-}
