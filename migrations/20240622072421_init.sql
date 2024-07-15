@@ -3,7 +3,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE library_objects (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    id SERIAL NOT NULL PRIMARY KEY,
     name VARCHAR(64) NOT NULL,
     game_system INT NOT NULL,
     owner BIGINT REFERENCES users
@@ -30,11 +30,11 @@ CREATE TABLE library_spells (
     rank INT
 );
 
+CREATE TABLE tags (
+    id SERIAL NOT NULL PRIMARY KEY,
+    tag VARCHAR(128) NOT NULL -- TODO: lower
+);
 CREATE TABLE library_objects_tags (
     library_object_id INTEGER REFERENCES library_objects,
     tag_id INT REFERENCES tags
-);
-CREATE TABLE tags (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    tag VARCHAR(8) NOT NULL
 );

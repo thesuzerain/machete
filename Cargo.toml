@@ -37,7 +37,7 @@ lazy_static = "1.4.0"
 tokio = { version = "1.35.1", features = ["sync", "macros", "rt"] }
 sqlx = { version = "0.7.3", features = [
     "runtime-tokio-rustls",
-    "sqlite",
+    "postgres",
     "chrono",
     "macros",
     "migrate",

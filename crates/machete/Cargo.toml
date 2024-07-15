@@ -22,5 +22,5 @@ dotenvy = { workspace = true }
 
 getrandom = {workspace = true, features = ["js"]}
 
-tokio = {workspace = true}
+tokio = {workspace = true, features = ["rt", "rt-multi-thread"]}
 sqlx = {workspace = true}

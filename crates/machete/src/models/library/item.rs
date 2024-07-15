@@ -20,7 +20,7 @@ pub struct LibraryItem {
     pub price: Currency,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ItemFilters {
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
