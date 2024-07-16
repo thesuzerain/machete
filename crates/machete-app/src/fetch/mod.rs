@@ -8,8 +8,10 @@ use machete_core::filters::{Filter, FilterableStruct};
 
 lazy_static::lazy_static! {
     static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
-    static ref SERVER_URL: String = dotenvy::var("SERVER_URL").expect("SERVER_URL must be set");
 }
+// TODO: Is there a coherent way to make this into an environment variable, given WASM?
+// WASI may be an option
+pub const SERVER_URL: &str = "http://localhost:4200";
 
 // TODO: Alternating use of ?Send or not may not be the correct way to handle this
 #[cfg_attr(feature = "offline", async_trait)]
@@ -32,11 +34,9 @@ impl FetchableStruct for LibraryItem {
             }
         }
 
-        println!("Server url: {}", *SERVER_URL);
-
         let query = serde_qs::to_string(&item_filters).unwrap();
         let result = reqwest::Client::new()
-            .get(format!("{}/items?{query}", *SERVER_URL).as_str())
+            .get(format!("{}/items?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?
@@ -61,7 +61,7 @@ impl FetchableStruct for LibrarySpell {
         }
         let query = serde_qs::to_string(&spell_filters).unwrap();
         let result = REQWEST_CLIENT
-            .get(format!("{}/spells?{query}", *SERVER_URL).as_str())
+            .get(format!("{}/spells?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?
@@ -87,7 +87,7 @@ impl FetchableStruct for LibraryCreature {
 
         let query = serde_qs::to_string(&creature_filters).unwrap();
         let result = REQWEST_CLIENT
-            .get(format!("{}/creatures?{query}", *SERVER_URL).as_str())
+            .get(format!("{}/creatures?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?
