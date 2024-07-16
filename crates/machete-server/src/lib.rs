@@ -25,10 +25,6 @@ pub async fn run_server() {
     let pool = database::connect().await.unwrap();
     log::info!("Connected to database");
 
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_origin(tower_http::cors::Any);
-
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
@@ -37,7 +33,7 @@ pub async fn run_server() {
         .route("/items", get(get_items))
         .route("/spells", get(get_spells))
         .with_state(pool)
-        .layer(ServiceBuilder::new().layer(cors));
+        .layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
 
     // run our app with hyper, listening globally on port 3000
     let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
