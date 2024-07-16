@@ -8,7 +8,7 @@ use machete_core::filters::{Filter, FilterableStruct};
 
 lazy_static::lazy_static! {
     static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
-    static ref SERVER_URL: String = dotenvy::var("SERVER_URL").unwrap_or("http://localhost:4200".to_string());
+    static ref SERVER_URL: String = dotenvy::var("SERVER_URL").expect("SERVER_URL must be set");
 }
 
 // TODO: Alternating use of ?Send or not may not be the correct way to handle this

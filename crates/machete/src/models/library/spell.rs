@@ -95,11 +95,7 @@ impl SpellFilters {
             name: self.name.or(other.name),
             rarity: self.rarity.or(other.rarity),
             game_system: self.game_system.or(other.game_system),
-            tags: self
-                .tags
-                .into_iter()
-                .chain(other.tags)
-                .collect(),
+            tags: self.tags.into_iter().chain(other.tags).collect(),
         }
     }
 }

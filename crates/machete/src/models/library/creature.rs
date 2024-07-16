@@ -121,11 +121,7 @@ impl CreatureFilters {
             game_system: self.game_system.or(other.game_system),
             alignment: self.alignment.or(other.alignment),
             size: self.size.or(other.size),
-            tags: self
-                .tags
-                .into_iter()
-                .chain(other.tags)
-                .collect(),
+            tags: self.tags.into_iter().chain(other.tags).collect(),
         }
     }
 }
