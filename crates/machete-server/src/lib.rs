@@ -1,6 +1,6 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{Method, StatusCode},
     routing::get,
     Json, Router,
 };
@@ -11,11 +11,17 @@ use machete::models::library::{
 };
 
 use sqlx::PgPool;
+use tower::ServiceBuilder;
+use tower_http::cors::CorsLayer;
 
 pub mod database;
 
 pub async fn run_server() {
     let pool = database::connect().await.unwrap();
+
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(tower_http::cors::Any);
 
     // build our application with a route
     let app = Router::new()
@@ -24,10 +30,11 @@ pub async fn run_server() {
         .route("/creatures", get(get_creatures))
         .route("/items", get(get_items))
         .route("/spells", get(get_spells))
-        .with_state(pool);
+        .with_state(pool)
+        .layer(ServiceBuilder::new().layer(cors));
 
     // run our app with hyper, listening globally on port 3000
-    let bind_addr = dotenvy::var("BIND_URL").unwrap_or("localhost:4200".to_string());
+    let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
     let listener = tokio::net::TcpListener::bind(bind_addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

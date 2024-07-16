@@ -113,17 +113,12 @@ impl ItemFilters {
             game_system: self.game_system.or(other.game_system),
             min_price: self.min_price.or(other.min_price),
             max_price: self.max_price.or(other.max_price),
-            tags: self
-                .tags
-                .into_iter()
-                .chain(other.tags)
-                .collect(),
+            tags: self.tags.into_iter().chain(other.tags).collect(),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct Currency {
     #[serde(default)]
     pub gold: u32,
@@ -162,4 +157,3 @@ impl Currency {
         }
     }
 }
-
