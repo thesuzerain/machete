@@ -17,7 +17,13 @@ use tower_http::cors::CorsLayer;
 pub mod database;
 
 pub async fn run_server() {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .init();
+
     let pool = database::connect().await.unwrap();
+    log::info!("Connected to database");
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -35,7 +41,9 @@ pub async fn run_server() {
 
     // run our app with hyper, listening globally on port 3000
     let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
-    let listener = tokio::net::TcpListener::bind(bind_addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
+
+    log::info!("Listening on: {}", bind_addr);
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -48,11 +56,9 @@ async fn get_creatures(
     Query(payload): Query<CreatureFilters>,
     State(pool): State<PgPool>,
 ) -> (StatusCode, Json<Vec<LibraryCreature>>) {
-    println!("Creature filters: {:?}", payload);
     let creatures = database::creatures::get_creatures(&pool, &payload)
         .await
         .unwrap();
-    println!("Found: {:?}", creatures.len());
     (StatusCode::OK, Json(creatures))
 }
 
