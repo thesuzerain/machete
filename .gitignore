@@ -1,8 +1,6 @@
 fixtures/
 examples/
 
-machete.sqlite
-machete.sqlite*
 .env
 
 .DS_Store

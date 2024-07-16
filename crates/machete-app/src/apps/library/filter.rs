@@ -1,8 +1,10 @@
 use egui::Ui;
-use machete::database::QueryableStruct;
 use machete_core::filters::FilterableStruct;
 
-use crate::ui_models::{filters::DisplayableStruct, DisplayFields};
+use crate::{
+    fetch::FetchableStruct,
+    ui_models::{filters::DisplayableStruct, DisplayFields},
+};
 
 use super::FilteredLibrary;
 
@@ -20,7 +22,7 @@ impl FilterDisplay {
     pub fn ui<
         T: FilterableStruct
             + DisplayableStruct
-            + QueryableStruct
+            + FetchableStruct
             + std::fmt::Debug
             + Send
             + std::marker::Sync,

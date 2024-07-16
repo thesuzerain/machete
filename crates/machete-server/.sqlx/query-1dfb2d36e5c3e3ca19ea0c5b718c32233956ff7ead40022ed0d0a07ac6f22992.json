@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO library_items (id, rarity, level, price)\n        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[])\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1dfb2d36e5c3e3ca19ea0c5b718c32233956ff7ead40022ed0d0a07ac6f22992"
+}

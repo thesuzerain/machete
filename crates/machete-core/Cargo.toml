@@ -18,6 +18,3 @@ lazy_static = { workspace = true}
 dotenvy = { workspace = true }
 
 getrandom = {workspace = true, features = ["js"]}
-
-tokio = {workspace = true}
-sqlx = {workspace = true}

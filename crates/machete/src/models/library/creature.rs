@@ -25,7 +25,7 @@ pub struct LibraryCreature {
     pub size: Size,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct CreatureFilters {
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
@@ -36,6 +36,7 @@ pub struct CreatureFilters {
     pub alignment: Option<Alignment>,
     pub size: Option<Size>,
     pub game_system: Option<GameSystem>,
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -123,7 +124,7 @@ impl CreatureFilters {
             tags: self
                 .tags
                 .into_iter()
-                .chain(other.tags.into_iter())
+                .chain(other.tags)
                 .collect(),
         }
     }

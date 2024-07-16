@@ -70,7 +70,7 @@ while test $# -gt 0; do
   esac
 done
 
-OUT_FILE_NAME="machete"
+OUT_FILE_NAME="machete_app"
 
 if [[ "${WGPU}" == true ]]; then
   FEATURES="${FEATURES},wgpu"

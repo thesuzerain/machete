@@ -3,15 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::{app::StateContext, update_context::UpdateWithContext};
+use crate::{app::StateContext, fetch::FetchableStruct, update_context::UpdateWithContext};
 use display::LibraryDisplay;
 use egui::mutex::RwLock;
 use filter::FilterDisplay;
 use itertools::Itertools;
-use machete::{
-    database::QueryableStruct,
-    models::library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell},
-};
+use machete::models::library::{creature::LibraryCreature, item::LibraryItem, spell::LibrarySpell};
 use machete_core::filters::{Filter, FilterableStruct};
 pub mod display;
 pub mod filter;
@@ -30,7 +27,7 @@ pub struct LibraryApp {
 }
 
 impl LibraryApp {
-    pub fn start() -> LibraryApp {
+    pub fn start() -> Self {
         LibraryApp {
             filters_display: FilterDisplay::start(),
             viewer: LibraryDisplay::start(),
@@ -110,7 +107,7 @@ impl UpdateWithContext for LibraryApp {
 // TODO: Simplify traits
 // TODO: remove deubg
 pub struct FilteredLibrary<
-    T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+    T: FilterableStruct + FetchableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
 > {
     // TODO: Is there a better pattern for this?
     filters: Vec<Filter<T>>,
@@ -121,7 +118,7 @@ pub struct FilteredLibrary<
 }
 
 impl<
-        T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+        T: FilterableStruct + FetchableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
     > Default for FilteredLibrary<T>
 {
     fn default() -> Self {
@@ -131,7 +128,7 @@ impl<
 
 // TODO: simplify this type T
 impl<
-        T: FilterableStruct + QueryableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
+        T: FilterableStruct + FetchableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
     > FilteredLibrary<T>
 {
     pub fn new() -> Self {
@@ -176,10 +173,9 @@ impl<
         let values_clone = self.values.clone();
         let filters_hash_clone = self.filters_hash.clone();
         let filters_clone = self.filters.clone(); // TODO: no clone here? maybe just move?
-        tokio::spawn(async move {
+        let fut = async move {
             let filters_clone = filters_clone.clone();
-            let pool = machete::database::get_database_pool().await;
-            let values = T::query_get(pool, &filters_clone).await.unwrap();
+            let values = T::fetch_backend(&filters_clone).await.unwrap();
 
             let mut values_clone = values_clone.write();
 
@@ -188,6 +184,15 @@ impl<
                 values_clone.clone_from(&values);
                 ctx.request_repaint();
             }
-        });
+        };
+
+        #[cfg(feature = "offline")]
+        {
+            tokio::spawn(fut);
+        }
+        #[cfg(feature = "web_app")]
+        {
+            wasm_bindgen_futures::spawn_local(fut);
+        }
     }
 }

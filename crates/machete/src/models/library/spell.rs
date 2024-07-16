@@ -19,13 +19,14 @@ pub struct LibrarySpell {
     pub tags: Vec<String>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct SpellFilters {
     pub min_rank: Option<u8>,
     pub max_rank: Option<u8>,
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -97,7 +98,7 @@ impl SpellFilters {
             tags: self
                 .tags
                 .into_iter()
-                .chain(other.tags.into_iter())
+                .chain(other.tags)
                 .collect(),
         }
     }

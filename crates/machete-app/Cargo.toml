@@ -10,8 +10,6 @@ crate-type = ["cdylib", "rlib"]
 machete = { path = "../machete" }
 machete-core = { path = "../machete-core" }
 
-tokio = { workspace = true, features = ["sync", "macros", "rt"] }
-
 eframe = { workspace = true, default-features = false, features = [  "web_screen_reader" ] }
 egui = { workspace = true, features = ["callstack", "default", "log"] }
 egui_extras = { workspace = true, features = ["default", "image", "datepicker"] }
@@ -27,8 +25,15 @@ log = { workspace = true, features = ["std"] }
 regex = { workspace = true }
 lazy_static = { workspace = true}
 
-# TODO: remove this from machete-app
-sqlx = {workspace = true}
+async-trait = "0.1.81"
+dotenvy = { workspace = true }
+thiserror = { workspace = true }
+
+reqwest = { version = "0.12.5", features = ["json"] }
+serde_qs = "0.13"
+
+# feature "offline"
+tokio = { workspace = true, features = ["sync", "macros", "rt", "time", "rt-multi-thread"], optional = true }
 
 # feature "http":
 ehttp = { workspace = true, optional = true }
@@ -47,12 +52,12 @@ features = ["js"]
 [features]
 default = ["offline"]
 
-offline = ["eframe/glow"]
+offline = ["eframe/glow", "tokio"]
 
 # Using web_app also will require a compilation target of: wasm32 (wasm32-unknown-unknown)
 # "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
 # image_viewer adds about 0.9 MB of WASM
-web_app = ["http", "persistence", "wasm-bindgen", "wasm-bindgen-futures", "web-sys"]
+web_app = ["http", "persistence", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "eframe/wgpu"]
 
 http = ["ehttp", "image", "poll-promise", "egui_extras/image"]
 persistence = ["eframe/persistence", "egui/persistence"]

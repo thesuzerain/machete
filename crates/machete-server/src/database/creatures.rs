@@ -1,98 +1,97 @@
-use std::collections::HashMap;
-
-use super::QueryableStruct;
-use crate::models::library::{
-    item::{Currency, ItemFilters, LibraryItem},
+use machete::models::library::{
+    creature::{Alignment, CreatureFilters, LibraryCreature, Size},
     GameSystem, Rarity,
 };
-use machete_core::filters::Filter;
+use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
-pub async fn get_items(
+pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
-    condition: &ItemFilters,
-) -> crate::Result<Vec<LibraryItem>> {
+    condition: &CreatureFilters,
+) -> crate::Result<Vec<LibraryCreature>> {
     // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
-    // TODO: data type 'as'
     let query = sqlx::query!(
         r#"
         SELECT 
             lo.id,
             lo.name,
             lo.game_system,
-            li.rarity,
-            li.level,
-            li.price,
+            rarity,
+            level,
+            alignment,
+            size,
             ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
         FROM library_objects lo
-        INNER JOIN library_items li ON lo.id = li.id
+        INNER JOIN library_creatures lc ON lo.id = lc.id
         LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
         LEFT JOIN tags t ON lot.tag_id = t.id
 
-        WHERE
+        WHERE 
             ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
             AND ($2::int IS NULL OR rarity = $2)
             AND ($3::int IS NULL OR game_system = $3)
             AND ($4::int IS NULL OR level >= $4)
             AND ($5::int IS NULL OR level <= $5)
-            AND ($6::int IS NULL OR price >= $6)
-            AND ($7::int IS NULL OR price <= $7)
+            AND ($6::int IS NULL OR alignment = $6)
+            AND ($7::int IS NULL OR size = $7)
             AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
         
-        GROUP BY lo.id, li.id ORDER BY lo.name
+        GROUP BY lo.id, lc.id ORDER BY lo.name
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
         condition.game_system.as_ref().map(|gs| gs.as_i64() as i32),
         condition.min_level.map(|l| l as i32),
         condition.max_level.map(|l| l as i32),
-        condition.min_price.map(|p| p as i32),
-        condition.max_price.map(|p| p as i32),
-        condition.tags.first(), // TODO: bad
-    )
-    .fetch_all(exec)
-    .await?;
+        condition.alignment.as_ref().map(|a| a.as_i64() as i32),
+        condition.size.as_ref().map(|s| s.as_i64() as i32),
+        condition.tags.first(), // TODO: BAD
+    );
 
-    let items = query
+    let creatures = query
+        .fetch_all(exec)
+        .await?
         .into_iter()
         .map(|row| {
-            // TODO: conversions still here shouldnt be needed
-            // TODO: unwrao_or_default for stuff like rarity / price / level is a bit weird
-            Ok(LibraryItem {
+            Ok(LibraryCreature {
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
                 level: row.level.unwrap_or_default() as i8,
-                price: Currency::from_base_unit(row.price.unwrap_or_default() as u32),
+                alignment: Alignment::from_i64(row.alignment.unwrap_or_default() as i64),
+                size: Size::from_i64(row.size.unwrap_or_default() as i64),
                 tags: row.tags.unwrap_or_default(),
             })
         })
-        .collect::<Result<Vec<LibraryItem>, sqlx::Error>>()?;
-    Ok(items)
+        .collect::<Result<Vec<LibraryCreature>, sqlx::Error>>()?;
+    Ok(creatures)
 }
 
-pub async fn insert_items(
+pub async fn insert_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    items: Vec<LibraryItem>,
+    creatures: Vec<LibraryCreature>,
+    // not sure if i like this patern, but if we are keeping it, document it
     tag_hashmap: HashMap<String, i32>,
 ) -> crate::Result<()> {
     // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
     // Maybe postgres + unnest as in labrinth?
     // TODO: Do we *need* two tables for this?
+
+    // TODO: i32
     let ids = sqlx::query!(
         r#"
         INSERT INTO library_objects (name, game_system)
         SELECT * FROM UNNEST ($1::text[], $2::int[])  
         RETURNING id  
     "#,
-        &items
+        &creatures
             .iter()
             .map(|c| c.name.clone())
             .collect::<Vec<String>>(),
-        &items
+        &creatures
             .iter()
             .map(|c| c.game_system.as_i64() as i32)
             .collect::<Vec<i32>>(),
@@ -106,35 +105,42 @@ pub async fn insert_items(
     // TODO: as i32 should be unnecessary- fix in models
     sqlx::query!(
         r#"
-        INSERT INTO library_items (id, rarity, level, price)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[])
-    "#,
+        INSERT INTO library_creatures (id, rarity, level, alignment, size)
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[], $5::int[])
+        "#,
         &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
-        &items
+        &creatures
             .iter()
             .map(|c| c.rarity.as_i64() as i32)
             .collect::<Vec<i32>>(),
-        &items.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
-        &items
+        &creatures
             .iter()
-            .map(|c| c.price.as_base_unit() as i32)
+            .map(|c| c.level as i32)
+            .collect::<Vec<i32>>(),
+        &creatures
+            .iter()
+            .map(|c| c.alignment.as_i64() as i32)
+            .collect::<Vec<i32>>(),
+        &creatures
+            .iter()
+            .map(|c| c.size.as_i64() as i32)
             .collect::<Vec<i32>>(),
     )
     .execute(exec)
     .await?;
 
     // Next, insert tags
-
-    for (id, item) in ids.iter().zip(items.iter()) {
+    for (id, creature) in ids.iter().zip(creatures.iter()) {
         // separate builders to not hit limit
         // todo: no :()
+
         sqlx::query!(
             r#"
             INSERT INTO library_objects_tags (library_object_id, tag_id)
             SELECT * FROM UNNEST ($1::int[], $2::int[])
             "#,
-            &vec![*id as i32; item.tags.len()],
-            &item
+            &vec![*id as i32; creature.tags.len()],
+            &creature
                 .tags
                 .iter()
                 .map(|tag| tag_hashmap.get(tag).unwrap().clone() as i32)
@@ -145,23 +151,4 @@ pub async fn insert_items(
     }
 
     Ok(())
-}
-
-impl QueryableStruct for LibraryItem {
-    // TODO: bundle with macro?
-    async fn query_get(
-        pool: sqlx::PgPool,
-        filters: &Vec<Filter<LibraryItem>>,
-    ) -> crate::Result<Vec<LibraryItem>> {
-        let mut item_filters = ItemFilters::default();
-        for filter in filters {
-            // TODO: clone
-            let filter = filter.clone();
-            if let Ok(filter) = ItemFilters::try_from(filter) {
-                item_filters = item_filters.merge(filter);
-            }
-        }
-
-        get_items(&pool, &item_filters).await
-    }
 }
