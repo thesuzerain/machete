@@ -5,9 +5,6 @@ on:
     branches:
       - master
   pull_request:
-    # Remove
-    branches:
-      - master
 
 jobs:
   docker:
@@ -34,6 +31,6 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
