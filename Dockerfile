@@ -43,4 +43,4 @@ COPY --from=build /usr/src/machete/target/release/machete-server /machete/machet
 COPY --from=build /wait /wait
 WORKDIR /machete
 
-CMD /wait && /machete/machete
+CMD /machete/machete
