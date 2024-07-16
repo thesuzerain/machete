@@ -1,19 +1,12 @@
 FROM rust:1.79.0 as build
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
-RUN dir -s    
-
 WORKDIR /usr/src/machete
 # Download and compile deps
 COPY . .
 COPY docker_utils/dummy.rs /usr/src/machete/crates/machete-server/dummy.rs
 
-RUN dir -s    
-
 WORKDIR  /usr/src/machete/crates/machete-server
-
-RUN dir -s    
-RUN echo "hello there"
 
 # Change temporarely the path of the code
 RUN sed -i 's|src/main.rs|dummy.rs|' Cargo.toml
@@ -30,7 +23,7 @@ RUN chmod +x /wait
 ARG SQLX_OFFLINE=true
 RUN cargo build --release
 
-FROM debian:bullseye-slim
+FROM ubuntu:latest
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
