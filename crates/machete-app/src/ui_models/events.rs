@@ -12,7 +12,6 @@ use super::DisplayFields;
 pub struct EventTypeDisplayWrapper<'a> {
     pub event_type: &'a mut EventType,
     pub id: InternalId,
-    // TODO: not a great datatype
     pub editable_strings: &'a mut HashMap<u64, String>,
 }
 
@@ -23,7 +22,7 @@ impl DisplayFields for EventTypeDisplayWrapper<'_> {
             EventType::ExperienceGain { ref mut experience } => {
                 ui.horizontal(|ui| {
                     ui.label("Experience:");
-                    // TODO: condense this hashmap pattern into a possible implementation for RestrictedText (like how string, &mut string, etc)
+                    // TODO: Convert this to RestrictedText
                     let editable_string = self
                         .editable_strings
                         .entry(self.id.hash_with("experience"))

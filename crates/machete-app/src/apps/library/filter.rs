@@ -16,9 +16,8 @@ impl FilterDisplay {
         FilterDisplay {}
     }
 
-    // TODO: Are these traits combinable? Should they be?
-    // TODO: fix these traits
-    // TODO: remove debug
+    // TODO: These traits are combinable/simplifiable
+    // TODO: Remove debug
     pub fn ui<
         T: FilterableStruct
             + DisplayableStruct

@@ -24,7 +24,7 @@ pub struct LibraryItem {
 pub struct ItemFilters {
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
-    pub min_price: Option<i32>, // TODO: should this be currency?
+    pub min_price: Option<i32>, // TODO: should this be a Currency struct?
     pub max_price: Option<i32>,
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
@@ -33,7 +33,7 @@ pub struct ItemFilters {
     pub tags: Vec<String>,
 }
 
-// TODO: bundle with macro?
+// TODO: Can simplify this and similar try_from functions for other library structs, using a macro.
 impl TryFrom<Filter<LibraryItem>> for ItemFilters {
     type Error = String;
 

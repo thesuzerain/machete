@@ -6,11 +6,8 @@ pub async fn insert_and_return_tags(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     items: Vec<String>,
 ) -> crate::Result<HashMap<String, i32>> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
-    // Maybe postgres + unnest as in labrinth?
     // TODO: Do we *need* two tables for this?
-
-    // todo: no duplicate,s but also this fixes the too many variables error
+    // todo: No duplicates, but also this fixes the too many variables error
     let items = items.into_iter().collect::<HashSet<String>>();
 
     sqlx::query!(
@@ -25,7 +22,6 @@ pub async fn insert_and_return_tags(
     .await?;
 
     // Now, fetch all ids for these tags
-    // TODO: optimize
     let ids = sqlx::query!(
         r#"
         SELECT id, tag

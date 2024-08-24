@@ -13,22 +13,20 @@ lazy_static::lazy_static! {
 // WASI may be an option
 pub const SERVER_URL: &str = "https://www.wyattverchere.com";
 
-// TODO: Alternating use of ?Send or not may not be the correct way to handle this
 #[cfg_attr(feature = "offline", async_trait)]
 #[cfg_attr(feature = "web_app", async_trait(?Send))]
 pub trait FetchableStruct: FilterableStruct {
-    async fn fetch_backend(filters: &Vec<Filter<Self>>) -> crate::Result<Vec<Self>>;
+    async fn fetch_backend(filters: &[Filter<Self>]) -> crate::Result<Vec<Self>>;
 }
 
 #[cfg_attr(feature = "offline", async_trait)]
 #[cfg_attr(feature = "web_app", async_trait(?Send))]
 impl FetchableStruct for LibraryItem {
-    async fn fetch_backend(filters: &Vec<Filter<Self>>) -> crate::Result<Vec<Self>> {
+    async fn fetch_backend(filters: &[Filter<Self>]) -> crate::Result<Vec<Self>> {
         let mut item_filters = ItemFilters::default();
         for filter in filters {
             let filter = (*filter).clone();
-            // TODO: include with macro...? or at least better functions?
-            // todo: remove clone
+            // TODO: These should be included with the macro for these fetchable objects.
             if let Ok(f) = ItemFilters::try_from(filter) {
                 item_filters = item_filters.merge(f);
             }
@@ -50,7 +48,7 @@ impl FetchableStruct for LibraryItem {
 #[cfg_attr(feature = "offline", async_trait)]
 #[cfg_attr(feature = "web_app", async_trait(?Send))]
 impl FetchableStruct for LibrarySpell {
-    async fn fetch_backend(filters: &Vec<Filter<Self>>) -> crate::Result<Vec<Self>> {
+    async fn fetch_backend(filters: &[Filter<Self>]) -> crate::Result<Vec<Self>> {
         let mut spell_filters = SpellFilters::default();
         for filter in filters {
             let filter = (*filter).clone();
@@ -75,7 +73,7 @@ impl FetchableStruct for LibrarySpell {
 #[cfg_attr(feature = "offline", async_trait)]
 #[cfg_attr(feature = "web_app", async_trait(?Send))]
 impl FetchableStruct for LibraryCreature {
-    async fn fetch_backend(filters: &Vec<Filter<Self>>) -> crate::Result<Vec<Self>> {
+    async fn fetch_backend(filters: &[Filter<Self>]) -> crate::Result<Vec<Self>> {
         let mut creature_filters = CreatureFilters::default();
         for filter in filters {
             let filter = (*filter).clone();

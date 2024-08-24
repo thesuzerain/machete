@@ -28,7 +28,7 @@ pub struct EventGroupCreator {
     pub template: EventGroupTemplate,
     pub event_group_template_editing_string: String,
 
-    // TODO: should this be within Template? Should it be an id?
+    // TODO: Should this be within the Template? Should it be an id?
     pub characters: HashMap<String, bool>,
 
     /// Current event group being edited.
@@ -39,7 +39,6 @@ pub struct EventGroupCreator {
 }
 
 // TODO: Maybe these should be *more* broad, like 'WonBattle', but those might be better used from the battle itself.
-// TODO: Does having fields mess up PartialEq?
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum EventGroupTemplate {
     #[default]
@@ -48,7 +47,7 @@ pub enum EventGroupTemplate {
         experience: u64,
     },
     CurrencyGain {
-        // TODO: Currency should be its own struct, allowing for different types of currency.
+        // TODO: Currency should be 'Currency' and not u64, allowing for different types of currency.
         currency: u64,
     }, // TODO: Add 'custom' for a custom added template
 }
@@ -191,7 +190,7 @@ impl EventGroupCreator {
 
         ui.horizontal(|ui| {
             ui.label("Date:");
-            // TODO: datetime editor struct
+            // TODO: Use existing datetime editor struct
             RestrictedTextEdit::new_from_persistent_string(
                 &mut self.datetime,
                 &mut self.datetime_editing_string,
@@ -204,7 +203,6 @@ impl EventGroupCreator {
             }
         });
 
-        // TODO: This looks stronger than I wanted it to
         ui.separator();
 
         ui.horizontal(|ui| {
@@ -228,11 +226,9 @@ impl EventGroupCreator {
                 });
             }
 
-            // TODO: This looks stronger than I wanted it to
             ui.separator();
 
             ui.vertical(|ui| {
-                // TODO: Ensure this runs last. Does it still work?
                 let characters = self
                     .characters
                     .iter()
@@ -249,7 +245,7 @@ impl EventGroupCreator {
                     self.event_group = basic_template_group.clone();
                 }
 
-                // tODO: This is hacky.
+                // TODO: This is hacky.
                 self.event_group_log_context.display_event_group(
                     ui,
                     &mut self.event_group,

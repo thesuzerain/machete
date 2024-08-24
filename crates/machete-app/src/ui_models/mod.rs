@@ -1,7 +1,7 @@
 use egui::Ui;
 
 // ui_models: UI relevant traits/implementations for models
-// TODO: These are kept separate for now in anticipation of it helping with the UI code organization as we add crates,
+// TODO: These are kept separate for now, in anticipation of it helping with the UI code organization as we add crates,
 // but it may be better to move these into the models structure.
 
 pub mod events;

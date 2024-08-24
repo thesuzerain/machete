@@ -1,6 +1,6 @@
 use axum::{
     extract::{Query, State},
-    http::{Method, StatusCode},
+    http::StatusCode,
     routing::get,
     Json, Router,
 };

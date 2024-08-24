@@ -4,7 +4,7 @@ use eframe::wasm_bindgen::{self, prelude::*};
 
 use crate::MainApp;
 
-// TODO: Some demo functionality here is uneeded.
+// TODO: Some egui demo functionality here is uneeded.
 /// Our handle to the web app from JavaScript.
 #[derive(Clone)]
 #[wasm_bindgen]

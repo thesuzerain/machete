@@ -12,7 +12,6 @@ pub async fn get_items(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &ItemFilters,
 ) -> crate::Result<Vec<LibraryItem>> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
     // TODO: data type 'as'
     let query = sqlx::query!(
         r#"
@@ -48,7 +47,7 @@ pub async fn get_items(
         condition.max_level.map(|l| l as i32),
         condition.min_price.map(|p| p as i32),
         condition.max_price.map(|p| p as i32),
-        condition.tags.first(), // TODO: bad
+        condition.tags.first(), // TODO: This is incorrect, only returning one tag.
     )
     .fetch_all(exec)
     .await?;
@@ -57,7 +56,7 @@ pub async fn get_items(
         .into_iter()
         .map(|row| {
             // TODO: conversions still here shouldnt be needed
-            // TODO: unwrao_or_default for stuff like rarity / price / level is a bit weird
+            // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
             Ok(LibraryItem {
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
@@ -76,9 +75,7 @@ pub async fn insert_items(
     items: Vec<LibraryItem>,
     tag_hashmap: HashMap<String, i32>,
 ) -> crate::Result<()> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
-    // Maybe postgres + unnest as in labrinth?
-    // TODO: Do we *need* two tables for this?
+    // TODO: Don't *need* two tables for this
     let ids = sqlx::query!(
         r#"
         INSERT INTO library_objects (name, game_system)
@@ -124,7 +121,6 @@ pub async fn insert_items(
 
     for (id, item) in ids.iter().zip(items.iter()) {
         // separate builders to not hit limit
-        // todo: no :()
         sqlx::query!(
             r#"
             INSERT INTO library_objects_tags (library_object_id, tag_id)

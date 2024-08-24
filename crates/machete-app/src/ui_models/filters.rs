@@ -31,7 +31,6 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
             });
 
         if self.field != field_editable {
-            // TODO: unneeded- can change directly in above
             self.field = field_editable;
             // If changed, we need to update the filter type to match the default for the new field.
             self.filter_type = F::iter_filter_types_for_field(&self.field)
@@ -52,7 +51,6 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
                 }
             });
 
-        // TODO: doing two branches for get_field_string and get_field_numeric is a smell
         match self.filter_type {
             FilterType::Contains(ref mut string) => {
                 edited |= ui.text_edit_singleline(string).changed();
@@ -67,7 +65,6 @@ impl<F: FilterableStruct> DisplayFields for Filter<F> {
                 edited |= ui.add(egui::Slider::new(f, 0.0..=MAX_SLIDER)).changed();
             }
             FilterType::EqualToChoice(ref mut string) => {
-                // todo: not it
                 let choice =
                     ComboBox::from_id_source(self.id.hash_with("display_filter_choice_variant"))
                         .selected_text(string.to_string())

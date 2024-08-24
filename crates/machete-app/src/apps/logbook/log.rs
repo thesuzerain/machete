@@ -168,7 +168,7 @@ impl LogDisplayUiContext {
                 let is_modified = original_event
                     .map(|oe| oe.event_type != event.event_type)
                     .unwrap_or(true);
-                // TODO: When you add ID, it can have some kidn of 'hash with' function to make calling these easier.
+                // TODO: When you add ID, it can have some kind of 'hash with' function to make calling these easier.
                 let dropdown = HiddenComboBox::new(
                     event.id.hash_with("event_type_selector"),
                     &mut event.event_type,
@@ -210,7 +210,7 @@ impl LogDisplayUiContext {
                                 .iter()
                                 .map(|character| character.name.clone()),
                         );
-                        // TODO: smell
+                        // TODO: Code smell
                         for character in options {
                             if ui
                                 .selectable_label(

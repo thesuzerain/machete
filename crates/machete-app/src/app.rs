@@ -23,8 +23,8 @@ pub struct State {
 }
 
 pub struct StateContext {
-    pub campaign: Campaign, // TODO: should this be in State or MainApp or somewhere else?
-    pub library: Library,   // TODO: should this be in State or MainApp or somewhere else?
+    pub campaign: Campaign,
+    pub library: Library,
 }
 
 impl MainApp {
@@ -38,14 +38,11 @@ impl MainApp {
         let fixture = include_str!("../../../fixtures/demo_library.json");
         let library: Library = serde_json::from_str(fixture).expect("Failed to load test fixture.");
 
-        // TODO: Not sure if I like this pattern to just be able to pass a clone into LogbookApp.
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State {
                 logbook: LogbookApp::start(&campaign),
                 library: LibraryApp::start(),
-                // todo: is passing this necessary?
-                // todo: is any of this library loading needed at all  here?
                 context: StateContext { campaign, library },
                 summary: SummaryApp::default(),
                 settings_panel: SettingsPanel::default(),
@@ -55,10 +52,10 @@ impl MainApp {
         slf
     }
 
-    // TODO: Clean this up a little bit. The two tuples is so we can pass &mut Campaign to each app.
     /// Get an iterator over all the apps that can be shown.
     /// The return type is a tuple of:
     /// (iterator over (app_name, anchor, app), campaign)
+    /// As the app requires a mutable reference to the StateContext, we pass it alongside the iterator instead of within it.
     fn apps_iter_mut(
         &mut self,
     ) -> (

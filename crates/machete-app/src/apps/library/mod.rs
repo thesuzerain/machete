@@ -55,8 +55,7 @@ impl UpdateWithContext for LibraryApp {
         _frame: &mut eframe::Frame,
         _context: &mut StateContext,
     ) {
-        // TODO: remove  clones here- beter system for this
-        // TODO: may be better to use tokio async RwLock here
+        // TODO: Remove clones here- poor system. May be better to use tokio async RwLock or similar.
         let filtered_items = self.filtered_library_items.values.read().clone();
         let filtered_creatures = self.filtered_library_creatures.values.read().clone();
         let filtered_spells = self.filtered_library_spells.values.read().clone();
@@ -104,14 +103,13 @@ impl UpdateWithContext for LibraryApp {
 /// A struct for maintaining persistence of filters and filtered items.
 /// This is kept as a separate struct to allow auto-updating of the filtered items when filters are modified.
 /// This assumes that the library's id-to-item mapping will not change.
-// TODO: Simplify traits
-// TODO: remove deubg
+// TODO: These traits are combinable/simplifiable
+// TODO: Remove debug
 pub struct FilteredLibrary<
     T: FilterableStruct + FetchableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
 > {
     // TODO: Is there a better pattern for this?
     filters: Vec<Filter<T>>,
-    // TODO: is there a better way to remember filter updates?
     filters_hash: Arc<u64>,
     // TODO: It might be better for this to be a tokio RwLock rather than an egui one to use async/await
     values: Arc<RwLock<Vec<T>>>,
@@ -126,7 +124,7 @@ impl<
     }
 }
 
-// TODO: simplify this type T
+// TODO: These traits are combinable/simplifiable
 impl<
         T: FilterableStruct + FetchableStruct + std::fmt::Debug + Send + std::marker::Sync + 'static,
     > FilteredLibrary<T>
@@ -172,7 +170,7 @@ impl<
 
         let values_clone = self.values.clone();
         let filters_hash_clone = self.filters_hash.clone();
-        let filters_clone = self.filters.clone(); // TODO: no clone here? maybe just move?
+        let filters_clone = self.filters.clone(); // TODO: We can avoid clone here. Maybe just move?
         let fut = async move {
             let filters_clone = filters_clone.clone();
             let values = T::fetch_backend(&filters_clone).await.unwrap();

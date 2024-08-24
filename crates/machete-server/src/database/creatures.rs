@@ -12,7 +12,6 @@ pub async fn get_creatures(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &CreatureFilters,
 ) -> crate::Result<Vec<LibraryCreature>> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -48,7 +47,7 @@ pub async fn get_creatures(
         condition.max_level.map(|l| l as i32),
         condition.alignment.as_ref().map(|a| a.as_i64() as i32),
         condition.size.as_ref().map(|s| s.as_i64() as i32),
-        condition.tags.first(), // TODO: BAD
+        condition.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
     );
 
     let creatures = query
@@ -73,14 +72,11 @@ pub async fn get_creatures(
 pub async fn insert_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     creatures: Vec<LibraryCreature>,
-    // not sure if i like this patern, but if we are keeping it, document it
+    // TODO: This pattern might need to be revaluated, but if we are keeping it, document it
     tag_hashmap: HashMap<String, i32>,
 ) -> crate::Result<()> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
-    // Maybe postgres + unnest as in labrinth?
-    // TODO: Do we *need* two tables for this?
+    // TODO: we don't need two tables for this.
 
-    // TODO: i32
     let ids = sqlx::query!(
         r#"
         INSERT INTO library_objects (name, game_system)
@@ -102,7 +98,7 @@ pub async fn insert_creatures(
     .map(|row| Ok(row.id))
     .collect::<Result<Vec<i32>, sqlx::Error>>()?;
 
-    // TODO: as i32 should be unnecessary- fix in models
+    // TODO: 'as i32' should be unnecessary- fix in models
     sqlx::query!(
         r#"
         INSERT INTO library_creatures (id, rarity, level, alignment, size)
@@ -132,8 +128,6 @@ pub async fn insert_creatures(
     // Next, insert tags
     for (id, creature) in ids.iter().zip(creatures.iter()) {
         // separate builders to not hit limit
-        // todo: no :()
-
         sqlx::query!(
             r#"
             INSERT INTO library_objects_tags (library_object_id, tag_id)

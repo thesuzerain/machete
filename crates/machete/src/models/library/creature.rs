@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Filterable)]
 pub struct LibraryCreature {
-    // TODO: Should these be modularized? (Same as LibraryItem)
     #[filter(default, string)]
     pub name: String,
     #[filter(iter(GameSystem))]
@@ -30,8 +29,6 @@ pub struct CreatureFilters {
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
     pub name: Option<String>,
-    // todo: Can these use 'rarity' and 'alignment' and 'size'?
-    // todo: shoudl these just use numbers?
     pub rarity: Option<Rarity>,
     pub alignment: Option<Alignment>,
     pub size: Option<Size>,
@@ -40,12 +37,9 @@ pub struct CreatureFilters {
     pub tags: Vec<String>,
 }
 
-// TODO: mov e these
 impl TryFrom<Filter<LibraryCreature>> for CreatureFilters {
     type Error = String;
 
-    // todo: should these be returning result instead?
-    // TODO: &self or self?
     fn try_from(value: Filter<LibraryCreature>) -> Result<CreatureFilters, Self::Error> {
         let mut creature_filters = CreatureFilters::default();
         if value.field == "level" {
@@ -110,6 +104,7 @@ impl TryFrom<Filter<LibraryCreature>> for CreatureFilters {
         Ok(creature_filters)
     }
 }
+
 // TODO: doesn't work for duplicate Some values
 impl CreatureFilters {
     pub fn merge(self, other: Self) -> Self {
@@ -168,8 +163,8 @@ impl Alignment {
         .into_iter()
     }
 
-    // TODO: macro Serializer_repr
-    // TODO: i32 for postgres? alongside these other ones that are like that
+    // TODO: This is essentially a re-implementation of Serialize_repr.
+    // Alternatively, should this be i32 for postgres? (Alongside similar as_i64 functions)
     pub fn as_i64(&self) -> i64 {
         match self {
             Alignment::LawfulGood => 0,
@@ -297,8 +292,8 @@ impl Size {
         .into_iter()
     }
 
-    // TODO: macro Serializer_repr
-
+    // TODO: This is essentially a re-implementation of Serialize_repr.
+    // Alternatively, should this be i32 for postgres? (Alongside similar as_i64 functions)
     pub fn as_i64(&self) -> i64 {
         match self {
             Size::Tiny => 0,

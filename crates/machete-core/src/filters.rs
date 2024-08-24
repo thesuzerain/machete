@@ -5,7 +5,6 @@ use crate::ids::InternalId;
 /// A filter over structure fields.
 /// For example: "Name contains 'Bob'" or "Level is greater than 5".
 /// TODO: This may not be the best way to represent filters. We use a 'CreatureFilters' struct later- that might be more coherent to just use that all the way.
-/// TODO: I think we will need macros no matter what though.
 #[derive(Debug, Clone)]
 pub struct Filter<F: FilterableStruct> {
     /// Unique identifier for this filter.
@@ -22,7 +21,6 @@ pub struct Filter<F: FilterableStruct> {
 }
 
 /// A struct that Filter can be applied to.
-// TODO: This might be worth making a derive macro for to ensure implementation consistency and auto-updating if the struct changes. A lot of the functions were intentionally designed with this in mind.
 pub trait FilterableStruct
 where
     Self: Sized + Clone + PartialEq,

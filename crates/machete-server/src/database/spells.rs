@@ -12,7 +12,6 @@ pub async fn get_spells(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &SpellFilters,
 ) -> crate::Result<Vec<LibrarySpell>> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -42,7 +41,7 @@ pub async fn get_spells(
         condition.game_system.as_ref().map(|gs| gs.as_i64() as i32),
         condition.min_rank.map(|r| r as i32),
         condition.max_rank.map(|r| r as i32),
-        condition.tags.first(), // TODO: BAD
+        condition.tags.first(), // TODO: Incorrect, only returning one tag.
     );
 
     let spells = query
@@ -67,8 +66,6 @@ pub async fn insert_spells(
     spells: Vec<LibrarySpell>,
     tag_hashmap: HashMap<String, i32>,
 ) -> crate::Result<()> {
-    // TODO: This doesn't use sqlx::query! because it needs to be dynamic. Is there a better way to do this?
-    // Maybe postgres + unnest as in labrinth?
     // TODO: Do we *need* two tables for this?
     let ids = sqlx::query!(
         r#"
@@ -109,9 +106,6 @@ pub async fn insert_spells(
 
     for (id, spell) in ids.iter().zip(spells.iter()) {
         // separate builders to not hit limit
-        // todo: no :()
-
-        // Next, insert tags
         sqlx::query!(
             r#"
             INSERT INTO library_objects_tags (library_object_id, tag_id)

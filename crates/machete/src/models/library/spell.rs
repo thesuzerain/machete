@@ -30,12 +30,9 @@ pub struct SpellFilters {
     pub tags: Vec<String>,
 }
 
-// TODO: mov e these
 impl TryFrom<Filter<LibrarySpell>> for SpellFilters {
     type Error = String;
 
-    // todo: should these be returning result instead?
-    // TODO: &self or self?
     fn try_from(value: Filter<LibrarySpell>) -> Result<SpellFilters, Self::Error> {
         let mut creature_filters = SpellFilters::default();
         if value.field == "rank" {

@@ -110,8 +110,8 @@ impl FromStr for Rarity {
 }
 
 impl Rarity {
-    // TODO: Maybe useful to do Serialize_repr for this
-    // TODO: Also, doesn't need to be i64 (sqlite can use smaller int type?)
+    // TODO: This is essentially a re-implementation of Serialize_repr.
+    // Alternatively, should this be i32 for postgres? (Alongside similar as_i64 functions)
     pub fn as_i64(&self) -> i64 {
         match self {
             Rarity::Common => 0,
