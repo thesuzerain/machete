@@ -11,7 +11,7 @@ lazy_static::lazy_static! {
 }
 // TODO: Is there a coherent way to make this into an environment variable, given WASM?
 // WASI may be an option
-pub const SERVER_URL: &str = "https://www.wyattverchere.com";
+pub const SERVER_URL: &str = "https://machete-api.wyattverchere.com";
 
 #[cfg_attr(feature = "offline", async_trait)]
 #[cfg_attr(feature = "web_app", async_trait(?Send))]
