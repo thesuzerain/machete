@@ -1,20 +1,13 @@
 use axum::{
-    extract::{Query, State},
-    http::StatusCode,
     routing::get,
-    Json, Router,
+    Router,
 };
-use machete::models::library::{
-    creature::{CreatureFilters, LibraryCreature},
-    item::{ItemFilters, LibraryItem},
-    spell::{LibrarySpell, SpellFilters},
-};
-
-use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
+pub mod campaign;
 pub mod database;
+pub mod library;
 
 pub async fn run_server() {
     env_logger::builder()
@@ -29,9 +22,8 @@ pub async fn run_server() {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
-        .route("/creatures", get(get_creatures))
-        .route("/items", get(get_items))
-        .route("/spells", get(get_spells))
+        .nest("/library", library::router())
+        .nest("/campaign", campaign::router())
         .with_state(pool)
         .layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
 
@@ -48,30 +40,9 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
-async fn get_creatures(
-    Query(payload): Query<CreatureFilters>,
-    State(pool): State<PgPool>,
-) -> (StatusCode, Json<Vec<LibraryCreature>>) {
-    let creatures = database::creatures::get_creatures(&pool, &payload)
-        .await
-        .unwrap();
-    (StatusCode::OK, Json(creatures))
-}
-
-async fn get_items(
-    Query(payload): Query<ItemFilters>,
-    State(pool): State<PgPool>,
-) -> (StatusCode, Json<Vec<LibraryItem>>) {
-    let items = database::items::get_items(&pool, &payload).await.unwrap();
-    (StatusCode::OK, Json(items))
-}
-
-async fn get_spells(
-    Query(payload): Query<SpellFilters>,
-    State(pool): State<PgPool>,
-) -> (StatusCode, Json<Vec<LibrarySpell>>) {
-    let spells = database::spells::get_spells(&pool, &payload).await.unwrap();
-    (StatusCode::OK, Json(spells))
+// TODO: users are not added yet. all users use this same id.
+pub fn dummy_test_user() -> machete_core::ids::InternalId {
+    machete_core::ids::InternalId(1)
 }
 
 pub type Result<T> = std::result::Result<T, ServerError>;
@@ -80,4 +51,7 @@ pub type Result<T> = std::result::Result<T, ServerError>;
 pub enum ServerError {
     #[error("Internal error: {0}")]
     SqlxError(#[from] sqlx::Error),
+    #[error("Internal error: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
 }
+

@@ -2,7 +2,6 @@ use machete::models::library::{
     spell::{LibrarySpell, SpellFilters},
     GameSystem, Rarity,
 };
-use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
@@ -63,8 +62,7 @@ pub async fn get_spells(
 
 pub async fn insert_spells(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    spells: Vec<LibrarySpell>,
-    tag_hashmap: HashMap<String, i32>,
+    spells: &Vec<LibrarySpell>,
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
     let ids = sqlx::query!(
@@ -103,24 +101,6 @@ pub async fn insert_spells(
     )
     .execute(exec)
     .await?;
-
-    for (id, spell) in ids.iter().zip(spells.iter()) {
-        // separate builders to not hit limit
-        sqlx::query!(
-            r#"
-            INSERT INTO library_objects_tags (library_object_id, tag_id)
-            SELECT * FROM UNNEST ($1::int[], $2::int[])
-            "#,
-            &vec![*id as i32; spell.tags.len()],
-            &spell
-                .tags
-                .iter()
-                .map(|tag| tag_hashmap.get(tag).unwrap().clone() as i32)
-                .collect::<Vec<i32>>(),
-        )
-        .execute(exec)
-        .await?;
-    }
 
     Ok(())
 }

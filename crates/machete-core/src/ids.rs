@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// TODO: Should these be randomly generated? Should just use uuids?
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[serde(transparent)]
-pub struct InternalId(u64);
+pub struct InternalId(pub u64);
 
 impl Default for InternalId {
     fn default() -> Self {

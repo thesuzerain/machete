@@ -34,6 +34,7 @@ CREATE TABLE tags (
     id SERIAL NOT NULL PRIMARY KEY,
     tag VARCHAR(128) NOT NULL -- TODO: lower
 );
+
 CREATE TABLE library_objects_tags (
     library_object_id INTEGER REFERENCES library_objects,
     tag_id INT REFERENCES tags

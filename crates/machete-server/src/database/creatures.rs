@@ -2,7 +2,6 @@ use machete::models::library::{
     creature::{Alignment, CreatureFilters, LibraryCreature, Size},
     GameSystem, Rarity,
 };
-use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
@@ -71,9 +70,7 @@ pub async fn get_creatures(
 
 pub async fn insert_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    creatures: Vec<LibraryCreature>,
-    // TODO: This pattern might need to be revaluated, but if we are keeping it, document it
-    tag_hashmap: HashMap<String, i32>,
+    creatures: &Vec<LibraryCreature>,
 ) -> crate::Result<()> {
     // TODO: we don't need two tables for this.
 
@@ -124,25 +121,6 @@ pub async fn insert_creatures(
     )
     .execute(exec)
     .await?;
-
-    // Next, insert tags
-    for (id, creature) in ids.iter().zip(creatures.iter()) {
-        // separate builders to not hit limit
-        sqlx::query!(
-            r#"
-            INSERT INTO library_objects_tags (library_object_id, tag_id)
-            SELECT * FROM UNNEST ($1::int[], $2::int[])
-            "#,
-            &vec![*id as i32; creature.tags.len()],
-            &creature
-                .tags
-                .iter()
-                .map(|tag| tag_hashmap.get(tag).unwrap().clone() as i32)
-                .collect::<Vec<i32>>(),
-        )
-        .execute(exec)
-        .await?;
-    }
 
     Ok(())
 }

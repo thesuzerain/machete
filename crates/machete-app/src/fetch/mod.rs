@@ -34,7 +34,7 @@ impl FetchableStruct for LibraryItem {
 
         let query = serde_qs::to_string(&item_filters).unwrap();
         let result = reqwest::Client::new()
-            .get(format!("{}/items?{query}", SERVER_URL).as_str())
+            .get(format!("{}/library/items?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?
@@ -59,7 +59,7 @@ impl FetchableStruct for LibrarySpell {
         }
         let query = serde_qs::to_string(&spell_filters).unwrap();
         let result = REQWEST_CLIENT
-            .get(format!("{}/spells?{query}", SERVER_URL).as_str())
+            .get(format!("{}/library/spells?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?
@@ -85,7 +85,7 @@ impl FetchableStruct for LibraryCreature {
 
         let query = serde_qs::to_string(&creature_filters).unwrap();
         let result = REQWEST_CLIENT
-            .get(format!("{}/creatures?{query}", SERVER_URL).as_str())
+            .get(format!("{}/library/creatures?{query}", SERVER_URL).as_str())
             .send()
             .await?
             .error_for_status()?

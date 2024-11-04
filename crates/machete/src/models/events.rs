@@ -21,7 +21,7 @@ pub struct EventGroup {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
     pub id: InternalId,
-    pub character: Option<String>,
+    pub character: Option<InternalId>,
     #[serde(flatten)]
     pub event_type: EventType,
 }
@@ -36,6 +36,7 @@ impl Default for Event {
     }
 }
 
+/// Metadata for an event type.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "event_type")]
 pub enum EventType {

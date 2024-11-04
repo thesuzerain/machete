@@ -2,7 +2,6 @@ use machete::models::library::{
     item::{Currency, ItemFilters, LibraryItem},
     GameSystem, Rarity,
 };
-use std::collections::HashMap;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_items(
@@ -72,8 +71,7 @@ pub async fn get_items(
 
 pub async fn insert_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    items: Vec<LibraryItem>,
-    tag_hashmap: HashMap<String, i32>,
+    items: &Vec<LibraryItem>,
 ) -> crate::Result<()> {
     // TODO: Don't *need* two tables for this
     let ids = sqlx::query!(
@@ -116,26 +114,6 @@ pub async fn insert_items(
     )
     .execute(exec)
     .await?;
-
-    // Next, insert tags
-
-    for (id, item) in ids.iter().zip(items.iter()) {
-        // separate builders to not hit limit
-        sqlx::query!(
-            r#"
-            INSERT INTO library_objects_tags (library_object_id, tag_id)
-            SELECT * FROM UNNEST ($1::int[], $2::int[])
-            "#,
-            &vec![*id as i32; item.tags.len()],
-            &item
-                .tags
-                .iter()
-                .map(|tag| tag_hashmap.get(tag).unwrap().clone() as i32)
-                .collect::<Vec<i32>>(),
-        )
-        .execute(exec)
-        .await?;
-    }
 
     Ok(())
 }
