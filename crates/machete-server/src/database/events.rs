@@ -97,3 +97,59 @@ pub async fn insert_events(
 
     Ok(())
 }
+
+pub async fn edit_event(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    owner: InternalId,
+    event_id: InternalId,
+    new_event: &EventType,
+) -> crate::Result<()> {
+    let event_type = serde_json::to_value(&new_event).unwrap();
+
+    sqlx::query!(
+        r#"
+        UPDATE events
+        SET event_data = $1::jsonb
+        WHERE id = $2
+        AND EXISTS (
+            SELECT 1 FROM campaigns ca
+            WHERE ca.id = events.campaign AND ca.owner = $3
+        )
+        "#,
+        &event_type,
+        event_id.0 as i32,
+        owner.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn delete_events(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    owner: InternalId,
+    event_id: &Vec<InternalId>,
+) -> crate::Result<()> {
+    if event_id.is_empty() {
+        return Ok(());
+    }
+
+    sqlx::query!(
+        r#"
+        DELETE FROM events
+        -- owner check through 'campaign'
+        WHERE id = ANY($1::int[])
+        AND EXISTS (
+            SELECT 1 FROM campaigns ca
+            WHERE ca.id = events.campaign AND ca.owner = $2
+        )
+        "#,
+        &event_id.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        owner.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    Ok(())
+}

@@ -1,10 +1,10 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
-use machete::models::{campaign::CampaignPartial, characters::Character, events::Event};
+use machete::models::{campaign::CampaignPartial, characters::Character, events::{Event, EventType}};
 use machete_core::ids::InternalId;
 use sqlx::{PgPool, Pool};
 
@@ -25,6 +25,10 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/characters", post(insert_characters))
         .route("/:id/events", get(get_events))
         .route("/:id/events", post(insert_events))
+        .route("/:id/events/:id", patch(edit_event))
+        .route("/:id/events/:id", delete(delete_event))
+        .route("/:id/events", delete(delete_events))
+
 }
 
 async fn get_campaigns(State(pool): State<PgPool>) -> (StatusCode, Json<Vec<CampaignPartial>>) {
@@ -87,6 +91,37 @@ async fn insert_events(
     Json(events): Json<Vec<InsertEvent>>,
 ) -> (StatusCode, ()) {
     database::events::insert_events(&pool, dummy_test_user(), id, &events)
+        .await
+        .unwrap();
+    (StatusCode::NO_CONTENT, ())
+}
+
+async fn edit_event(
+    State(pool): State<PgPool>,
+    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
+    Json(event): Json<EventType>,
+) -> (StatusCode, ()) {
+    database::events::edit_event(&pool, dummy_test_user(), event_id, &event)
+        .await
+        .unwrap();
+    (StatusCode::NO_CONTENT, ())
+}
+
+async fn delete_event(
+    State(pool): State<PgPool>,
+    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
+) -> (StatusCode, ()) {
+    database::events::delete_events(&pool, dummy_test_user(), &vec![event_id])
+        .await
+        .unwrap();
+    (StatusCode::NO_CONTENT, ())
+}
+
+async fn delete_events(
+    State(pool): State<PgPool>,
+    Json(ids): Json<Vec<InternalId>>,
+) -> (StatusCode, ()) {
+    database::events::delete_events(&pool, dummy_test_user(), &ids)
         .await
         .unwrap();
     (StatusCode::NO_CONTENT, ())

@@ -89,3 +89,21 @@ pub async fn insert_characters(
 
     Ok(())
 }
+
+pub async fn delete_character(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    character_id: InternalId,
+    owner: InternalId,
+) -> crate::Result<()> {
+    sqlx::query!(
+        r#"
+        DELETE FROM characters
+        WHERE id = $1
+        "#,
+        character_id.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    Ok(())
+}

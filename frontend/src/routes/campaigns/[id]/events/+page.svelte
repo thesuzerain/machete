@@ -15,6 +15,10 @@
     let filterStartDate: string = '';
     let filterEndDate: string = '';
     
+    // Add new state variables
+    let selectedEventIds: number[] = [];
+    let editingEvent: Event | null = null;
+    
     // Helper function to get all unique keys from event_type objects
     function getEventTypeKeys(events: Event[]): string[] {
         const keys = new Set<string>();
@@ -120,6 +124,64 @@
             error = e instanceof Error ? e.message : 'Failed to create events';
         }
     }
+
+    async function deleteSelectedEvents() {
+        if (!selectedEventIds.length) return;
+        
+        try {
+            const response = await fetch(`/api/campaign/${campaignId}/events`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(selectedEventIds),
+            });
+
+            if (!response.ok) throw new Error('Failed to delete events');
+            
+            // Refresh events list and clear selection
+            await fetchEvents();
+            selectedEventIds = [];
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to delete events';
+        }
+    }
+
+    async function updateEvent(eventId: number, newData: any) {
+        try {
+            const eventType = campaignEvents.find(event => event.id === eventId)?.event_type; 
+            const response = await fetch(`/api/campaign/${campaignId}/events/${eventId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    event_type: eventType,
+                    data: newData 
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update event');
+            
+            // Refresh events list and clear editing state
+            await fetchEvents();
+            editingEvent = null;
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to update event';
+        }
+    }
+
+    // Helper function to create edit form data based on event type
+    function getEditFormData(event: Event) {
+        switch (event.event_type) {
+            case 'CurrencyGain':
+                return { currency: event.data.currency };
+            case 'ExperienceGain':
+                return { experience: event.data.experience };
+            default:
+                return {};
+        }
+    }
 </script>
 
 <div class="events-page">
@@ -218,33 +280,101 @@
             </div>
         </div>
 
+        {#if selectedEventIds.length > 0}
+            <div class="bulk-actions">
+                <button class="delete-button" on:click={deleteSelectedEvents}>
+                    Delete Selected ({selectedEventIds.length})
+                </button>
+            </div>
+        {/if}
+
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
+                        <th>
+                            <input 
+                                type="checkbox" 
+                                on:change={(e) => {
+                                    if (e.currentTarget.checked) {
+                                        selectedEventIds = campaignEvents.map(event => event.id);
+                                    } else {
+                                        selectedEventIds = [];
+                                    }
+                                }}
+                                checked={selectedEventIds.length === campaignEvents.length}
+                            >
+                        </th>
                         <th>Timestamp</th>
                         <th>Character</th>
                         <th>Event Type</th>
-                        <th>Raw Data</th>
                         {#each getEventTypeKeys(campaignEvents) as key}
                             <th>{key}</th>
                         {/each}
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {#each campaignEvents as event}
                         <tr>
+                            <td>
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedEventIds.includes(event.id)}
+                                    on:change={(e) => {
+                                        if (e.currentTarget.checked) {
+                                            selectedEventIds = [...selectedEventIds, event.id];
+                                        } else {
+                                            selectedEventIds = selectedEventIds.filter(id => id !== event.id);
+                                        }
+                                    }}
+                                >
+                            </td>
                             <td>{new Date(event.timestamp).toLocaleString()}</td>
                             <td>
                                 {campaignCharacters.find(c => c.id === event.character)?.name || 'Unknown'}
                             </td>
                             <td>{event.event_type}</td>
-                            <td>{JSON.stringify(event.data)}</td>
-                            {#each getEventTypeKeys(campaignEvents) as key}
-                                <td>
-                                    {event.data[key] !== undefined ? event.data[key] : '-'}
+                            {#if editingEvent?.id === event.id}
+                                <td colspan={getEventTypeKeys(campaignEvents).length + 1}>
+                                    <form 
+                                        on:submit|preventDefault={() => {
+                                            const formData = getEditFormData(event);
+                                            updateEvent(event.id, formData);
+                                        }}
+                                        class="edit-form"
+                                    >
+                                        {#if event.event_type === 'CurrencyGain'}
+                                            <input 
+                                                type="number" 
+                                                value={event.data.currency}
+                                                on:input={(e) => event.data.currency = parseInt(e.currentTarget.value)}
+                                                min="0"
+                                            >
+                                        {:else if event.event_type === 'ExperienceGain'}
+                                            <input 
+                                                type="number" 
+                                                value={event.data.experience}
+                                                on:input={(e) => event.data.experience = parseInt(e.currentTarget.value)}
+                                                min="0"
+                                            >
+                                        {/if}
+                                        <button type="submit">Save</button>
+                                        <button type="button" on:click={() => editingEvent = null}>Cancel</button>
+                                    </form>
                                 </td>
-                            {/each}
+                            {:else}
+                                {#each getEventTypeKeys(campaignEvents) as key}
+                                    <td>
+                                        {event.data[key] !== undefined ? event.data[key] : '-'}
+                                    </td>
+                                {/each}
+                                <td>
+                                    <button class="edit-button" on:click={() => editingEvent = event}>
+                                        Edit
+                                    </button>
+                                </td>
+                            {/if}
                         </tr>
                     {/each}
                 </tbody>
@@ -339,5 +469,50 @@
         text-align: center;
         color: #666;
         padding: 2rem;
+    }
+
+    .bulk-actions {
+        margin-bottom: 1rem;
+    }
+
+    .delete-button {
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .delete-button:hover {
+        background-color: #dc2626;
+    }
+
+    .edit-button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .edit-button:hover {
+        background-color: #2563eb;
+    }
+
+    .edit-form {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .edit-form input {
+        width: auto;
+    }
+
+    input[type="checkbox"] {
+        width: auto;
+        cursor: pointer;
     }
 </style> 

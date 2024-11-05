@@ -50,3 +50,22 @@ pub async fn insert_campaign(
 
     Ok(())
 }
+
+pub async fn delete_campaign(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    campaign_id: InternalId,
+    owner: InternalId,
+) -> crate::Result<()> {
+    sqlx::query!(
+        r#"
+        DELETE FROM campaigns
+        WHERE id = $1 AND owner = $2
+        "#,
+        campaign_id.0 as i32,
+        owner.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    Ok(())
+}
