@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { API_URL } from '$lib/config';
-  import type { Campaign, InsertCampaign } from '$lib/types/types';
-  import { campaigns } from '$lib/stores/campaignStore';
+  import type { InsertCampaign } from '$lib/types/types';
 
   let loading = true;
   let error: string | null = null;
@@ -13,7 +11,6 @@
       const response = await fetch(`/api/campaign`);
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       const data = await response.json();
-      campaigns.set(data);
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
     } finally {
@@ -43,7 +40,6 @@
       const campaignsResponse = await fetch(`/api/campaign`);
       if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
       const data = await campaignsResponse.json();
-      campaigns.set(data);
       
       // Reset form
       newCampaignName = '';

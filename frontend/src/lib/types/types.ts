@@ -17,7 +17,7 @@ export interface Event {
     campaign: number;
     character?: number;
     date: Date;
-    event_type: 'CURRENCY' | 'ITEM' | 'LEVEL_UP' | 'STORY' | 'OTHER';
+    event_type: string;
     data: Record<string, unknown>;
     description: string;
     value?: number;
@@ -38,7 +38,7 @@ export interface InsertCharacter {
 
 export interface InsertEvent {
     character_id?: number;
-    event_type: 'CURRENCY' | 'ITEM' | 'LEVEL_UP' | 'STORY' | 'OTHER';
+    event_type: string;
     description: string;
     value?: number;
 } 

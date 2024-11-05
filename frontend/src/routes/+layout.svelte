@@ -6,7 +6,7 @@
   <nav>
     <ul>
       <li><a href="/campaigns">Campaigns</a></li>
-      <li><a href="/etc">...</a></li>
+      <li><a href="/etc">(TODO...)</a></li>
     </ul>
   </nav>
 

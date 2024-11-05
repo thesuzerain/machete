@@ -1,7 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
-    import { API_URL } from '$lib/config';
     import type { Campaign, Character, Event } from '$lib/types/types';
 
     const campaignId = parseInt($page.params.id);

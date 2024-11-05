@@ -1,8 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
-    import { API_URL } from '$lib/config';
-    import { characters } from '$lib/stores/characterStore';
     import type { Character, InsertCharacter } from '$lib/types/types';
 
     const campaignId = parseInt($page.params.id);
@@ -15,7 +13,6 @@
             const response = await fetch(`/api/campaign/${campaignId}/characters`);
             if (!response.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await response.json();
-            characters.set(campaignCharacters);
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -51,7 +48,6 @@
             const charactersResponse = await fetch(`/api/campaign/${campaignId}/characters`);
             if (!charactersResponse.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await charactersResponse.json();
-            characters.set(campaignCharacters);
             
             form.reset();
         } catch (e) {

@@ -1,9 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
-    import { API_URL } from '$lib/config';
-    import { events } from '$lib/stores/eventStore';
-    import { characters } from '$lib/stores/characterStore';
     import type { Event, Character, InsertEvent } from '$lib/types/types';
 
     const campaignId = parseInt($page.params.id);
@@ -12,7 +9,7 @@
     let loading = true;
     let error: string | null = null;
     let selectedEventType: string = 'CurrencyGain';
-
+    let selectedCharacterIds: string[] = [];
     // Add filter states
     let filterCharacterId: string = '';
     let filterStartDate: string = '';
@@ -153,7 +150,7 @@
             {#each campaignCharacters as character}
                 <div class="character-checkbox">
                     {character.name}
-                    <input type="checkbox" id="character-{character.id}" name="character_id" value={character.id} />
+                    <input type="checkbox" id="character-{character.id}" name="character_id" value={character.id} bind:group={selectedCharacterIds} />
                 </div>
             {/each}
         </div>
@@ -182,7 +179,7 @@
             </div>
         {/if}
 
-        <button type="submit">Add Event</button>
+        <button type="submit" disabled={selectedCharacterIds.length === 0}>Add Event</button>
     </form>
 
     {#if loading}
