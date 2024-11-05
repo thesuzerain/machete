@@ -1,5 +1,14 @@
-use axum::{extract::{Query, State}, http::StatusCode, routing::{get, post}, Json, Router};
-use machete::models::library::{creature::{CreatureFilters, LibraryCreature}, item::{ItemFilters, LibraryItem}, spell::{LibrarySpell, SpellFilters}};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use machete::models::library::{
+    creature::{CreatureFilters, LibraryCreature},
+    item::{ItemFilters, LibraryItem},
+    spell::{LibrarySpell, SpellFilters},
+};
 use sqlx::{PgPool, Pool};
 
 use crate::database;
@@ -12,7 +21,6 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/items", post(insert_items))
         .route("/spells", get(get_spells))
         .route("/spells", post(insert_spells))
-
 }
 
 async fn get_creatures(
@@ -48,7 +56,9 @@ async fn insert_items(
     State(pool): State<PgPool>,
     Json(payload): Json<Vec<LibraryItem>>,
 ) -> (StatusCode, ()) {
-    database::items::insert_items(&pool, &payload).await.unwrap();
+    database::items::insert_items(&pool, &payload)
+        .await
+        .unwrap();
     (StatusCode::NO_CONTENT, ())
 }
 
@@ -64,6 +74,8 @@ async fn insert_spells(
     State(pool): State<PgPool>,
     Json(payload): Json<Vec<LibrarySpell>>,
 ) -> (StatusCode, ()) {
-    database::spells::insert_spells(&pool, &payload).await.unwrap();
+    database::spells::insert_spells(&pool, &payload)
+        .await
+        .unwrap();
     (StatusCode::NO_CONTENT, ())
 }

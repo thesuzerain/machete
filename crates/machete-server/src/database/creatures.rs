@@ -74,6 +74,9 @@ pub async fn insert_creatures(
 ) -> crate::Result<()> {
     // TODO: we don't need two tables for this.
 
+    if creatures.is_empty() {
+        return Ok(());
+    }
     let ids = sqlx::query!(
         r#"
         INSERT INTO library_objects (name, game_system)
