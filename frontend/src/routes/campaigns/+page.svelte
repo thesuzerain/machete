@@ -8,8 +8,6 @@
   let error: string | null = null;
   let newCampaignName = '';
 
-  console.log(API_URL);
-
   onMount(async () => {
     try {
       const response = await fetch(`/api/campaign`);

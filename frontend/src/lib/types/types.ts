@@ -12,13 +12,13 @@ export interface Character {
     race: string;
     background: string;
 }
-
 export interface Event {
     id: number;
-    campaign_id: number;
-    character_id?: number;
+    campaign: number;
+    character?: number;
     date: Date;
     event_type: 'CURRENCY' | 'ITEM' | 'LEVEL_UP' | 'STORY' | 'OTHER';
+    data: Record<string, unknown>;
     description: string;
     value?: number;
 }

@@ -1,7 +1,4 @@
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
@@ -54,4 +51,3 @@ pub enum ServerError {
     #[error("Internal error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
 }
-

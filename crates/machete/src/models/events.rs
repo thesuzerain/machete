@@ -22,6 +22,7 @@ pub struct EventGroup {
 pub struct Event {
     pub id: InternalId,
     pub character: Option<InternalId>,
+    pub timestamp: DateTime<Utc>,
     #[serde(flatten)]
     pub event_type: EventType,
 }
@@ -30,6 +31,7 @@ impl Default for Event {
     fn default() -> Self {
         Event {
             id: InternalId::new(),
+            timestamp: Utc::now(),
             character: None,
             event_type: EventType::CurrencyGain { currency: 0 },
         }
@@ -38,7 +40,7 @@ impl Default for Event {
 
 /// Metadata for an event type.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(tag = "event_type")]
+#[serde(tag = "event_type", content = "data")]
 pub enum EventType {
     CurrencyGain { currency: u64 },
     ExperienceGain { experience: u64 },

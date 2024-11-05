@@ -1,9 +1,21 @@
-use axum::{extract::{Path, Query, State}, http::StatusCode, routing::{get, post}, Json, Router};
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use machete::models::{campaign::CampaignPartial, characters::Character, events::Event};
 use machete_core::ids::InternalId;
 use sqlx::{PgPool, Pool};
 
-use crate::{database::{self, characters::{CharacterFilters, InsertCharacter}, events::{EventFilters, InsertEvent}}, dummy_test_user};
+use crate::{
+    database::{
+        self,
+        characters::{CharacterFilters, InsertCharacter},
+        events::{EventFilters, InsertEvent},
+    },
+    dummy_test_user,
+};
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
     Router::new()
@@ -15,9 +27,7 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/events", post(insert_events))
 }
 
-async fn get_campaigns(
-    State(pool): State<PgPool>,
-) -> (StatusCode, Json<Vec<CampaignPartial>>) {
+async fn get_campaigns(State(pool): State<PgPool>) -> (StatusCode, Json<Vec<CampaignPartial>>) {
     let campaigns = database::campaigns::get_campaign(&pool, dummy_test_user())
         .await
         .unwrap();
@@ -42,9 +52,8 @@ async fn get_characters(
     Query(filters): Query<CharacterFilters>,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
-)
-    -> (StatusCode, Json<Vec<Character>>) {
-    let characters = database::characters::get_characters(&pool,dummy_test_user(),  id, &filters)
+) -> (StatusCode, Json<Vec<Character>>) {
+    let characters = database::characters::get_characters(&pool, dummy_test_user(), id, &filters)
         .await
         .unwrap();
     (StatusCode::OK, Json(characters))
@@ -65,9 +74,8 @@ async fn get_events(
     Query(filters): Query<EventFilters>,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
-)
-    -> (StatusCode, Json<Vec<Event>>) {
-    let events = database::events::get_campaigns(&pool, dummy_test_user(),id, &filters)
+) -> (StatusCode, Json<Vec<Event>>) {
+    let events = database::events::get_campaigns(&pool, dummy_test_user(), id, &filters)
         .await
         .unwrap();
     (StatusCode::OK, Json(events))

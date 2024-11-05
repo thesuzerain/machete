@@ -25,17 +25,22 @@ pub async fn get_campaigns(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &EventFilters,
 ) -> crate::Result<Vec<Event>> {
-        // TODO: Campaign needs to be checked for ownership
+    // TODO: Campaign needs to be checked for ownership
 
+    println!(
+        "Getting events for campaign {}, with filters: {:?}",
+        campaign_id.0, condition
+    );
     let query = sqlx::query!(
         r#"
         SELECT 
             ev.id,
             ch.id AS "character?",
+            ev.timestamp,
             ev.event_data
         FROM events ev
         LEFT JOIN characters ch ON ev.character = ch.id
-        LEFT JOIN campaigns ca ON ch.campaign = ca.id
+        LEFT JOIN campaigns ca ON ev.campaign = ca.id
         WHERE 
             ($1::int IS NULL OR ev.character = $1)
             AND ca.id = $2
@@ -54,6 +59,7 @@ pub async fn get_campaigns(
             Ok(Event {
                 id: InternalId(row.id as u64),
                 character: row.character.map(|c| InternalId(c as u64)),
+                timestamp: row.timestamp.and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
         })
@@ -67,10 +73,16 @@ pub async fn insert_events(
     campaign_id: InternalId,
     events: &Vec<InsertEvent>,
 ) -> crate::Result<()> {
-        // TODO: Campaign needs to be checked for ownership
-    let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events.iter().map(|e| {
-        (e.character.map(|c| c.0 as i32), serde_json::to_value(&e.event_type).unwrap())
-    }).unzip();
+    // TODO: Campaign needs to be checked for ownership
+    let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
+        .iter()
+        .map(|e| {
+            (
+                e.character.map(|c| c.0 as i32),
+                serde_json::to_value(&e.event_type).unwrap(),
+            )
+        })
+        .unzip();
 
     sqlx::query!(
         r#"
