@@ -8,7 +8,7 @@ pub struct EventFilters {
     pub event_type: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct InsertEvent {
     pub character: Option<InternalId>,
     #[serde(flatten)]
@@ -26,11 +26,6 @@ pub async fn get_campaigns(
     condition: &EventFilters,
 ) -> crate::Result<Vec<Event>> {
     // TODO: Campaign needs to be checked for ownership
-
-    println!(
-        "Getting events for campaign {}, with filters: {:?}",
-        campaign_id.0, condition
-    );
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -73,6 +68,10 @@ pub async fn insert_events(
     campaign_id: InternalId,
     events: &Vec<InsertEvent>,
 ) -> crate::Result<()> {
+    if events.is_empty() {
+        return Ok(());
+    }
+
     // TODO: Campaign needs to be checked for ownership
     let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
         .iter()

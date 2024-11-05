@@ -62,6 +62,9 @@ pub async fn insert_characters(
     characters: &Vec<InsertCharacter>,
 ) -> crate::Result<()> {
     // TODO: Campaign needs to be checked for ownership
+    if characters.is_empty() {
+        return Ok(());
+    }
 
     let campaign_id = campaign_id.0 as i32;
     let (names, players): (Vec<String>, Vec<Option<String>>) = characters

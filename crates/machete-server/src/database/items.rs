@@ -74,6 +74,11 @@ pub async fn insert_items(
     items: &Vec<LibraryItem>,
 ) -> crate::Result<()> {
     // TODO: Don't *need* two tables for this
+
+    if items.is_empty() {
+        return Ok(());
+    }
+    
     let ids = sqlx::query!(
         r#"
         INSERT INTO library_objects (name, game_system)
