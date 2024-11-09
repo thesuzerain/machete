@@ -15,10 +15,18 @@ CREATE TABLE characters (
     campaign BIGINT REFERENCES campaigns NOT NULL
 );
 
+CREATE TABLE event_groups (
+    id SERIAL PRIMARY KEY,
+    campaign BIGINT REFERENCES campaigns NOT NULL,
+    name VARCHAR(60) NOT NULL,
+    description TEXT
+);
+
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    campaign BIGINT REFERENCES campaigns,
+    event_group BIGINT REFERENCES event_groups NOT NULL,
+    campaign BIGINT REFERENCES campaigns NOT NULL,
     character BIGINT REFERENCES characters,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     event_data JSONB NOT NULL
 );

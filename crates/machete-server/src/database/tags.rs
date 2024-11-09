@@ -6,6 +6,9 @@ pub async fn insert_and_return_tags(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     items: Vec<String>,
 ) -> crate::Result<HashMap<String, i32>> {
+    if items.is_empty() {
+        return Ok(HashMap::new());
+    }
     // TODO: Do we *need* two tables for this?
     // todo: No duplicates, but also this fixes the too many variables error
     let items = items.into_iter().collect::<HashSet<String>>();

@@ -8,7 +8,7 @@ pub struct EventFilters {
     pub event_type: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct InsertEvent {
     pub character: Option<InternalId>,
     #[serde(flatten)]
@@ -32,10 +32,11 @@ pub async fn get_campaigns(
         SELECT 
             ev.id,
             ch.id AS "character?",
+            ev.timestamp,
             ev.event_data
         FROM events ev
         LEFT JOIN characters ch ON ev.character = ch.id
-        LEFT JOIN campaigns ca ON ch.campaign = ca.id
+        LEFT JOIN campaigns ca ON ev.campaign = ca.id
         WHERE 
             ($1::int IS NULL OR ev.character = $1)
             AND ca.id = $2
@@ -54,6 +55,7 @@ pub async fn get_campaigns(
             Ok(Event {
                 id: InternalId(row.id as u64),
                 character: row.character.map(|c| InternalId(c as u64)),
+                timestamp: row.timestamp.unwrap_or_default().and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
         })
@@ -67,6 +69,10 @@ pub async fn insert_events(
     campaign_id: InternalId,
     events: &Vec<InsertEvent>,
 ) -> crate::Result<()> {
+    if events.is_empty() {
+        return Ok(());
+    }
+
     // TODO: Campaign needs to be checked for ownership
     let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
         .iter()
