@@ -23,7 +23,6 @@ pub async fn get_characters(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &CharacterFilters,
 ) -> crate::Result<Vec<Character>> {
-
     // TODO: Campaign needs to be checked for ownership
     let query = sqlx::query!(
         r#"
@@ -65,10 +64,13 @@ pub async fn insert_characters(
     // TODO: Campaign needs to be checked for ownership
 
     let campaign_id = campaign_id.0 as i32;
-    let (names, players) : (Vec<String>, Vec<Option<String>>) = characters.iter().map(|e| {
-        // TODO: remove clones
-        (e.name.clone(), e.player.clone())
-    }).unzip();
+    let (names, players): (Vec<String>, Vec<Option<String>>) = characters
+        .iter()
+        .map(|e| {
+            // TODO: remove clones
+            (e.name.clone(), e.player.clone())
+        })
+        .unzip();
 
     sqlx::query!(
         r#"
@@ -78,7 +80,6 @@ pub async fn insert_characters(
         &names,
         &players as _,
         campaign_id
-
     )
     .execute(exec)
     .await?;

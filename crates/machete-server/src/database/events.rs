@@ -25,7 +25,7 @@ pub async fn get_campaigns(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &EventFilters,
 ) -> crate::Result<Vec<Event>> {
-        // TODO: Campaign needs to be checked for ownership
+    // TODO: Campaign needs to be checked for ownership
 
     let query = sqlx::query!(
         r#"
@@ -67,10 +67,16 @@ pub async fn insert_events(
     campaign_id: InternalId,
     events: &Vec<InsertEvent>,
 ) -> crate::Result<()> {
-        // TODO: Campaign needs to be checked for ownership
-    let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events.iter().map(|e| {
-        (e.character.map(|c| c.0 as i32), serde_json::to_value(&e.event_type).unwrap())
-    }).unzip();
+    // TODO: Campaign needs to be checked for ownership
+    let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
+        .iter()
+        .filter_map(|e| {
+            Some((
+                e.character.map(|c| c.0 as i32),
+                serde_json::to_value(&e.event_type).ok()?,
+            ))
+        })
+        .unzip();
 
     sqlx::query!(
         r#"
