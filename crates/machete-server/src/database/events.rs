@@ -26,6 +26,7 @@ pub async fn get_campaigns(
     condition: &EventFilters,
 ) -> crate::Result<Vec<Event>> {
     // TODO: Campaign needs to be checked for ownership
+
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -54,7 +55,7 @@ pub async fn get_campaigns(
             Ok(Event {
                 id: InternalId(row.id as u64),
                 character: row.character.map(|c| InternalId(c as u64)),
-                timestamp: row.timestamp.and_utc(),
+                timestamp: row.timestamp.unwrap_or_default().and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
         })
@@ -75,11 +76,11 @@ pub async fn insert_events(
     // TODO: Campaign needs to be checked for ownership
     let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
         .iter()
-        .map(|e| {
-            (
+        .filter_map(|e| {
+            Some((
                 e.character.map(|c| c.0 as i32),
-                serde_json::to_value(&e.event_type).unwrap(),
-            )
+                serde_json::to_value(&e.event_type).ok()?,
+            ))
         })
         .unzip();
 

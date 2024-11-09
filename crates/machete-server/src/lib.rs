@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{http, response::IntoResponse, routing::get, Router};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
@@ -50,4 +50,25 @@ pub enum ServerError {
     SqlxError(#[from] sqlx::Error),
     #[error("Internal error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+}
+
+impl ServerError {
+    pub fn status_code(&self) -> http::StatusCode {
+        match self {
+            ServerError::SqlxError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::SerdeJsonError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    pub fn body(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl IntoResponse for ServerError {
+    fn into_response(self) -> http::Response<axum::body::Body> {
+        let mut res = http::Response::new(self.body().into());
+        *res.status_mut() = self.status_code();
+        res
+    }
 }
