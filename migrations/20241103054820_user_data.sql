@@ -19,12 +19,13 @@ CREATE TABLE event_groups (
     id SERIAL PRIMARY KEY,
     campaign BIGINT REFERENCES campaigns NOT NULL,
     name VARCHAR(60) NOT NULL,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description TEXT
 );
 
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    event_group BIGINT REFERENCES event_groups NOT NULL,
+    event_group BIGINT REFERENCES event_groups,
     campaign BIGINT REFERENCES campaigns NOT NULL,
     character BIGINT REFERENCES characters,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

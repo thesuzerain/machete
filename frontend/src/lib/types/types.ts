@@ -14,13 +14,10 @@ export interface Character {
 }
 export interface Event {
     id: number;
-    campaign: number;
     character?: number;
-    date: Date;
+    timestamp: Date;
     event_type: string;
     data: Record<string, unknown>;
-    description: string;
-    value?: number;
 }
 
 // Types for inserting new records
@@ -41,4 +38,20 @@ export interface InsertEvent {
     event_type: string;
     description: string;
     value?: number;
+}
+
+export interface Log {
+    id: number;
+    campaign: number;
+    name: string;
+    timestamp: string;
+    description: string;
+    events: number[];
+}
+
+export interface InsertLog {
+    campaign: number;
+    template_id: string;
+    description: string;
+    events: InsertEvent[];
 } 

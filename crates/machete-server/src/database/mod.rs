@@ -5,6 +5,7 @@ pub mod characters;
 pub mod creatures;
 pub mod events;
 pub mod items;
+pub mod logs;
 pub mod spells;
 pub mod tags;
 

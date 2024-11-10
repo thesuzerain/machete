@@ -15,12 +15,14 @@ pub struct EventGroup {
     pub name: String,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub timestamp: DateTime<Utc>,
-    pub events: HashMap<InternalId, Event>,
+    pub description: Option<String>,
+    pub events: Vec<InternalId>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
     pub id: InternalId,
+    pub log: Option<InternalId>,
     pub character: Option<InternalId>,
     pub timestamp: DateTime<Utc>,
     #[serde(flatten)]
@@ -31,6 +33,7 @@ impl Default for Event {
     fn default() -> Self {
         Event {
             id: InternalId::new(),
+            log: None,
             timestamp: Utc::now(),
             character: None,
             event_type: EventType::CurrencyGain { currency: 0 },
@@ -44,6 +47,17 @@ impl Default for Event {
 pub enum EventType {
     CurrencyGain { currency: u64 },
     ExperienceGain { experience: u64 },
+    // TODO: EnemyDefeated, HazardDefeated, ItemGain, etc should be by ID.
+    EnemyDefeated {
+        name: String,
+    },
+    HazardDefeated {
+        name: String,
+    },
+    ItemGain {
+        name: String,
+    },
+    // TODO: Some kind of custom event type.
 }
 
 impl Display for EventType {
@@ -53,6 +67,9 @@ impl Display for EventType {
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)
             }
+            EventType::EnemyDefeated { name } => write!(f, "Enemy Defeated: {}", name),
+            EventType::HazardDefeated { name } => write!(f, "Hazard Defeated: {}", name),
+            EventType::ItemGain { name } => write!(f, "Item Gain: {}", name),
         }
     }
 }

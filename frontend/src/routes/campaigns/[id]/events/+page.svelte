@@ -2,6 +2,7 @@
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import type { Event, Character, InsertEvent } from '$lib/types/types';
+    import EventManager from '$lib/components/EventManager.svelte';
 
     const campaignId = parseInt($page.params.id);
     let campaignEvents: Event[] = [];
@@ -14,6 +15,10 @@
     let filterCharacterId: string = '';
     let filterStartDate: string = '';
     let filterEndDate: string = '';
+    
+    // Add new state variables
+    let selectedEventIds: number[] = [];
+    let editingEvent: Event | null = null;
     
     // Helper function to get all unique keys from event_type objects
     function getEventTypeKeys(events: Event[]): string[] {
@@ -77,16 +82,18 @@
         const eventType = formData.get('event_type') as string;
 
         let eventTypeData: any;
+        let description: string;
+        
         switch (eventType) {
             case 'CurrencyGain':
-                eventTypeData = {
-                    currency: parseInt(formData.get('currency') as string)
-                };
+                const currency = parseInt(formData.get('currency') as string);
+                eventTypeData = { currency };
+                description = `Gained ${currency} currency`;
                 break;
             case 'ExperienceGain':
-                eventTypeData = {
-                    experience: parseInt(formData.get('experience') as string)
-                };
+                const experience = parseInt(formData.get('experience') as string);
+                eventTypeData = { experience };
+                description = `Gained ${experience} experience`;
                 break;
             default:
                 throw new Error('Invalid event type');
@@ -96,6 +103,7 @@
         const newEvents: InsertEvent[] = characterIds.map(character_id => ({
             character: parseInt(character_id),
             event_type: eventType,
+            description,
             data: eventTypeData,
         }));
 
@@ -118,6 +126,64 @@
             form.reset();
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create events';
+        }
+    }
+
+    async function deleteSelectedEvents() {
+        if (!selectedEventIds.length) return;
+        
+        try {
+            const response = await fetch(`/api/campaign/${campaignId}/events`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(selectedEventIds),
+            });
+
+            if (!response.ok) throw new Error('Failed to delete events');
+            
+            // Refresh events list and clear selection
+            await fetchEvents();
+            selectedEventIds = [];
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to delete events';
+        }
+    }
+
+    async function updateEvent(eventId: number, newData: any) {
+        try {
+            const eventType = campaignEvents.find(event => event.id === eventId)?.event_type; 
+            const response = await fetch(`/api/campaign/${campaignId}/events/${eventId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    event_type: eventType,
+                    data: newData 
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update event');
+            
+            // Refresh events list and clear editing state
+            await fetchEvents();
+            editingEvent = null;
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to update event';
+        }
+    }
+
+    // Helper function to create edit form data based on event type
+    function getEditFormData(event: Event) {
+        switch (event.event_type) {
+            case 'CurrencyGain':
+                return { currency: event.data.currency };
+            case 'ExperienceGain':
+                return { experience: event.data.experience };
+            default:
+                return {};
         }
     }
 </script>
@@ -185,71 +251,12 @@
     {#if loading}
         <div class="loading">Loading events...</div>
     {:else}
-        <div class="filters">
-            <div class="filter-group">
-                <label for="filter-character">Filter by Character</label>
-                <select 
-                    id="filter-character" 
-                    bind:value={filterCharacterId}
-                >
-                    <option value="">All Characters</option>
-                    {#each campaignCharacters as character}
-                        <option value={character.id}>{character.name}</option>
-                    {/each}
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="filter-start-date">Start Date</label>
-                <input 
-                    type="datetime-local" 
-                    id="filter-start-date" 
-                    bind:value={filterStartDate}
-                >
-            </div>
-            
-            <div class="filter-group">
-                <label for="filter-end-date">End Date</label>
-                <input 
-                    type="datetime-local" 
-                    id="filter-end-date" 
-                    bind:value={filterEndDate}
-                >
-            </div>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Character</th>
-                        <th>Event Type</th>
-                        <th>Raw Data</th>
-                        {#each getEventTypeKeys(campaignEvents) as key}
-                            <th>{key}</th>
-                        {/each}
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each campaignEvents as event}
-                        <tr>
-                            <td>{new Date(event.timestamp).toLocaleString()}</td>
-                            <td>
-                                {campaignCharacters.find(c => c.id === event.character)?.name || 'Unknown'}
-                            </td>
-                            <td>{event.event_type}</td>
-                            <td>{JSON.stringify(event.data)}</td>
-                            {#each getEventTypeKeys(campaignEvents) as key}
-                                <td>
-                                    {event.data[key] !== undefined ? event.data[key] : '-'}
-                                </td>
-                            {/each}
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
-        </div>
+        <EventManager 
+            events={campaignEvents}
+            characters={campaignCharacters}
+            campaignId={campaignId}
+            onEventsUpdate={fetchEvents}
+        />
     {/if}
 </div>
 
@@ -339,5 +346,50 @@
         text-align: center;
         color: #666;
         padding: 2rem;
+    }
+
+    .bulk-actions {
+        margin-bottom: 1rem;
+    }
+
+    .delete-button {
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .delete-button:hover {
+        background-color: #dc2626;
+    }
+
+    .edit-button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .edit-button:hover {
+        background-color: #2563eb;
+    }
+
+    .edit-form {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .edit-form input {
+        width: auto;
+    }
+
+    input[type="checkbox"] {
+        width: auto;
+        cursor: pointer;
     }
 </style> 

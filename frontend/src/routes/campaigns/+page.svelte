@@ -1,16 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { InsertCampaign } from '$lib/types/types';
+  import type { Campaign, InsertCampaign } from '$lib/types/types';
 
   let loading = true;
   let error: string | null = null;
   let newCampaignName = '';
+  let campaigns: Campaign[] = [];
 
   onMount(async () => {
     try {
       const response = await fetch(`/api/campaign`);
       if (!response.ok) throw new Error('Failed to fetch campaigns');
-      const data = await response.json();
+      campaigns = await response.json();
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
     } finally {
@@ -39,7 +40,7 @@
       // Refresh the campaigns list
       const campaignsResponse = await fetch(`/api/campaign`);
       if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
-      const data = await campaignsResponse.json();
+      campaigns = await campaignsResponse.json();
       
       // Reset form
       newCampaignName = '';
@@ -75,11 +76,12 @@
     <div class="loading">Loading campaigns...</div>
   {:else}
     <div class="campaign-grid">
-      {#each $campaigns as campaign}
+      {#each campaigns as campaign}
         <div class="campaign-card">
           <h3>{campaign.name}</h3>
           <div class="actions">
             <a href="/campaigns/{campaign.id}/characters">Characters</a>
+            <a href="/campaigns/{campaign.id}/logs">Logs</a>
             <a href="/campaigns/{campaign.id}/events">Events</a>
           </div>
         </div>
