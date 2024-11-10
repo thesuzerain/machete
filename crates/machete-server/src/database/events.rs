@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use machete::models::events::{Event, EventType};
 use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
@@ -5,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EventFilters {
     pub character: Option<i32>,
+    pub log: Option<i32>,
     pub event_type: Option<String>,
 }
 
@@ -16,7 +18,7 @@ pub struct InsertEvent {
 }
 
 // TODO: May be prudent to make a separate models system for the database.
-pub async fn get_campaigns(
+pub async fn get_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     owner: InternalId,
     campaign_id: InternalId,
@@ -33,10 +35,12 @@ pub async fn get_campaigns(
             ev.id,
             ch.id AS "character?",
             ev.timestamp,
+            ev.event_group AS "log?",
             ev.event_data
         FROM events ev
         LEFT JOIN characters ch ON ev.character = ch.id
         LEFT JOIN campaigns ca ON ev.campaign = ca.id
+        LEFT JOIN event_groups eg ON ev.event_group = eg.id
         WHERE 
             ($1::int IS NULL OR ev.character = $1)
             AND ca.id = $2
@@ -47,26 +51,69 @@ pub async fn get_campaigns(
         condition.event_type,
     );
 
-    let campaigns = query
+    let events = query
         .fetch_all(exec)
         .await?
         .into_iter()
         .map(|row| {
             Ok(Event {
                 id: InternalId(row.id as u64),
+                log: row.log.map(|l| InternalId(l as u64)),
                 character: row.character.map(|c| InternalId(c as u64)),
-                timestamp: row.timestamp.unwrap_or_default().and_utc(),
+                timestamp: row.timestamp.and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
         })
         .collect::<Result<Vec<Event>, crate::ServerError>>()?;
-    Ok(campaigns)
+    Ok(events)
+}
+
+pub async fn get_events_ids(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    event_ids: Vec<InternalId>,
+) -> crate::Result<Vec<Event>> {
+    // TODO: Campaign needs to be checked for ownership
+
+    let query = sqlx::query!(
+        r#"
+        SELECT 
+            ev.id,
+            ch.id AS "character?",
+            ev.timestamp,
+            ev.event_group AS "log?",
+            ev.event_data
+        FROM events ev
+        LEFT JOIN characters ch ON ev.character = ch.id
+        LEFT JOIN campaigns ca ON ev.campaign = ca.id
+        LEFT JOIN event_groups eg ON ev.event_group = eg.id
+        WHERE 
+            ev.id = ANY($1::int[])
+    "#,
+        &event_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+    );
+
+    let events = query
+        .fetch_all(exec)
+        .await?
+        .into_iter()
+        .map(|row| {
+            Ok(Event {
+                id: InternalId(row.id as u64),
+                log: row.log.map(|l| InternalId(l as u64)),
+                character: row.character.map(|c| InternalId(c as u64)),
+                timestamp: row.timestamp.and_utc(),
+                event_type: serde_json::from_value(row.event_data)?,
+            })
+        })
+        .collect::<Result<Vec<Event>, crate::ServerError>>()?;
+    Ok(events)
 }
 
 pub async fn insert_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
     campaign_id: InternalId,
+    log_id: Option<InternalId>,
     events: &Vec<InsertEvent>,
 ) -> crate::Result<()> {
     if events.is_empty() {
@@ -74,24 +121,27 @@ pub async fn insert_events(
     }
 
     // TODO: Campaign needs to be checked for ownership
-    let (characters, event_types): (Vec<Option<i32>>, Vec<serde_json::Value>) = events
+    let (characters, campaigns, event_types, event_groups): (Vec<Option<i32>>, Vec<i32>, Vec<serde_json::Value>, Vec<Option<i32>>) = events
         .iter()
         .filter_map(|e| {
             Some((
                 e.character.map(|c| c.0 as i32),
+                campaign_id.0 as i32,
                 serde_json::to_value(&e.event_type).ok()?,
+                log_id.map(|l| l.0 as i32),
             ))
         })
-        .unzip();
+        .multiunzip();
 
     sqlx::query!(
         r#"
-        INSERT INTO events (character, campaign, event_data)
-        SELECT * FROM UNNEST ($1::int[], array[$2::int], $3::jsonb[])
+        INSERT INTO events (character, campaign, event_data, event_group)
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::jsonb[], $4::int[])
         "#,
         characters as _,
-        campaign_id.0 as i32,
+        &campaigns,
         &event_types,
+        event_groups as _,
     )
     .execute(exec)
     .await?;
@@ -105,7 +155,7 @@ pub async fn edit_event(
     event_id: InternalId,
     new_event: &EventType,
 ) -> crate::Result<()> {
-    let event_type = serde_json::to_value(&new_event).unwrap();
+    let event_type = serde_json::to_value(&new_event)?;
 
     sqlx::query!(
         r#"
@@ -139,7 +189,7 @@ pub async fn delete_events(
     sqlx::query!(
         r#"
         DELETE FROM events
-        -- owner check through 'campaign'
+        -- TODO: owner check through 'campaign'
         WHERE id = ANY($1::int[])
         AND EXISTS (
             SELECT 1 FROM campaigns ca

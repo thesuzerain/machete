@@ -2,6 +2,7 @@
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import type { Event, Character, InsertEvent } from '$lib/types/types';
+    import EventManager from '$lib/components/EventManager.svelte';
 
     const campaignId = parseInt($page.params.id);
     let campaignEvents: Event[] = [];
@@ -81,16 +82,18 @@
         const eventType = formData.get('event_type') as string;
 
         let eventTypeData: any;
+        let description: string;
+        
         switch (eventType) {
             case 'CurrencyGain':
-                eventTypeData = {
-                    currency: parseInt(formData.get('currency') as string)
-                };
+                const currency = parseInt(formData.get('currency') as string);
+                eventTypeData = { currency };
+                description = `Gained ${currency} currency`;
                 break;
             case 'ExperienceGain':
-                eventTypeData = {
-                    experience: parseInt(formData.get('experience') as string)
-                };
+                const experience = parseInt(formData.get('experience') as string);
+                eventTypeData = { experience };
+                description = `Gained ${experience} experience`;
                 break;
             default:
                 throw new Error('Invalid event type');
@@ -100,6 +103,7 @@
         const newEvents: InsertEvent[] = characterIds.map(character_id => ({
             character: parseInt(character_id),
             event_type: eventType,
+            description,
             data: eventTypeData,
         }));
 
@@ -247,139 +251,12 @@
     {#if loading}
         <div class="loading">Loading events...</div>
     {:else}
-        <div class="filters">
-            <div class="filter-group">
-                <label for="filter-character">Filter by Character</label>
-                <select 
-                    id="filter-character" 
-                    bind:value={filterCharacterId}
-                >
-                    <option value="">All Characters</option>
-                    {#each campaignCharacters as character}
-                        <option value={character.id}>{character.name}</option>
-                    {/each}
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="filter-start-date">Start Date</label>
-                <input 
-                    type="datetime-local" 
-                    id="filter-start-date" 
-                    bind:value={filterStartDate}
-                >
-            </div>
-            
-            <div class="filter-group">
-                <label for="filter-end-date">End Date</label>
-                <input 
-                    type="datetime-local" 
-                    id="filter-end-date" 
-                    bind:value={filterEndDate}
-                >
-            </div>
-        </div>
-
-        {#if selectedEventIds.length > 0}
-            <div class="bulk-actions">
-                <button class="delete-button" on:click={deleteSelectedEvents}>
-                    Delete Selected ({selectedEventIds.length})
-                </button>
-            </div>
-        {/if}
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>
-                            <input 
-                                type="checkbox" 
-                                on:change={(e) => {
-                                    if (e.currentTarget.checked) {
-                                        selectedEventIds = campaignEvents.map(event => event.id);
-                                    } else {
-                                        selectedEventIds = [];
-                                    }
-                                }}
-                                checked={selectedEventIds.length === campaignEvents.length}
-                            >
-                        </th>
-                        <th>Timestamp</th>
-                        <th>Character</th>
-                        <th>Event Type</th>
-                        {#each getEventTypeKeys(campaignEvents) as key}
-                            <th>{key}</th>
-                        {/each}
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each campaignEvents as event}
-                        <tr>
-                            <td>
-                                <input 
-                                    type="checkbox" 
-                                    checked={selectedEventIds.includes(event.id)}
-                                    on:change={(e) => {
-                                        if (e.currentTarget.checked) {
-                                            selectedEventIds = [...selectedEventIds, event.id];
-                                        } else {
-                                            selectedEventIds = selectedEventIds.filter(id => id !== event.id);
-                                        }
-                                    }}
-                                >
-                            </td>
-                            <td>{new Date(event.timestamp).toLocaleString()}</td>
-                            <td>
-                                {campaignCharacters.find(c => c.id === event.character)?.name || 'Unknown'}
-                            </td>
-                            <td>{event.event_type}</td>
-                            {#if editingEvent?.id === event.id}
-                                <td colspan={getEventTypeKeys(campaignEvents).length + 1}>
-                                    <form 
-                                        on:submit|preventDefault={() => {
-                                            const formData = getEditFormData(event);
-                                            updateEvent(event.id, formData);
-                                        }}
-                                        class="edit-form"
-                                    >
-                                        {#if event.event_type === 'CurrencyGain'}
-                                            <input 
-                                                type="number" 
-                                                value={event.data.currency}
-                                                on:input={(e) => event.data.currency = parseInt(e.currentTarget.value)}
-                                                min="0"
-                                            >
-                                        {:else if event.event_type === 'ExperienceGain'}
-                                            <input 
-                                                type="number" 
-                                                value={event.data.experience}
-                                                on:input={(e) => event.data.experience = parseInt(e.currentTarget.value)}
-                                                min="0"
-                                            >
-                                        {/if}
-                                        <button type="submit">Save</button>
-                                        <button type="button" on:click={() => editingEvent = null}>Cancel</button>
-                                    </form>
-                                </td>
-                            {:else}
-                                {#each getEventTypeKeys(campaignEvents) as key}
-                                    <td>
-                                        {event.data[key] !== undefined ? event.data[key] : '-'}
-                                    </td>
-                                {/each}
-                                <td>
-                                    <button class="edit-button" on:click={() => editingEvent = event}>
-                                        Edit
-                                    </button>
-                                </td>
-                            {/if}
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
-        </div>
+        <EventManager 
+            events={campaignEvents}
+            characters={campaignCharacters}
+            campaignId={campaignId}
+            onEventsUpdate={fetchEvents}
+        />
     {/if}
 </div>
 

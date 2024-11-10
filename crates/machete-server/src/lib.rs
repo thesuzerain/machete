@@ -3,6 +3,7 @@ use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
 pub mod campaign;
+pub mod models;
 pub mod database;
 pub mod library;
 

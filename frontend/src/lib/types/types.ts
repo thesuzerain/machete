@@ -38,4 +38,20 @@ export interface InsertEvent {
     event_type: string;
     description: string;
     value?: number;
+}
+
+export interface Log {
+    id: number;
+    campaign: number;
+    name: string;
+    timestamp: string;
+    description: string;
+    events: number[];
+}
+
+export interface InsertLog {
+    campaign: number;
+    template_id: string;
+    description: string;
+    events: InsertEvent[];
 } 

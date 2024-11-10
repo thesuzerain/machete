@@ -36,7 +36,6 @@ async fn insert_creatures(
     State(pool): State<PgPool>,
     Json(payload): Json<Vec<LibraryCreature>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    println!("Adding {} creatures", payload.len());
     database::creatures::insert_creatures(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }
