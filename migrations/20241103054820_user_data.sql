@@ -2,16 +2,16 @@ ALTER TABLE users ADD COLUMN name VARCHAR(20);
 INSERT INTO users(id, name) VALUES (0, 'Machete');
 INSERT INTO users(id, name) VALUES (1, 'Test');
 
-CREATE TABLE campaigns (
-    id SERIAL PRIMARY KEY,
-    owner BIGINT REFERENCES users NOT NULL,
-    name VARCHAR(60) NOT NULL
-);
+ALTER TABLE library_objects ADD COLUMN url VARCHAR(255);
+ALTER TABLE library_objects ADD COLUMN description TEXT;
+
+ALTER TABLE library_spells ADD COLUMN traditions VARCHAR(32)[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE library_classes (
     id INTEGER PRIMARY KEY REFERENCES library_objects,
     rarity INT NOT NULL,
-    name VARCHAR(60) NOT NULL
+    hp INT NOT NULL,
+    traditions VARCHAR(32)[] NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE library_hazards (
@@ -20,10 +20,17 @@ CREATE TABLE library_hazards (
     level INT
 );
 
+CREATE TABLE campaigns (
+    id SERIAL PRIMARY KEY,
+    owner BIGINT REFERENCES users NOT NULL,
+    name VARCHAR(60) NOT NULL
+);
+
 CREATE TABLE characters (
     id SERIAL PRIMARY KEY,
     name VARCHAR(60) NOT NULL,
     player VARCHAR(60),
+    level INT NOT NULL,
     campaign BIGINT REFERENCES campaigns NOT NULL,
     class BIGINT REFERENCES library_classes NOT NULL
 );

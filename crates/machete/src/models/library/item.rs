@@ -20,6 +20,10 @@ pub struct LibraryItem {
     pub tags: Vec<String>,
     #[filter(number)]
     pub price: Currency,
+
+    pub url: Option<String>,
+    pub description: String,
+
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -33,6 +37,9 @@ pub struct ItemFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit : Option<u64>,
+    pub page : Option<u64>,
 }
 
 // TODO: Can simplify this and similar try_from functions for other library structs, using a macro.
@@ -116,6 +123,8 @@ impl ItemFilters {
             min_price: self.min_price.or(other.min_price),
             max_price: self.max_price.or(other.max_price),
             tags: self.tags.into_iter().chain(other.tags).collect(),
+            limit: self.limit.or(other.limit),
+            page: self.page.or(other.page),
         }
     }
 }

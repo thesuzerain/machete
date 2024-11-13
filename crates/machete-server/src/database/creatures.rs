@@ -4,6 +4,8 @@ use machete::models::library::{
 };
 use machete_core::ids::InternalId;
 
+use super::DEFAULT_MAX_LIMIT;
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -12,12 +14,18 @@ pub async fn get_creatures(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &CreatureFilters,
 ) -> crate::Result<Vec<LibraryCreature>> {
+    let limit = condition.limit.unwrap_or(DEFAULT_MAX_LIMIT);
+    let page = condition.page.unwrap_or(0);
+    let offset = page * limit;
+
     let query = sqlx::query!(
         r#"
         SELECT 
             lo.id,
             lo.name,
             lo.game_system,
+            lo.url,
+            lo.description,
             rarity,
             level,
             alignment,
@@ -39,6 +47,7 @@ pub async fn get_creatures(
             AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
         
         GROUP BY lo.id, lc.id ORDER BY lo.name
+        LIMIT $9 OFFSET $10
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -48,6 +57,8 @@ pub async fn get_creatures(
         condition.alignment.as_ref().map(|a| a.as_i64() as i32),
         condition.size.as_ref().map(|s| s.as_i64() as i32),
         condition.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
+        limit as i64,
+        offset as i64,
     );
 
     let creatures = query
@@ -64,6 +75,8 @@ pub async fn get_creatures(
                 alignment: Alignment::from_i64(row.alignment.unwrap_or_default() as i64),
                 size: Size::from_i64(row.size.unwrap_or_default() as i64),
                 tags: row.tags.unwrap_or_default(),
+                url: row.url,
+                description: row.description.unwrap_or_default(),
             })
         })
         .collect::<Result<Vec<LibraryCreature>, sqlx::Error>>()?;
@@ -81,8 +94,8 @@ pub async fn insert_creatures(
     }
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system)
-        SELECT * FROM UNNEST ($1::text[], $2::int[])  
+        INSERT INTO library_objects (name, game_system, url, description)
+        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
         RETURNING id  
     "#,
         &creatures
@@ -93,6 +106,14 @@ pub async fn insert_creatures(
             .iter()
             .map(|c| c.game_system.as_i64() as i32)
             .collect::<Vec<i32>>(),
+        &creatures
+            .iter()
+            .map(|c| c.url.clone())
+            .collect::<Vec<Option<String>>>() as _,
+        &creatures
+            .iter()
+            .map(|c| c.description.clone())
+            .collect::<Vec<String>>(),
     )
     .fetch_all(exec)
     .await?

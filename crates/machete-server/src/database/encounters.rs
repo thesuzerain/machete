@@ -199,7 +199,7 @@ pub async fn edit_encounter(
         new_encounter
             .status
             .as_ref()
-            .map(|s| s.as_i32() as i32)
+            .map(|s| s.as_i32() as i16)
             .unwrap_or_default(),
         encounter_id.0 as i64,
     )

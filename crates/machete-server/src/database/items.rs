@@ -4,6 +4,8 @@ use machete::models::library::{
 };
 use machete_core::ids::InternalId;
 
+use super::DEFAULT_MAX_LIMIT;
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -12,6 +14,10 @@ pub async fn get_items(
     // https://github.com/launchbadge/sqlx/issues/291
     condition: &ItemFilters,
 ) -> crate::Result<Vec<LibraryItem>> {
+    let limit = condition.limit.unwrap_or(DEFAULT_MAX_LIMIT);
+    let page = condition.page.unwrap_or(0);
+    let offset = page * limit;
+
     // TODO: data type 'as'
     let query = sqlx::query!(
         r#"
@@ -19,6 +25,8 @@ pub async fn get_items(
             lo.id,
             lo.name,
             lo.game_system,
+            lo.url,
+            lo.description,
             li.rarity,
             li.level,
             li.price,
@@ -39,6 +47,7 @@ pub async fn get_items(
             AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
         
         GROUP BY lo.id, li.id ORDER BY lo.name
+        LIMIT $9 OFFSET $10
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -48,6 +57,8 @@ pub async fn get_items(
         condition.min_price.map(|p| p as i32),
         condition.max_price.map(|p| p as i32),
         condition.tags.first(), // TODO: This is incorrect, only returning one tag.
+        limit as i64,
+        offset as i64,
     )
     .fetch_all(exec)
     .await?;
@@ -65,6 +76,8 @@ pub async fn get_items(
                 level: row.level.unwrap_or_default() as i8,
                 price: Currency::from_base_unit(row.price.unwrap_or_default() as u32),
                 tags: row.tags.unwrap_or_default(),
+                url: row.url,
+                description: row.description.unwrap_or_default(),
             })
         })
         .collect::<Result<Vec<LibraryItem>, sqlx::Error>>()?;
@@ -83,8 +96,8 @@ pub async fn insert_items(
 
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system)
-        SELECT * FROM UNNEST ($1::text[], $2::int[])  
+        INSERT INTO library_objects (name, game_system, url, description)
+        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
         RETURNING id  
     "#,
         &items
@@ -95,6 +108,14 @@ pub async fn insert_items(
             .iter()
             .map(|c| c.game_system.as_i64() as i32)
             .collect::<Vec<i32>>(),
+        &items
+            .iter()
+            .map(|c| c.url.clone())
+            .collect::<Vec<Option<String>>>() as _,
+        &items
+            .iter()
+            .map(|c| c.description.clone())
+            .collect::<Vec<String>>(),
     )
     .fetch_all(exec)
     .await?

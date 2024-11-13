@@ -17,6 +17,10 @@ pub struct LibraryHazard {
     pub level: i8,
     #[filter(string)]
     pub tags: Vec<String>,
+
+    pub url: Option<String>,
+    pub description: String,
+
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -37,4 +41,7 @@ pub struct HazardFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit : Option<u64>,
+    pub page : Option<u64>,
 }

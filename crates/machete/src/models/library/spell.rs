@@ -18,6 +18,11 @@ pub struct LibrarySpell {
     pub rank: u8,
     #[filter(string)]
     pub tags: Vec<String>,
+
+    pub traditions : Vec<String>,
+
+    pub url: Option<String>,
+    pub description: String,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -29,6 +34,9 @@ pub struct SpellFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
 impl TryFrom<Filter<LibrarySpell>> for SpellFilters {
@@ -94,6 +102,8 @@ impl SpellFilters {
             rarity: self.rarity.or(other.rarity),
             game_system: self.game_system.or(other.game_system),
             tags: self.tags.into_iter().chain(other.tags).collect(),
+            limit: self.limit.or(other.limit),
+            page: self.page.or(other.page),
         }
     }
 }

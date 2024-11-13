@@ -24,6 +24,9 @@ pub struct LibraryCreature {
     pub alignment: Alignment,
     #[filter(iter(Size))]
     pub size: Size,
+
+    pub url: Option<String>,
+    pub description: String,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
@@ -37,6 +40,9 @@ pub struct CreatureFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit : Option<u64>,
+    pub page : Option<u64>,
 }
 
 impl TryFrom<Filter<LibraryCreature>> for CreatureFilters {
@@ -119,6 +125,8 @@ impl CreatureFilters {
             alignment: self.alignment.or(other.alignment),
             size: self.size.or(other.size),
             tags: self.tags.into_iter().chain(other.tags).collect(),
+            limit: self.limit.or(other.limit),
+            page: self.page.or(other.page),
         }
     }
 }
