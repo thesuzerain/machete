@@ -1,4 +1,4 @@
-use std::hash::{DefaultHasher, Hasher};
+use std::{fmt::Display, hash::{DefaultHasher, Hasher}};
 
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,12 @@ pub struct InternalId(pub u64);
 impl Default for InternalId {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Display for InternalId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InternalId({})", self.0)
     }
 }
 

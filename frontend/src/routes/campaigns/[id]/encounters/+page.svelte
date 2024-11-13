@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import type { Character } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
+    import { id } from 'date-fns/locale';
 
     interface Encounter {
         id: number;
@@ -19,7 +20,14 @@
         id: number;
         name: string;
         level?: number;  // Optional for creatures/hazards
-        value?: number;  // Optional for items (cost)
+        price?: Currency;  // Optional for items (cost)
+    }
+
+    // TODO: Abstract, this shouldn't be here.
+    interface Currency {
+        gold?: number;
+        silver?: number;
+        copper?: number;
     }
 
     let libraryEnemies: Map<number, LibraryEntity> = new Map();
@@ -55,17 +63,17 @@
             const enemies: LibraryEntity[] = await enemiesResponse.json();
             libraryEnemies = new Map(enemies.map(e => [e.id, e]));
 
-            // Load hazards
-            const hazardsResponse = await fetch('/api/library/hazards');
-            if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
-            const hazards: LibraryEntity[] = await hazardsResponse.json();
-            libraryHazards = new Map(hazards.map(h => [h.id, h]));
-
             // Load items
             const itemsResponse = await fetch('/api/library/items');
             if (!itemsResponse.ok) throw new Error('Failed to fetch items');
             const items: LibraryEntity[] = await itemsResponse.json();
             libraryItems = new Map(items.map(i => [i.id, i]));
+
+            // Load hazards
+            const hazardsResponse = await fetch('/api/library/hazards');
+            if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
+            const hazards: LibraryEntity[] = await hazardsResponse.json();
+            libraryHazards = new Map(hazards.map(h => [h.id, h]));
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to load library data';
         }
@@ -100,7 +108,7 @@
             const response = await fetch(`/api/campaign/${campaignId}/encounters`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newEncounter),
+                body: JSON.stringify([newEncounter]),
             });
 
             if (!response.ok) throw new Error('Failed to create encounter');
@@ -125,7 +133,7 @@
             const response = await fetch(`/api/campaign/${campaignId}/encounters/${encounter.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(encounter),
+                body: JSON.stringify({encounter}),
             });
 
             if (!response.ok) throw new Error('Failed to update encounter');
@@ -137,7 +145,9 @@
         }
     }
 
-    async function completeEncounter(encounter: Encounter) {
+    async function completeEncounter(encounter: Encounter | null) {
+        if (!encounter) return;
+
         if (!selectedCharacterIds.length) {
             error = "Please select at least one character";
             return;
@@ -154,29 +164,47 @@
                     events: [
                         // Enemy defeated events
                         ...encounter.enemies.flatMap(enemyId => 
-                            selectedCharacterIds.map(charId => ({
+                            selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character_id: charId,
                                 event_type: 'EnemyDefeated',
                                 description: `Defeated ${libraryEnemies.get(enemyId)?.name}`,
                                 data: {
-                                    name: libraryEnemies.get(enemyId)?.name,
-                                    count: 1,
-                                    experience: libraryEnemies.get(enemyId)?.experience
+                                    id: enemyId,
                                 }
-                            }))
+                            })).flat()
+                        ),
+                        // Enemy experience events
+                        ...encounter.enemies.flatMap(enemyId => 
+                            selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
+                                character_id: charId,
+                                event_type: 'ExperienceGain',
+                                description: `Gained ${getExperienceFromLevel(libraryEnemies.get(enemyId)?.level)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
+                                data: {
+                                    experience: getExperienceFromLevel(libraryEnemies.get(enemyId)?.level)
+                                }
+                            })).flat()
                         ),
                         // Hazard defeated events
                         ...encounter.hazards.flatMap(hazardId => 
-                            selectedCharacterIds.map(charId => ({
+                            selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
                                 character_id: charId,
                                 event_type: 'HazardDefeated',
                                 description: `Overcame ${libraryHazards.get(hazardId)?.name}`,
                                 data: {
-                                    name: libraryHazards.get(hazardId)?.name,
-                                    count: 1,
-                                    experience: libraryHazards.get(hazardId)?.experience
+                                    id: hazardId,
                                 }
-                            }))
+                            })).flat()
+                        ),
+                        // Hazard experience events
+                        ...encounter.hazards.flatMap(hazardId => 
+                            selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
+                                character_id: charId,
+                                event_type: 'ExperienceGain',
+                                description: `Gained ${getExperienceFromLevel(libraryHazards.get(hazardId)?.level)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
+                                data: {
+                                    experience: getExperienceFromLevel(libraryHazards.get(hazardId)?.level)
+                                }
+                            })).flat()
                         ),
                         // Treasure events
                         ...selectedCharacterIds.map(charId => ({
@@ -184,7 +212,8 @@
                             event_type: 'CurrencyGain',
                             description: `Gained ${encounter.treasure_currency} currency from ${encounter.name}`,
                             data: {
-                                currency: encounter.treasure_currency
+                                // TODO: Add support for silver and copper
+                                currency: encounter.treasure_currency.gold
                             }
                         })),
                         // Item gain events
@@ -194,7 +223,7 @@
                                 event_type: 'ItemGain',
                                 description: `Found ${libraryItems.get(itemId)?.name}`,
                                 data: {
-                                    name: libraryItems.get(itemId)?.name
+                                    id: itemId
                                 }
                             }))
                         )
@@ -234,6 +263,35 @@
 
     function getItemDetails(id: number) {
         return libraryItems.get(id);
+    }
+
+    function getExperienceFromLevel(level: number | undefined) {
+        if (!level) return 0;
+        // TODO: Will be based on level of enemy but also party level
+        return Math.floor(level * 100);
+    }
+
+    function getTotalTreasure() {
+        let total = newEncounter.treasure_currency;
+        newEncounter.treasure_items.forEach(itemId => {
+            // TODO: Add support for silver and copper
+            const item = getItemDetails(itemId);
+            if (item && item.price?.gold) {
+                total += item.price?.gold;
+            }
+        });
+
+        return total;
+    }
+
+    async function fetchEncounters() {
+        try {
+            const response = await fetch(`/api/campaign/${campaignId}/encounters`);
+            if (!response.ok) throw new Error('Failed to fetch encounters');
+            encounters = await response.json();
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to fetch encounters';
+        }
     }
 </script>
 
@@ -336,6 +394,10 @@
 
                 <h4>Items</h4>
                 <div class="list-items">
+                    <div>
+                        <span>Total:</span>
+                        <span>{ getTotalTreasure() }</span>
+                    </div>
                     {#each newEncounter.treasure_items as itemId}
                         {#if getItemDetails(itemId)}
                             <div class="list-item">
@@ -383,7 +445,7 @@
                             <ul>
                                 {#each encounter.enemies as enemyId}
                                     {#if getEnemyDetails(enemyId)}
-                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getEnemyDetails(enemyId)?.experience})</li>
+                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(getEnemyDetails(enemyId)?.level)})</li>
                                     {/if}
                                 {/each}
                             </ul>
@@ -394,7 +456,7 @@
                             <ul>
                                 {#each encounter.hazards as hazardId}
                                     {#if getHazardDetails(hazardId)}
-                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getHazardDetails(hazardId)?.experience})</li>
+                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(getHazardDetails(hazardId)?.level)})</li>
                                     {/if}
                                 {/each}
                             </ul>

@@ -3,6 +3,8 @@ use machete::models::{encounter::{CompletionStatus, Encounter}, events::{Event, 
 use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
 
+use crate::models::currency::CurrencyOrGold;
+
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
     pub name : Option<String>,
@@ -18,7 +20,21 @@ pub struct InsertEncounter {
     pub hazards: Vec<InternalId>,
 
     pub treasure_items: Vec<InternalId>,
-    pub treasure_currency: u64,
+    pub treasure_currency: CurrencyOrGold,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct ModifyEncounter {
+    pub name: Option<String>,
+    pub description: Option<String>,
+
+    pub enemies: Option<Vec<InternalId>>,
+    pub hazards: Option<Vec<InternalId>>,
+
+    pub treasure_items: Option<Vec<InternalId>>,
+    pub treasure_currency: Option<CurrencyOrGold>,
+
+    pub status: Option<CompletionStatus>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -62,7 +78,7 @@ pub async fn get_encounters(
                 id: InternalId(row.id as u64),
                 name: row.name,
                 description: row.description,
-                status: CompletionStatus::from_i32(row.status),
+                status: CompletionStatus::from_i32(row.status as i32),
                 enemies: row.enemies.iter().map(|id| InternalId(*id as u64)).collect(),
                 hazards: row.hazards.iter().map(|id| InternalId(*id as u64)).collect(),
                 treasure_items: row.treasure_items.iter().map(|id| InternalId(*id as u64)).collect(),
@@ -100,7 +116,7 @@ pub async fn insert_encounters(
             &encounter.enemies.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-            encounter.treasure_currency as i64,
+            encounter.treasure_currency.as_currency().as_base_unit() as i64,
         )
         .fetch_one(exec)
         .await?
@@ -116,21 +132,46 @@ pub async fn edit_encounter(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
     encounter_id: InternalId,
-    new_encounter: &InsertEncounter,
+    new_encounter: &ModifyEncounter,
 ) -> crate::Result<()> {
+
+    let enemies = if let Some(enemies) = &new_encounter.enemies {
+        Some(enemies.iter().map(|id| id.0 as i64).collect::<Vec<i64>>())
+    } else {
+        None
+    };
+
+    let hazards = if let Some(hazards) = &new_encounter.hazards {
+        Some(hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>())
+    } else {
+        None
+    };
+
+    let treasure_items = if let Some(treasure_items) = &new_encounter.treasure_items {
+        Some(treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>())
+    } else {
+        None
+    };
 
     sqlx::query!(
         r#"
         UPDATE encounters
-        SET name = $1, description = $2, enemies = $3, hazards = $4, treasure_items = $5, treasure_currency = $6
-        WHERE id = $7
+        SET name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        enemies = COALESCE($3, enemies),
+        hazards = COALESCE($4, hazards),
+        treasure_items = COALESCE($5, treasure_items),
+        treasure_currency = COALESCE($6, treasure_currency),
+        status = COALESCE($7, status)
+        WHERE id = $8
         "#,
-        &new_encounter.name,
-        &new_encounter.description,
-        &new_encounter.enemies.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-        &new_encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-        &new_encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-        new_encounter.treasure_currency as i64,
+        new_encounter.name.as_deref(),
+        new_encounter.description.as_deref(),
+        enemies.as_deref(),
+        hazards.as_deref(),
+        treasure_items.as_deref(),
+        new_encounter.treasure_currency.as_ref().map(|c| c.as_currency().as_base_unit() as i32),
+        new_encounter.status.as_ref().map(|s| s.as_i32() as i16).unwrap_or_default(),
         encounter_id.0 as i64,
     )
     .execute(exec)

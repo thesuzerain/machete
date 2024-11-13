@@ -5,7 +5,14 @@
         id: number;
         name: string;
         level?: number;  // Optional for creatures/hazards
-        value?: number;  // Optional for items (cost)
+        price?: Currency;  // Optional for items (cost)
+    }
+
+    // TODO: Abstract, this shouldn't be here.
+    interface Currency {
+        gold?: number;
+        silver?: number;
+        copper?: number;
     }
 
     export let entityType: 'creature' | 'hazard' | 'item';
@@ -25,6 +32,7 @@
             const response = await fetch(`/api/library/${endpoint}`);
             if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
             entities = await response.json();
+            console.log("entities",entities)
         } catch (e) {
             error = e instanceof Error ? e.message : `Failed to load ${entityType}s`;
         } finally {

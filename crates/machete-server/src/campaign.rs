@@ -11,7 +11,7 @@ use sqlx::{PgPool, Pool};
 
 use crate::{
     database::{
-        self, characters::{CharacterFilters, InsertCharacter}, encounters::{EncounterFilters, InsertEncounter}, events::{EventFilters, InsertEvent}, logs::{InsertLog, LogFilters}
+        self, campaigns::InsertCampaign, characters::{CharacterFilters, InsertCharacter}, encounters::{EncounterFilters, InsertEncounter, ModifyEncounter}, events::{EventFilters, InsertEvent}, logs::{InsertLog, LogFilters}
     },
     dummy_test_user, ServerError,
 };
@@ -43,10 +43,6 @@ async fn get_campaigns(State(pool): State<PgPool>) -> Result<impl IntoResponse, 
     Ok(Json(campaigns))
 }
 
-#[derive(serde::Deserialize)]
-pub struct InsertCampaign {
-    pub name: String,
-}
 async fn insert_campaign(
     State(pool): State<PgPool>,
     Json(campaign): Json<InsertCampaign>,
@@ -181,7 +177,7 @@ async fn insert_encounter(
 async fn edit_encounter(
     State(pool): State<PgPool>,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
-    Json(event): Json<InsertEncounter>,
+    Json(event): Json<ModifyEncounter>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::encounters::edit_encounter(&pool, dummy_test_user(), event_id, &event)
         .await?;

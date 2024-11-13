@@ -59,13 +59,13 @@ pub enum EventType {
     ExperienceGain { experience: u64 },
     // TODO: EnemyDefeated, HazardDefeated, ItemGain, etc should be by ID.
     EnemyDefeated {
-        name: String,
+        id: InternalId,
     },
     HazardDefeated {
-        name: String,
+        id: InternalId,
     },
     ItemGain {
-        name: String,
+        id: InternalId,
     },
     // TODO: Some kind of custom event type.
 }
@@ -77,9 +77,9 @@ impl Display for EventType {
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)
             }
-            EventType::EnemyDefeated { name } => write!(f, "Enemy Defeated: {}", name),
-            EventType::HazardDefeated { name } => write!(f, "Hazard Defeated: {}", name),
-            EventType::ItemGain { name } => write!(f, "Item Gain: {}", name),
+            EventType::EnemyDefeated { id } => write!(f, "Enemy Defeated: {}", id),
+            EventType::HazardDefeated { id } => write!(f, "Hazard Defeated: {}", id),
+            EventType::ItemGain { id } => write!(f, "Item Gain: {}", id),
         }
     }
 }
