@@ -1,6 +1,11 @@
 use machete::models::campaign::CampaignPartial;
 use machete_core::ids::InternalId;
 
+#[derive(serde::Deserialize)]
+pub struct InsertCampaign {
+    pub name: String,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,

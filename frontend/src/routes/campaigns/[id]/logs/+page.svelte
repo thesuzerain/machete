@@ -4,6 +4,7 @@
     import { LOG_TEMPLATES } from '$lib/types/logs';
     import type { Log, Character, InsertLog, InsertEvent } from '$lib/types/types';
     import EventManager from '$lib/components/EventManager.svelte';
+    import LibrarySelector from '$lib/components/LibrarySelector.svelte';
 
     const campaignId = parseInt($page.params.id);
     let logs: Log[] = [];
@@ -15,16 +16,15 @@
     let showingEventsForLog: Log | null = null;
 
     interface Enemy {
-        name: string;
+        id: number;
         count: number;
-        experience: number;
         type: 'enemy' | 'hazard';
     }
 
     interface Treasure {
         type: 'currency' | 'item';
         amount?: number;
-        itemName?: string;
+        itemId?: number;
     }
 
     let enemies: Enemy[] = [];
@@ -34,15 +34,40 @@
 
     let editingLog: Log | null = null;
 
+    let libraryEnemies: Map<number, LibraryEntity> = new Map();
+    let libraryHazards: Map<number, LibraryEntity> = new Map();
+    let libraryItems: Map<number, LibraryEntity> = new Map();
+
+    async function loadLibraryData() {
+        try {
+            // Load enemies
+            const enemiesResponse = await fetch('/api/library/creatures');
+            if (!enemiesResponse.ok) throw new Error('Failed to fetch creatures');
+            const enemies: LibraryEntity[] = await enemiesResponse.json();
+            libraryEnemies = new Map(enemies.map(e => [e.id, e]));
+
+            // Load items
+            const itemsResponse = await fetch('/api/library/items');
+            if (!itemsResponse.ok) throw new Error('Failed to fetch items');
+            const items: LibraryEntity[] = await itemsResponse.json();
+            libraryItems = new Map(items.map(i => [i.id, i]));
+
+            // Load hazards
+            const hazardsResponse = await fetch('/api/library/hazards');
+            if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
+            const hazards: LibraryEntity[] = await hazardsResponse.json();
+            libraryHazards = new Map(hazards.map(h => [h.id, h]));
+        } catch (e) {
+            error = e instanceof Error ? e.message : 'Failed to load library data';
+        }
+    }
+
     onMount(async () => {
         try {
-            // Fetch characters
-            const charactersResponse = await fetch(`/api/campaign/${campaignId}/characters`);
-            if (!charactersResponse.ok) throw new Error('Failed to fetch characters');
-            campaignCharacters = await charactersResponse.json();
-
-            // Fetch logs
-            await fetchLogs();
+            await Promise.all([
+                fetchLogs(),
+                loadLibraryData()
+            ]);
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -71,9 +96,9 @@
                 events.push({
                     character: characterId,
                     event_type: enemy.type === 'enemy' ? 'EnemyDefeated' : 'HazardDefeated',
-                    description: `Defeated ${enemy.count} ${enemy.name}`,
+                    description: `Defeated ${enemy.count} ${enemy.type}`,
                     data: {
-                        name: enemy.name,
+                        name: enemy.type,
                         count: enemy.count
                     }
                 });
@@ -82,7 +107,7 @@
                 events.push({
                     character: characterId,
                     event_type: 'ExperienceGain',
-                    description: `Gained ${enemy.experience} experience from ${enemy.name}`,
+                    description: `Gained ${enemy.experience} experience from ${enemy.type}`,
                     data: {
                         experience: enemy.experience
                     }
@@ -98,10 +123,10 @@
                     event_type: treasure.type === 'currency' ? 'CurrencyGain' : 'ItemGain',
                     description: treasure.type === 'currency' 
                         ? `Gained ${treasure.amount} currency`
-                        : `Gained item: ${treasure.itemName}`,
+                        : `Gained item: ${treasure.itemId}`,
                     data: treasure.type === 'currency' 
                         ? { currency: treasure.amount }
-                        : { name: treasure.itemName }
+                        : { name: treasure.itemId }
                 });
             }
         }
@@ -111,9 +136,8 @@
 
     function addEnemy() {
         enemies = [...enemies, {
-            name: '',
+            id: 0,
             count: 1,
-            experience: 0,
             type: 'enemy'
         }];
     }
@@ -265,12 +289,25 @@
                         <option value="enemy">Enemy</option>
                         <option value="hazard">Hazard</option>
                     </select>
-                    <input 
-                        type="text" 
-                        placeholder="Name"
-                        bind:value={enemy.name}
-                        required
-                    />
+                    {#if enemy.type === 'enemy'}
+                        <LibrarySelector
+                            entityType="creature"
+                            onSelect={(id) => {
+                                enemies[i].id = id;
+                                enemies = enemies;  // trigger reactivity
+                            }}
+                            placeholder="Search for enemies..."
+                        />
+                    {:else}
+                        <LibrarySelector
+                            entityType="hazard"
+                            onSelect={(id) => {
+                                enemies[i].id = id;
+                                enemies = enemies;  // trigger reactivity
+                            }}
+                            placeholder="Search for hazards..."
+                        />
+                    {/if}
                     <input 
                         type="number" 
                         placeholder="Count"
@@ -278,17 +315,12 @@
                         min="1"
                         required
                     />
-                    <input 
-                        type="number" 
-                        placeholder="XP each"
-                        bind:value={enemy.experience}
-                        min="0"
-                        required
-                    />
                     <button type="button" on:click={() => removeEnemy(i)}>Remove</button>
                 </div>
             {/each}
-            <button type="button" on:click={addEnemy}>Add Enemy/Hazard</button>
+            <button type="button" on:click={() => enemies = [...enemies, { id: 0, count: 1, type: 'enemy' }]}>
+                Add Enemy/Hazard
+            </button>
         </div>
 
         <div class="treasure-section">
@@ -308,17 +340,21 @@
                             required
                         />
                     {:else}
-                        <input 
-                            type="text" 
-                            placeholder="Item Name"
-                            bind:value={treasure.itemName}
-                            required
+                        <LibrarySelector
+                            entityType="item"
+                            onSelect={(id) => {
+                                treasures[i].itemId = id;
+                                treasures = treasures;  // trigger reactivity
+                            }}
+                            placeholder="Search for items..."
                         />
                     {/if}
                     <button type="button" on:click={() => removeTreasure(i)}>Remove</button>
                 </div>
             {/each}
-            <button type="button" on:click={addTreasure}>Add Treasure</button>
+            <button type="button" on:click={() => treasures = [...treasures, { type: 'currency', amount: 0 }]}>
+                Add Treasure
+            </button>
         </div>
 
         <div class="advanced-section">

@@ -1,12 +1,14 @@
 use std::str::FromStr;
 
 use super::{GameSystem, Rarity};
-use machete_core::filters::{Filter, FilterType};
+use machete_core::{filters::{Filter, FilterType}, ids::InternalId};
 use machete_macros::Filterable;
 use serde::{Deserialize, Serialize};
 
+// TODO: 'Filterable' is kind of a mess
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Filterable)]
 pub struct LibraryCreature {
+    pub id : InternalId,
     #[filter(default, string)]
     pub name: String,
     #[filter(iter(GameSystem))]

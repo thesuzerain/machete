@@ -1,4 +1,4 @@
-use std::hash::{DefaultHasher, Hasher};
+use std::{fmt::Display, hash::{DefaultHasher, Hasher}};
 
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// An internal identifier for a an object for user-local usage.
 /// These are randomly generated and risk hash collisions, and are not used online.
 /// TODO: Should these be randomly generated? Should just use uuids?
+/// TODO: sqlx derivation for easy database storage.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct InternalId(pub u64);
@@ -13,6 +14,12 @@ pub struct InternalId(pub u64);
 impl Default for InternalId {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Display for InternalId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InternalId({})", self.0)
     }
 }
 

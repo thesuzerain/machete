@@ -7,7 +7,7 @@ export interface Character {
     id: number;
     campaign_id: number;
     name: string;
-    class: string;
+    class: number;
     level: number;
     race: string;
     background: string;
@@ -27,10 +27,15 @@ export interface InsertCampaign {
 
 export interface InsertCharacter {
     name: string;
-    class: string;
+    class: number;
     level: number;
-    race: string;
-    background: string;
+}
+
+export interface UpdateCharacter {
+    id: number;
+    name: string;
+    class: number;
+    level: number;
 }
 
 export interface InsertEvent {
@@ -54,4 +59,12 @@ export interface InsertLog {
     template_id: string;
     description: string;
     events: InsertEvent[];
+}
+
+export interface LibraryClass {
+    id: number;
+    name: string;
+    game_system: string;
+    rarity: string;
+    tags: string[];
 } 

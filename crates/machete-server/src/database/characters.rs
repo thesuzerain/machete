@@ -11,6 +11,14 @@ pub struct CharacterFilters {
 pub struct InsertCharacter {
     pub name: String,
     pub player: Option<String>,
+    pub class: InternalId,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ModifyCharacter {
+    pub name: Option<String>,
+    pub player: Option<String>,
+    pub class: Option<InternalId>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -29,7 +37,9 @@ pub async fn get_characters(
         SELECT 
             ch.id,
             ch.name,
-            ch.player
+            ch.player,
+            ch.level,
+            ch.class
         FROM characters ch
         LEFT JOIN campaigns ca ON ch.campaign = ca.id
         WHERE 
@@ -48,11 +58,38 @@ pub async fn get_characters(
             Ok(Character {
                 id: InternalId(row.id as u64),
                 name: row.name,
+                level: row.level as u8,
                 player: row.player,
+                class: InternalId(row.class as u64),
             })
         })
         .collect::<Result<Vec<Character>, sqlx::Error>>()?;
     Ok(characters)
+}
+
+pub async fn edit_character(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    character_id: InternalId,
+    owner: InternalId,
+    character: &ModifyCharacter,
+) -> crate::Result<()> {
+    let query = sqlx::query!(
+        r#"
+        UPDATE characters
+        SET name = COALESCE($1, name),
+            player = COALESCE($2, player),
+            class = COALESCE($3, class)
+        WHERE id = $4
+        "#,
+        character.name,
+        character.player,
+        character.class.as_ref().map(|c| c.0 as i64),
+        character_id.0 as i32,
+    );
+
+    query.execute(exec).await?;
+
+    Ok(())
 }
 
 pub async fn insert_characters(
@@ -77,12 +114,16 @@ pub async fn insert_characters(
 
     sqlx::query!(
         r#"
-        INSERT INTO characters (name, player, campaign)
-        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], array[$3::int])
+        INSERT INTO characters (name, player, campaign, class)
+        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], array[$3::int], $4::int[])
         "#,
         &names,
         &players as _,
-        campaign_id
+        campaign_id,
+        &characters
+            .iter()
+            .map(|c| c.class.0 as i32)
+            .collect::<Vec<i32>>(),
     )
     .execute(exec)
     .await?;

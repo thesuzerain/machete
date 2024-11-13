@@ -81,6 +81,7 @@
           <h3>{campaign.name}</h3>
           <div class="actions">
             <a href="/campaigns/{campaign.id}/characters">Characters</a>
+            <a href="/campaigns/{campaign.id}/encounters">Encounters</a>
             <a href="/campaigns/{campaign.id}/logs">Logs</a>
             <a href="/campaigns/{campaign.id}/events">Events</a>
           </div>

@@ -6,6 +6,8 @@ use spell::LibrarySpell;
 use std::{collections::HashMap, str::FromStr};
 
 pub mod creature;
+pub mod classes;
+pub mod hazard;
 pub mod item;
 pub mod spell;
 

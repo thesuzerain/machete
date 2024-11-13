@@ -6,5 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Character {
     pub id : InternalId,
     pub name: String,
+    pub level: u8,
     pub player: Option<String>,
+    pub class: InternalId,
 }
