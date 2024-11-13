@@ -31,3 +31,14 @@ CREATE TABLE events (
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     event_data JSONB NOT NULL
 );
+
+CREATE TABLE encounters (
+    id SERIAL PRIMARY KEY,
+    status SMALLINT NOT NULL,
+    name VARCHAR(60) NOT NULL,
+    description TEXT,
+    enemies BIGINT[] NOT NULL,
+    hazards BIGINT[] NOT NULL,
+    treasure_currency INTEGER,
+    treasure_items BIGINT[] NOT NULL
+);

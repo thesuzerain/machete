@@ -2,6 +2,7 @@ use machete::models::library::{
     spell::{LibrarySpell, SpellFilters},
     GameSystem, Rarity,
 };
+use machete_core::ids::InternalId;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
@@ -49,6 +50,7 @@ pub async fn get_spells(
         .into_iter()
         .map(|row| {
             Ok(LibrarySpell {
+                id: InternalId(row.id as u64),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),

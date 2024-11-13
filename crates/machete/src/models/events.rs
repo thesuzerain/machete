@@ -19,6 +19,16 @@ pub struct EventGroup {
     pub events: Vec<InternalId>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(tag = "event_group_type", content = "data")]
+pub enum EventGroupType {
+    Encounter {
+        // TODO: Encounter metadata
+    },
+    #[default]
+    Miscellaneous,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Event {
     pub id: InternalId,

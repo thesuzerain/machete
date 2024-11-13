@@ -2,6 +2,7 @@ use machete::models::library::{
     item::{Currency, ItemFilters, LibraryItem},
     GameSystem, Rarity,
 };
+use machete_core::ids::InternalId;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_items(
@@ -57,6 +58,7 @@ pub async fn get_items(
             // TODO: conversions still here shouldnt be needed
             // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
             Ok(LibraryItem {
+                id: InternalId(row.id as u64),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),

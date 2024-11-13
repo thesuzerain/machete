@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// An internal identifier for a an object for user-local usage.
 /// These are randomly generated and risk hash collisions, and are not used online.
 /// TODO: Should these be randomly generated? Should just use uuids?
+/// TODO: sqlx derivation for easy database storage.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct InternalId(pub u64);

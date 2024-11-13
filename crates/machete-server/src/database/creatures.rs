@@ -2,6 +2,7 @@ use machete::models::library::{
     creature::{Alignment, CreatureFilters, LibraryCreature, Size},
     GameSystem, Rarity,
 };
+use machete_core::ids::InternalId;
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
@@ -55,6 +56,7 @@ pub async fn get_creatures(
         .into_iter()
         .map(|row| {
             Ok(LibraryCreature {
+                id: InternalId(row.id as u64),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
