@@ -121,7 +121,12 @@ pub async fn insert_events(
     }
 
     // TODO: Campaign needs to be checked for ownership
-    let (characters, campaigns, event_types, event_groups): (Vec<Option<i32>>, Vec<i32>, Vec<serde_json::Value>, Vec<Option<i32>>) = events
+    let (characters, campaigns, event_types, event_groups): (
+        Vec<Option<i32>>,
+        Vec<i32>,
+        Vec<serde_json::Value>,
+        Vec<Option<i32>>,
+    ) = events
         .iter()
         .filter_map(|e| {
             Some((

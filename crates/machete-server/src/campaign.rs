@@ -5,13 +5,22 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
-use machete::models::{campaign::CampaignPartial, characters::Character, events::{Event, EventGroup, EventType}};
+use machete::models::{
+    campaign::CampaignPartial,
+    characters::Character,
+    events::{Event, EventGroup, EventType},
+};
 use machete_core::ids::InternalId;
 use sqlx::{PgPool, Pool};
 
 use crate::{
     database::{
-        self, campaigns::InsertCampaign, characters::{CharacterFilters, InsertCharacter}, encounters::{EncounterFilters, InsertEncounter, ModifyEncounter}, events::{EventFilters, InsertEvent}, logs::{InsertLog, LogFilters}
+        self,
+        campaigns::InsertCampaign,
+        characters::{CharacterFilters, InsertCharacter, ModifyCharacter},
+        encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
+        events::{EventFilters, InsertEvent},
+        logs::{InsertLog, LogFilters},
     },
     dummy_test_user, ServerError,
 };
@@ -22,6 +31,7 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/", post(insert_campaign))
         .route("/:id/characters", get(get_characters))
         .route("/:id/characters", post(insert_characters))
+        .route("/:id/characters/:id", patch(edit_character))
         .route("/:id/events", get(get_events))
         .route("/:id/events", post(insert_events))
         .route("/:id/events/:id", patch(edit_event))
@@ -35,7 +45,6 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/encounters", post(insert_encounter))
         .route("/:id/encounters/:id", patch(edit_encounter))
         .route("/:id/encounters/:id", delete(delete_encounter))
-
 }
 
 async fn get_campaigns(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
@@ -70,13 +79,22 @@ async fn insert_characters(
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn edit_character(
+    State(pool): State<PgPool>,
+    Path((campaign_id, character_id)): Path<(InternalId, InternalId)>,
+    Json(character): Json<ModifyCharacter>,
+) -> Result<impl IntoResponse, ServerError> {
+    database::characters::edit_character(&pool, character_id, dummy_test_user(), &character)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 async fn get_logs(
     Query(filters): Query<LogFilters>,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let logs = database::logs::get_logs(&pool, dummy_test_user(), id, &filters)
-        .await?;
+    let logs = database::logs::get_logs(&pool, dummy_test_user(), id, &filters).await?;
     Ok(Json(logs))
 }
 
@@ -85,8 +103,7 @@ async fn insert_log(
     Path(id): Path<InternalId>,
     Json(log): Json<InsertLog>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::logs::insert_log(&pool, dummy_test_user(), id, &log)
-        .await?;
+    database::logs::insert_log(&pool, dummy_test_user(), id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -95,8 +112,7 @@ async fn edit_log(
     Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
     Json(log): Json<InsertLog>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::logs::edit_log(&pool, dummy_test_user(), log_id, &log)
-        .await?;
+    database::logs::edit_log(&pool, dummy_test_user(), log_id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -105,10 +121,10 @@ async fn delete_log(
     Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::logs::delete_log(&pool, dummy_test_user(), log_id)
-        .await.unwrap();
+        .await
+        .unwrap();
     Ok(StatusCode::NO_CONTENT)
 }
-
 
 async fn get_events(
     Query(filters): Query<EventFilters>,
@@ -133,8 +149,7 @@ async fn edit_event(
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<EventType>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::edit_event(&pool, dummy_test_user(), event_id, &event)
-        .await?;
+    database::events::edit_event(&pool, dummy_test_user(), event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -142,8 +157,7 @@ async fn delete_event(
     State(pool): State<PgPool>,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::delete_events(&pool, dummy_test_user(), &vec![event_id])
-        .await?;
+    database::events::delete_events(&pool, dummy_test_user(), &vec![event_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -151,8 +165,7 @@ async fn delete_events(
     State(pool): State<PgPool>,
     Json(ids): Json<Vec<InternalId>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::delete_events(&pool, dummy_test_user(), &ids)
-        .await?;
+    database::events::delete_events(&pool, dummy_test_user(), &ids).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -161,7 +174,8 @@ async fn get_encounters(
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let encounters = database::encounters::get_encounters(&pool, dummy_test_user(), id, &filters).await?;
+    let encounters =
+        database::encounters::get_encounters(&pool, dummy_test_user(), id, &filters).await?;
     Ok(Json(encounters))
 }
 
@@ -179,8 +193,7 @@ async fn edit_encounter(
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<ModifyEncounter>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::edit_encounter(&pool, dummy_test_user(), event_id, &event)
-        .await?;
+    database::encounters::edit_encounter(&pool, dummy_test_user(), event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -188,7 +201,6 @@ async fn delete_encounter(
     State(pool): State<PgPool>,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::delete_encounters(&pool, dummy_test_user(), &vec![event_id])
-        .await?;
+    database::encounters::delete_encounters(&pool, dummy_test_user(), &vec![event_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }

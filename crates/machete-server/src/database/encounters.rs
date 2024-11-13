@@ -1,5 +1,9 @@
 use itertools::Itertools;
-use machete::models::{encounter::{CompletionStatus, Encounter}, events::{Event, EventType}, library::item::Currency};
+use machete::models::{
+    encounter::{CompletionStatus, Encounter},
+    events::{Event, EventType},
+    library::item::Currency,
+};
 use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
 
@@ -7,8 +11,8 @@ use crate::models::currency::CurrencyOrGold;
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
-    pub name : Option<String>,
-    pub status : Option<CompletionStatus>,
+    pub name: Option<String>,
+    pub status: Option<CompletionStatus>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -79,10 +83,24 @@ pub async fn get_encounters(
                 name: row.name,
                 description: row.description,
                 status: CompletionStatus::from_i32(row.status as i32),
-                enemies: row.enemies.iter().map(|id| InternalId(*id as u64)).collect(),
-                hazards: row.hazards.iter().map(|id| InternalId(*id as u64)).collect(),
-                treasure_items: row.treasure_items.iter().map(|id| InternalId(*id as u64)).collect(),
-                treasure_currency: Currency::from_base_unit(row.treasure_currency.unwrap_or(0) as u32),
+                enemies: row
+                    .enemies
+                    .iter()
+                    .map(|id| InternalId(*id as u64))
+                    .collect(),
+                hazards: row
+                    .hazards
+                    .iter()
+                    .map(|id| InternalId(*id as u64))
+                    .collect(),
+                treasure_items: row
+                    .treasure_items
+                    .iter()
+                    .map(|id| InternalId(*id as u64))
+                    .collect(),
+                treasure_currency: Currency::from_base_unit(
+                    row.treasure_currency.unwrap_or(0) as u32
+                ),
             })
         })
         .collect::<Result<Vec<Encounter>, crate::ServerError>>()?;
@@ -134,7 +152,6 @@ pub async fn edit_encounter(
     encounter_id: InternalId,
     new_encounter: &ModifyEncounter,
 ) -> crate::Result<()> {
-
     let enemies = if let Some(enemies) = &new_encounter.enemies {
         Some(enemies.iter().map(|id| id.0 as i64).collect::<Vec<i64>>())
     } else {
@@ -148,7 +165,12 @@ pub async fn edit_encounter(
     };
 
     let treasure_items = if let Some(treasure_items) = &new_encounter.treasure_items {
-        Some(treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>())
+        Some(
+            treasure_items
+                .iter()
+                .map(|id| id.0 as i64)
+                .collect::<Vec<i64>>(),
+        )
     } else {
         None
     };
@@ -170,8 +192,15 @@ pub async fn edit_encounter(
         enemies.as_deref(),
         hazards.as_deref(),
         treasure_items.as_deref(),
-        new_encounter.treasure_currency.as_ref().map(|c| c.as_currency().as_base_unit() as i32),
-        new_encounter.status.as_ref().map(|s| s.as_i32() as i16).unwrap_or_default(),
+        new_encounter
+            .treasure_currency
+            .as_ref()
+            .map(|c| c.as_currency().as_base_unit() as i32),
+        new_encounter
+            .status
+            .as_ref()
+            .map(|s| s.as_i32() as i32)
+            .unwrap_or_default(),
         encounter_id.0 as i64,
     )
     .execute(exec)
@@ -194,7 +223,10 @@ pub async fn delete_encounters(
         DELETE FROM encounters
         WHERE id = ANY($1::int[])
         "#,
-        &encounter_id.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
     )
     .execute(exec)
     .await?;

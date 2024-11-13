@@ -42,27 +42,33 @@ pub async fn get_logs(
         condition.character,
     );
 
+    let logs = query.fetch_all(exec).await?;
 
-    let logs = query
-        .fetch_all(exec)
-        .await?;
-
-    let all_event_ids = logs.iter().flat_map(|log| log.events.clone()).flatten().map(|id| InternalId(id as u64)).collect::<Vec<_>>();
+    let all_event_ids = logs
+        .iter()
+        .flat_map(|log| log.events.clone())
+        .flatten()
+        .map(|id| InternalId(id as u64))
+        .collect::<Vec<_>>();
     let all_events = events::get_events_ids(exec, all_event_ids).await?;
 
-    let logs = logs.into_iter()
+    let logs = logs
+        .into_iter()
         .map(|row| {
-            
             let event_group = EventGroup {
-            id: InternalId(row.id as u64),
-            name: row.name,
-            timestamp: row.timestamp.and_utc(),
-            description: row.description,
-            events: row.events.unwrap_or_default().iter().map(|id| InternalId(*id as u64)).collect(),
-        };
-        Log::from_log_events(event_group, &all_events)
-        }
-    )
+                id: InternalId(row.id as u64),
+                name: row.name,
+                timestamp: row.timestamp.and_utc(),
+                description: row.description,
+                events: row
+                    .events
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|id| InternalId(*id as u64))
+                    .collect(),
+            };
+            Log::from_log_events(event_group, &all_events)
+        })
         .collect();
 
     Ok(logs)
@@ -74,7 +80,6 @@ pub async fn insert_log(
     campaign_id: InternalId,
     log: &InsertLog,
 ) -> crate::Result<InternalId> {
-
     let log_id = sqlx::query!(
         r#"
         INSERT INTO event_groups (name, timestamp, campaign, description)
@@ -91,11 +96,17 @@ pub async fn insert_log(
     .id;
 
     // Add events associated with the log
-    events::insert_events(exec, owner, campaign_id, Some(InternalId(log_id as u64)), &log.events).await?;
+    events::insert_events(
+        exec,
+        owner,
+        campaign_id,
+        Some(InternalId(log_id as u64)),
+        &log.events,
+    )
+    .await?;
 
     Ok(InternalId(log_id as u64))
 }
-
 
 // InsertLog is used, but list of events is ignored
 pub async fn edit_log(
@@ -132,7 +143,7 @@ pub async fn delete_log(
     log_id: InternalId,
 ) -> crate::Result<()> {
     // TODO: Should be a transaction, with checks,etc
-    
+
     // Get all events associated with the log
     let event_ids = sqlx::query!(
         r#"

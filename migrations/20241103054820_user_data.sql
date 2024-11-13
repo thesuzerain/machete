@@ -8,11 +8,24 @@ CREATE TABLE campaigns (
     name VARCHAR(60) NOT NULL
 );
 
+CREATE TABLE library_classes (
+    id INTEGER PRIMARY KEY REFERENCES library_objects,
+    rarity INT NOT NULL,
+    name VARCHAR(60) NOT NULL
+);
+
+CREATE TABLE library_hazards (
+    id INTEGER PRIMARY KEY REFERENCES library_objects,
+    rarity INT,
+    level INT
+);
+
 CREATE TABLE characters (
     id SERIAL PRIMARY KEY,
     name VARCHAR(60) NOT NULL,
     player VARCHAR(60),
-    campaign BIGINT REFERENCES campaigns NOT NULL
+    campaign BIGINT REFERENCES campaigns NOT NULL,
+    class BIGINT REFERENCES library_classes NOT NULL
 );
 
 CREATE TABLE event_groups (

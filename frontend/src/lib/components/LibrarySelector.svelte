@@ -15,7 +15,7 @@
         copper?: number;
     }
 
-    export let entityType: 'creature' | 'hazard' | 'item';
+    export let entityType: 'creature' | 'hazard' | 'item' | 'class';
     export let onSelect: (entityId: number) => void;
     export let placeholder = "Search...";
 
@@ -24,11 +24,17 @@
     let loading = true;
     let error: string | null = null;
     let showDropdown = false;
+    let routePart = {
+        'creature': 'creatures',
+        'hazard': 'hazards',
+        'item': 'items',
+        'class': 'classes'
+    };
 
     onMount(async () => {
         try {
             // Map entity type to endpoint
-            const endpoint = entityType === 'item' ? 'items' : `${entityType}s`;
+            const endpoint = routePart[entityType];
             const response = await fetch(`/api/library/${endpoint}`);
             if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
             entities = await response.json();
@@ -78,8 +84,8 @@
                         {#if entity.level !== undefined}
                             <span class="detail">Lv: {entity.level}</span>
                         {/if}
-                        {#if entity.value !== undefined}
-                            <span class="detail">{entity.value} gp</span>
+                        {#if entity.price?.gold !== undefined}
+                            <span class="detail">{entity.price.gold} gp</span>
                         {/if}
                     </button>
                 {/each}

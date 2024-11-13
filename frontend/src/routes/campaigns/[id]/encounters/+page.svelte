@@ -4,6 +4,12 @@
     import type { Character } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
     import { id } from 'date-fns/locale';
+    import { 
+        getExperienceFromLevel, 
+        getSeverityFromExperience, 
+        getRewardForLevelSeverity,
+        EncounterDifficulty 
+    } from '$lib/utils/encounter';
 
     interface Encounter {
         id: number;
@@ -30,6 +36,11 @@
         copper?: number;
     }
 
+    interface PartyConfig {
+        playerCount: number;
+        partyLevel: number;
+    }
+
     let libraryEnemies: Map<number, LibraryEntity> = new Map();
     let libraryHazards: Map<number, LibraryEntity> = new Map();
     let libraryItems: Map<number, LibraryEntity> = new Map();
@@ -53,6 +64,11 @@
         hazards: [],
         treasure_items: [],
         treasure_currency: 0
+    };
+
+    let partyConfig: PartyConfig = {
+        playerCount: 4, // Will be updated with actual party count
+        partyLevel: 1  // Will be updated with actual party level
     };
 
     async function loadLibraryData() {
@@ -96,6 +112,14 @@
 
             // Load library data
             await loadLibraryData();
+
+            // Set initial party config based on characters
+            if (campaignCharacters.length > 0) {
+                partyConfig = {
+                    playerCount: campaignCharacters.length,
+                    partyLevel: campaignCharacters[0].level || 1
+                };
+            }
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -178,9 +202,9 @@
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character_id: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(libraryEnemies.get(enemyId)?.level)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(partyConfig.partyLevel, libraryEnemies.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(libraryEnemies.get(enemyId)?.level)
+                                    experience: getExperienceFromLevel(partyConfig.partyLevel, libraryEnemies.get(enemyId)?.level || 0)
                                 }
                             })).flat()
                         ),
@@ -200,9 +224,9 @@
                             selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
                                 character_id: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(libraryHazards.get(hazardId)?.level)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(partyConfig.partyLevel, libraryHazards.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(libraryHazards.get(hazardId)?.level)
+                                    experience: getExperienceFromLevel(partyConfig.partyLevel, libraryHazards.get(hazardId)?.level || 0)
                                 }
                             })).flat()
                         ),
@@ -212,8 +236,9 @@
                             event_type: 'CurrencyGain',
                             description: `Gained ${encounter.treasure_currency} currency from ${encounter.name}`,
                             data: {
-                                // TODO: Add support for silver and copper
-                                currency: encounter.treasure_currency.gold
+                                currency: typeof encounter.treasure_currency === 'number' 
+                                    ? { gold: encounter.treasure_currency }
+                                    : encounter.treasure_currency
                             }
                         })),
                         // Item gain events
@@ -265,12 +290,6 @@
         return libraryItems.get(id);
     }
 
-    function getExperienceFromLevel(level: number | undefined) {
-        if (!level) return 0;
-        // TODO: Will be based on level of enemy but also party level
-        return Math.floor(level * 100);
-    }
-
     function getTotalTreasure() {
         let total = newEncounter.treasure_currency;
         newEncounter.treasure_items.forEach(itemId => {
@@ -293,6 +312,29 @@
             error = e instanceof Error ? e.message : 'Failed to fetch encounters';
         }
     }
+
+    function getTotalEncounterXP(): number {
+        let total = 0;
+        newEncounter.enemies.forEach(enemyId => {
+            const enemy = getEnemyDetails(enemyId);
+            if (enemy?.level) {
+                total += getExperienceFromLevel(partyConfig.partyLevel, enemy.level);
+            }
+        });
+        newEncounter.hazards.forEach(hazardId => {
+            const hazard = getHazardDetails(hazardId);
+            if (hazard?.level) {
+                total += getExperienceFromLevel(partyConfig.partyLevel, hazard.level);
+            }
+        });
+        return total;
+    }
+
+    // Add reactive statement for difficulty calculation
+    $: encounterDifficulty = getSeverityFromExperience(getTotalEncounterXP(), partyConfig);
+    $: if (newEncounter.enemies || newEncounter.hazards) { // Add reactivity explicitly to trigger on enemy/hazard addition
+    encounterDifficulty = getSeverityFromExperience(getTotalEncounterXP(), partyConfig);
+    }
 </script>
 
 <div class="encounters-page">
@@ -305,6 +347,36 @@
     <div class="encounter-form">
         <h2>Create New Encounter</h2>
         <form on:submit|preventDefault={createEncounter}>
+            <div class="party-config section">
+                <h3>Party Configuration</h3>
+                <div class="party-config-grid">
+                    <div class="form-group">
+                        <label for="playerCount">Number of Players</label>
+                        <input 
+                            type="number" 
+                            id="playerCount"
+                            bind:value={partyConfig.playerCount}
+                            min="1"
+                            max="6"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="partyLevel">Party Level</label>
+                        <input 
+                            type="number" 
+                            id="partyLevel"
+                            bind:value={partyConfig.partyLevel}
+                            min="1"
+                            max="20"
+                        />
+                    </div>
+                </div>
+                <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
+                    This is a {encounterDifficulty} encounter for {partyConfig.playerCount} level {partyConfig.partyLevel} players
+                    <div class="xp-total">Total XP: {getTotalEncounterXP()}</div>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label for="name">Name</label>
                 <input 
@@ -331,6 +403,8 @@
                         {#if getEnemyDetails(enemyId)}
                             <div class="list-item">
                                 <span>{getEnemyDetails(enemyId)?.name}</span>
+                                <span>XP: {getExperienceFromLevel(partyConfig.partyLevel, getEnemyDetails(enemyId)?.level || 0)}</span>
+                                <span>Level {getEnemyDetails(enemyId)?.level}</span>
                                 <button 
                                     type="button" 
                                     on:click={() => {
@@ -359,6 +433,8 @@
                         {#if getHazardDetails(hazardId)}
                             <div class="list-item">
                                 <span>{getHazardDetails(hazardId)?.name}</span>
+                                <span>XP: {getExperienceFromLevel(partyConfig.partyLevel, getHazardDetails(hazardId)?.level || 0)}</span>
+                                <span>Level {getHazardDetails(hazardId)?.level}</span>
                                 <button 
                                     type="button" 
                                     on:click={() => {
@@ -445,7 +521,7 @@
                             <ul>
                                 {#each encounter.enemies as enemyId}
                                     {#if getEnemyDetails(enemyId)}
-                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(getEnemyDetails(enemyId)?.level)})</li>
+                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(partyConfig.partyLevel, getEnemyDetails(enemyId)?.level || 0)})</li>
                                     {/if}
                                 {/each}
                             </ul>
@@ -456,7 +532,7 @@
                             <ul>
                                 {#each encounter.hazards as hazardId}
                                     {#if getHazardDetails(hazardId)}
-                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(getHazardDetails(hazardId)?.level)})</li>
+                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(partyConfig.partyLevel, getHazardDetails(hazardId)?.level || 0)})</li>
                                     {/if}
                                 {/each}
                             </ul>

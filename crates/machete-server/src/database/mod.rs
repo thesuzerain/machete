@@ -2,9 +2,11 @@ use sqlx::PgPool;
 
 pub mod campaigns;
 pub mod characters;
+pub mod classes;
 pub mod creatures;
 pub mod encounters;
 pub mod events;
+pub mod hazards;
 pub mod items;
 pub mod logs;
 pub mod spells;

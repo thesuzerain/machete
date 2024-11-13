@@ -3,9 +3,9 @@ use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
 pub mod campaign;
-pub mod models;
 pub mod database;
 pub mod library;
+pub mod models;
 
 pub async fn run_server() {
     env_logger::builder()

@@ -16,7 +16,7 @@ impl CurrencyOrGold {
                 gold: *g,
                 silver: 0,
                 copper: 0,
-            }
+            },
         }
     }
 }
