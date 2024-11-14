@@ -1,30 +1,34 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use machete::models::library::{
-    classes::{ClassFilters, LibraryClass},
-    creature::{CreatureFilters, LibraryCreature},
-    hazard::{HazardFilters, LibraryHazard},
-    item::{ItemFilters, LibraryItem},
-    spell::{LibrarySpell, SpellFilters},
+    classes::{ LibraryClass},
+    creature::{ LibraryCreature},
+    hazard::{ LibraryHazard},
+    item::{ LibraryItem},
+    spell::{LibrarySpell},
 };
 use sqlx::{PgPool, Pool};
 
-use crate::{database, ServerError};
+use crate::{database::{self, classes::ClassFilters, creatures::CreatureFilters, hazards::HazardFilters, items::ItemFilters, spells::SpellFilters}, ServerError};
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
     Router::new()
         .route("/creatures", get(get_creatures))
+        .route("/creatures/:id", get(get_creature_id))
         .route("/creatures", post(insert_creatures))
         .route("/items", get(get_items))
+        .route("/items/:id", get(get_item_id))
         .route("/items", post(insert_items))
         .route("/spells", get(get_spells))
+        .route("/spells/:id", get(get_spell_id))
         .route("/spells", post(insert_spells))
         .route("/hazards", get(get_hazards))
+        .route("/hazards/:id", get(get_hazard_id))
         .route("/hazards", post(insert_hazards))
         .route("/classes", get(get_classes))
         .route("/classes", post(insert_classes))
@@ -36,6 +40,15 @@ async fn get_creatures(
 ) -> Result<impl IntoResponse, ServerError> {
     let creatures = database::creatures::get_creatures(&pool, &payload).await?;
     Ok(Json(creatures))
+}
+
+async fn get_creature_id(
+    State(pool): State<PgPool>,
+    Path(id): Path<u32>,
+) -> Result<impl IntoResponse, ServerError> {
+    let payload = CreatureFilters::from_id(id);
+    let creature = database::creatures::get_creatures(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    Ok(Json(creature))
 }
 
 async fn insert_creatures(
@@ -54,6 +67,15 @@ async fn get_items(
     Ok(Json(items))
 }
 
+async fn get_item_id(
+    State(pool): State<PgPool>,
+    Path(id): Path<u32>,
+) -> Result<impl IntoResponse, ServerError> {
+    let payload = ItemFilters::from_id(id);
+    let item = database::items::get_items(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    Ok(Json(item))
+}
+
 async fn insert_items(
     State(pool): State<PgPool>,
     Json(payload): Json<Vec<LibraryItem>>,
@@ -70,6 +92,15 @@ async fn get_spells(
     Ok(Json(spells))
 }
 
+async fn get_spell_id(
+    State(pool): State<PgPool>,
+    Path(id): Path<u32>,
+) -> Result<impl IntoResponse, ServerError> {
+    let payload = SpellFilters::from_id(id);
+    let spell = database::spells::get_spells(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    Ok(Json(spell))
+}
+
 async fn insert_spells(
     State(pool): State<PgPool>,
     Json(payload): Json<Vec<LibrarySpell>>,
@@ -84,6 +115,15 @@ async fn get_hazards(
 ) -> Result<impl IntoResponse, ServerError> {
     let hazards = database::hazards::get_hazards(&pool, &payload).await?;
     Ok(Json(hazards))
+}
+
+async fn get_hazard_id(
+    State(pool): State<PgPool>,
+    Path(id): Path<u32>,
+) -> Result<impl IntoResponse, ServerError> {
+    let payload = HazardFilters::from_id(id);
+    let hazard = database::hazards::get_hazards(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    Ok(Json(hazard))
 }
 
 async fn insert_hazards(

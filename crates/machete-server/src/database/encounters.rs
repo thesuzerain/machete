@@ -15,13 +15,16 @@ pub struct EncounterFilters {
     pub status: Option<CompletionStatus>,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Default)]
 pub struct InsertEncounter {
     pub name: String,
     pub description: String,
 
     pub enemies: Vec<InternalId>,
     pub hazards: Vec<InternalId>,
+
+    pub party_level: u8,
+    pub party_size: u8,
 
     pub treasure_items: Vec<InternalId>,
     pub treasure_currency: CurrencyOrGold,
@@ -38,6 +41,9 @@ pub struct ModifyEncounter {
     pub treasure_items: Option<Vec<InternalId>>,
     pub treasure_currency: Option<CurrencyOrGold>,
 
+    pub party_level: Option<u8>,
+    pub party_size: Option<u8>,
+
     pub status: Option<CompletionStatus>,
 }
 
@@ -45,7 +51,6 @@ pub struct ModifyEncounter {
 pub async fn get_encounters(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     owner: InternalId,
-    campaign_id: InternalId,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
@@ -63,6 +68,8 @@ pub async fn get_encounters(
             en.hazards,
             en.treasure_items,
             en.treasure_currency,
+            en.party_size,
+            en.party_level,
             en.status
         FROM encounters en
         WHERE 
@@ -83,6 +90,8 @@ pub async fn get_encounters(
                 name: row.name,
                 description: row.description,
                 status: CompletionStatus::from_i32(row.status as i32),
+                party_level: row.party_level as u32,
+                party_size: row.party_size as u32,
                 enemies: row
                     .enemies
                     .iter()
@@ -125,8 +134,8 @@ pub async fn insert_encounters(
     for encounter in encounters {
         let encounter_id = sqlx::query!(
             r#"
-            INSERT INTO encounters (name, description, enemies, hazards, treasure_items, treasure_currency, status)
-            VALUES ($1, $2, $3, $4, $5, $6, 0)
+            INSERT INTO encounters (name, description, enemies, hazards, treasure_items, treasure_currency, status, party_size, party_level)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id
             "#,
             &encounter.name,
@@ -135,6 +144,9 @@ pub async fn insert_encounters(
             &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             encounter.treasure_currency.as_currency().as_base_unit() as i64,
+            CompletionStatus::default().as_i32() as i64,
+            encounter.party_size as i64,
+            encounter.party_level as i64,
         )
         .fetch_one(exec)
         .await?
@@ -184,8 +196,10 @@ pub async fn edit_encounter(
         hazards = COALESCE($4, hazards),
         treasure_items = COALESCE($5, treasure_items),
         treasure_currency = COALESCE($6, treasure_currency),
-        status = COALESCE($7, status)
-        WHERE id = $8
+        status = COALESCE($7, status),
+        party_size = COALESCE($8, party_size),
+        party_level = COALESCE($9, party_level)
+        WHERE id = $10
         "#,
         new_encounter.name.as_deref(),
         new_encounter.description.as_deref(),
@@ -199,8 +213,10 @@ pub async fn edit_encounter(
         new_encounter
             .status
             .as_ref()
-            .map(|s| s.as_i32() as i32)
+            .map(|s| s.as_i32() as i16)
             .unwrap_or_default(),
+        new_encounter.party_size.map(|s| s as i32),
+        new_encounter.party_level.map(|l| l as i32),
         encounter_id.0 as i64,
     )
     .execute(exec)
@@ -232,4 +248,124 @@ pub async fn delete_encounters(
     .await?;
 
     Ok(())
+}
+
+pub async fn insert_encounter_draft(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    owner: InternalId,
+    encounter: &InsertEncounter,
+) -> crate::Result<InternalId> {
+    // First, clear any existing drafts
+    // TODO: transaction
+    clear_encounter_draft(exec, owner).await?;
+
+    let encounter_id = sqlx::query!(
+        r#"
+        INSERT INTO encounters (name, description, enemies, hazards, treasure_items, treasure_currency, status, party_size, party_level)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id
+        "#,
+        &encounter.name,
+        &encounter.description,
+        &encounter.enemies.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
+        &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
+        &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
+        encounter.treasure_currency.as_currency().as_base_unit() as i64,
+        CompletionStatus::Draft.as_i32() as i64,
+        encounter.party_size as i64,
+        encounter.party_level as i64,
+    )
+    .fetch_one(exec)
+    .await?
+    .id;
+
+    Ok(InternalId(encounter_id as u64))
+}
+
+pub async fn clear_encounter_draft(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    owner: InternalId,
+) -> crate::Result<()> {
+    sqlx::query!(
+        r#"
+        DELETE FROM encounters
+        WHERE status = $1
+        "#,
+        CompletionStatus::Draft.as_i32() as i64,
+    )
+    .execute(exec)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn get_encounter_draft(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    owner: InternalId,
+) -> crate::Result<Option<Encounter>> {
+    let encounter = sqlx::query!(
+        r#"
+        SELECT 
+            en.id,
+            en.name,
+            en.description,
+            en.enemies,
+            en.hazards,
+            en.treasure_items,
+            en.treasure_currency,
+            en.status,
+            en.party_size,
+            en.party_level
+        FROM encounters en
+        WHERE en.status = $1
+    "#,
+        CompletionStatus::Draft.as_i32() as i16,
+    )
+    .fetch_optional(exec)
+    .await?;
+
+    if let Some(row) = encounter {
+        Ok(Some(Encounter {
+            id: InternalId(row.id as u64),
+            name: row.name,
+            description: row.description,
+            status: CompletionStatus::from_i32(row.status as i32),
+            enemies: row
+                .enemies
+                .iter()
+                .map(|id| InternalId(*id as u64))
+                .collect(),
+            hazards: row
+                .hazards
+                .iter()
+                .map(|id| InternalId(*id as u64))
+                .collect(),
+            treasure_items: row
+                .treasure_items
+                .iter()
+                .map(|id| InternalId(*id as u64))
+                .collect(),
+            party_level: row.party_level as u32,
+            party_size: row.party_size as u32,
+            treasure_currency: Currency::from_base_unit(
+                row.treasure_currency.unwrap_or(0) as u32
+            ),
+        }))
+    } else {
+        // If no draft exists- create one
+        insert_encounter_draft(exec, owner, &InsertEncounter::default())
+            .await
+            .map(|id| Some(Encounter {
+                id,
+                name: "".to_string(),
+                description: Some("".to_string()),
+                status: CompletionStatus::Draft,
+                enemies: vec![],
+                hazards: vec![],
+                treasure_items: vec![],
+                treasure_currency: Currency::default(),
+                party_level: 0,
+                party_size: 0,
+            }))
+    }
 }

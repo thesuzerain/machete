@@ -20,3 +20,9 @@ impl CurrencyOrGold {
         }
     }
 }
+
+impl Default for CurrencyOrGold {
+    fn default() -> Self {
+        CurrencyOrGold::Gold(0)
+    }
+}

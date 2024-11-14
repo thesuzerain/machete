@@ -10,6 +10,9 @@ pub struct Encounter {
     pub name: String,
     pub description: Option<String>,
 
+    pub party_level: u32,
+    pub party_size: u32,
+
     pub enemies: Vec<InternalId>,
     pub hazards: Vec<InternalId>,
 
@@ -19,6 +22,7 @@ pub struct Encounter {
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub enum CompletionStatus {
+    Draft,
     #[default]
     Prepared,
     Archived,
@@ -29,19 +33,21 @@ pub enum CompletionStatus {
 impl CompletionStatus {
     pub fn as_i32(&self) -> i32 {
         match self {
-            CompletionStatus::Prepared => 0,
-            CompletionStatus::Archived => 1,
-            CompletionStatus::Success => 2,
-            CompletionStatus::Failure => 3,
+            CompletionStatus::Draft => 0,
+            CompletionStatus::Prepared => 1,
+            CompletionStatus::Archived => 2,
+            CompletionStatus::Success => 3,
+            CompletionStatus::Failure => 4,
         }
     }
 
     pub fn from_i32(i: i32) -> Self {
         match i {
-            0 => CompletionStatus::Prepared,
-            1 => CompletionStatus::Archived,
-            2 => CompletionStatus::Success,
-            3 => CompletionStatus::Failure,
+            0 => CompletionStatus::Draft,
+            1 => CompletionStatus::Prepared,
+            2 => CompletionStatus::Archived,
+            3 => CompletionStatus::Success,
+            4 => CompletionStatus::Failure,
             _ => panic!("Invalid status"),
         }
     }

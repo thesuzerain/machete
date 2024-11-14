@@ -1,5 +1,8 @@
 <script lang="ts">
     import type { Event, Character } from '$lib/types/types';
+    import LibrarySelector from '$lib/components/LibrarySelector.svelte';
+    import { formatCurrency } from '$lib/types/library';
+    import LibraryEntityName from './LibraryEntityName.svelte';
     
     export let events: Event[] = [];
     export let characters: Character[] = [];
@@ -20,14 +23,30 @@
         return Array.from(keys);
     }
 
-    async function updateEvent(eventId: number, newData: any) {
+    async function updateEvent(eventId: number, formData: Record<string, any>) {
         try {
+            // Reconstruct nested data structure
+            const newData = Object.entries(formData).reduce((acc: any, [key, value]) => {
+                const parts = key.split('.');
+                let current = acc;
+                
+                for (let i = 0; i < parts.length - 1; i++) {
+                    current[parts[i]] = current[parts[i]] || {};
+                    current = current[parts[i]];
+                }
+                
+                current[parts[parts.length - 1]] = value;
+                return acc;
+            }, {});
+
             const response = await fetch(`/api/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
+                    event_type: editingEvent?.event_type,
                     data: newData,
-                    event_group: groupId
+                    event_group: groupId,
+                    character: editingEvent?.character
                 }),
             });
 
@@ -61,21 +80,49 @@
 
     // Helper function to create edit form data based on event type
     function getEditFormData(event: Event) {
+        // Return appropriate form fields based on event type
         switch (event.event_type) {
             case 'CurrencyGain':
-                return { currency: event.data.currency };
+                return {
+                    type: 'CurrencyGain',
+                    fields: {
+                        currency: {
+                            gold: event.data.currency.gold || 0,
+                            silver: event.data.currency.silver || 0,
+                            copper: event.data.currency.copper || 0
+                        }
+                    }
+                };
             case 'ExperienceGain':
-                return { experience: event.data.experience };
-            case 'ItemGain':
-                return { name: event.data.name };
+                return {
+                    type: 'ExperienceGain',
+                    fields: {
+                        experience: event.data.experience
+                    }
+                };
             case 'EnemyDefeated':
+                return {
+                    type: 'EnemyDefeated',
+                    fields: {
+                        id: event.data.id
+                    }
+                };
             case 'HazardDefeated':
-                return { 
-                    name: event.data.name,
-                    count: event.data.count
+                return {
+                    type: 'HazardDefeated',
+                    fields: {
+                        id: event.data.id
+                    }
+                };
+            case 'ItemGain':
+                return {
+                    type: 'ItemGain',
+                    fields: {
+                        id: event.data.id
+                    }
                 };
             default:
-                return event.data;
+                return { type: 'Unknown', fields: event.data };
         }
     }
 </script>
@@ -113,9 +160,7 @@
                     <th>Timestamp</th>
                     <th>Character</th>
                     <th>Event Type</th>
-                    {#each getEventDataKeys(events) as key}
-                        <th>{key}</th>
-                    {/each}
+                    <th>Data</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -141,34 +186,130 @@
                         </td>
                         <td>{event.event_type}</td>
                         {#if editingEvent?.id === event.id}
-                            <td colspan={getEventDataKeys(events).length + 1}>
-                                <form 
-                                    on:submit|preventDefault={() => {
-                                        const formData = getEditFormData(event);
-                                        updateEvent(event.id, formData);
-                                    }}
-                                    class="edit-form"
-                                >
-                                    {#each Object.entries(getEditFormData(event)) as [key, value]}
+                            <td colspan="2">
+                                {#if editingEvent}
+                                    {@const formData = getEditFormData(editingEvent)}
+                                    <form 
+                                        on:submit|preventDefault={() => {
+                                            updateEvent(event.id, formData.fields);
+                                        }}
+                                        class="edit-form"
+                                    >
                                         <div class="edit-field">
-                                            <label>{key}</label>
-                                            <input 
-                                                type={typeof value === 'number' ? 'number' : 'text'}
-                                                bind:value={event.data[key]}
+                                            <label>Character</label>
+                                            <select 
+                                                bind:value={editingEvent.character}
                                                 required
-                                            />
+                                            >
+                                                {#each characters as character}
+                                                    <option value={character.id}>
+                                                        {character.name}
+                                                    </option>
+                                                {/each}
+                                            </select>
                                         </div>
-                                    {/each}
-                                    <button type="submit">Save</button>
-                                    <button type="button" on:click={() => editingEvent = null}>Cancel</button>
-                                </form>
+
+                                        {#if formData.type === 'CurrencyGain'}
+                                            <div class="currency-fields">
+                                                <div class="edit-field">
+                                                    <label>Gold</label>
+                                                    <input 
+                                                        type="number"
+                                                        bind:value={editingEvent.data.currency.gold}
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <div class="edit-field">
+                                                    <label>Silver</label>
+                                                    <input 
+                                                        type="number"
+                                                        bind:value={editingEvent.data.currency.silver}
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <div class="edit-field">
+                                                    <label>Copper</label>
+                                                    <input 
+                                                        type="number"
+                                                        bind:value={editingEvent.data.currency.copper}
+                                                        min="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        {:else if formData.type === 'ExperienceGain'}
+                                            <div class="edit-field">
+                                                <label>Experience</label>
+                                                <input 
+                                                    type="number"
+                                                    bind:value={editingEvent.data.experience}
+                                                    min="0"
+                                                    required
+                                                />
+                                            </div>
+                                        {:else if formData.type === 'EnemyDefeated'}
+                                            <div class="edit-field">
+                                                <label>Enemy</label>
+                                                <LibrarySelector
+                                                    entityType="creature"
+                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    placeholder="Select enemy..."
+                                                    initialIds={[editingEvent.data.id]}
+                                                />
+                                            </div>
+                                        {:else if formData.type === 'HazardDefeated'}
+                                            <div class="edit-field">
+                                                <label>Hazard</label>
+                                                <LibrarySelector
+                                                    entityType="hazard"
+                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    placeholder="Select hazard..."
+                                                    initialIds={[editingEvent.data.id]}
+                                                />
+                                            </div>
+                                        {:else if formData.type === 'ItemGain'}
+                                            <div class="edit-field">
+                                                <label>Item</label>
+                                                <LibrarySelector
+                                                    entityType="item"
+                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    placeholder="Select item..."
+                                                    initialIds={[editingEvent.data.id]}
+                                                />
+                                            </div>
+                                        {/if}
+
+                                        <div class="form-actions">
+                                            <button type="submit">Save</button>
+                                            <button type="button" on:click={() => editingEvent = null}>Cancel</button>
+                                        </div>
+                                    </form>
+                                {/if}
                             </td>
                         {:else}
-                            {#each getEventDataKeys(events) as key}
-                                <td>
-                                    {event.data[key] !== undefined ? event.data[key] : '-'}
-                                </td>
-                            {/each}
+                            <td>
+                                {#if event.event_type === 'CurrencyGain'}
+                                    {formatCurrency(event.data.currency)}
+                                {:else if event.event_type === 'ExperienceGain'}
+                                    {event.data.experience} XP
+                                {:else if event.event_type === 'EnemyDefeated'}
+                                    <LibraryEntityName 
+                                        entityType="creature"
+                                        entityId={event.data.id}
+                                    />
+                                {:else if event.event_type === 'HazardDefeated'}
+                                    <LibraryEntityName 
+                                        entityType="hazard"
+                                        entityId={event.data.id}
+                                    />
+                                {:else if event.event_type === 'ItemGain'}
+                                    <LibraryEntityName 
+                                        entityType="item"
+                                        entityId={event.data.id}
+                                    />
+                                {:else}
+                                    {JSON.stringify(event.data)}
+                                {/if}
+                            </td>
                             <td>
                                 <button class="edit-button" on:click={() => editingEvent = event}>
                                     Edit
@@ -208,9 +349,11 @@
 
     .edit-form {
         display: flex;
+        flex-direction: column;
         gap: 1rem;
-        align-items: center;
-        padding: 0.5rem;
+        padding: 1rem;
+        background: #f8f8f8;
+        border-radius: 4px;
     }
 
     .edit-field {
@@ -247,5 +390,23 @@
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
         cursor: pointer;
+    }
+
+    select {
+        padding: 0.25rem;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+
+    .currency-fields {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
     }
 </style> 

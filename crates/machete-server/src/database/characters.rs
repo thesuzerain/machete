@@ -12,6 +12,7 @@ pub struct InsertCharacter {
     pub name: String,
     pub player: Option<String>,
     pub class: InternalId,
+    pub level: u8,
 }
 
 #[derive(serde::Deserialize)]
@@ -114,8 +115,8 @@ pub async fn insert_characters(
 
     sqlx::query!(
         r#"
-        INSERT INTO characters (name, player, campaign, class)
-        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], array[$3::int], $4::int[])
+        INSERT INTO characters (name, player, campaign, class, level)
+        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], array[$3::int], $4::int[], $5::int[])
         "#,
         &names,
         &players as _,
@@ -123,6 +124,10 @@ pub async fn insert_characters(
         &characters
             .iter()
             .map(|c| c.class.0 as i32)
+            .collect::<Vec<i32>>(),
+        &characters
+            .iter()
+            .map(|c| c.level as i32)
             .collect::<Vec<i32>>(),
     )
     .execute(exec)

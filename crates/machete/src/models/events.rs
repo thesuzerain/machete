@@ -3,6 +3,8 @@ use machete_core::ids::InternalId;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
+use super::library::item::Currency;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct EventLog {
     pub event_groups: HashMap<InternalId, EventGroup>,
@@ -46,7 +48,7 @@ impl Default for Event {
             log: None,
             timestamp: Utc::now(),
             character: None,
-            event_type: EventType::CurrencyGain { currency: 0 },
+            event_type: EventType::CurrencyGain { currency: Currency::default() },
         }
     }
 }
@@ -55,7 +57,7 @@ impl Default for Event {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "event_type", content = "data")]
 pub enum EventType {
-    CurrencyGain { currency: u64 },
+    CurrencyGain { currency: Currency },
     ExperienceGain { experience: u64 },
     // TODO: EnemyDefeated, HazardDefeated, ItemGain, etc should be by ID.
     EnemyDefeated {
@@ -73,7 +75,7 @@ pub enum EventType {
 impl Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EventType::CurrencyGain { currency } => write!(f, "Currency Gain: {}", currency),
+            EventType::CurrencyGain { currency } => write!(f, "Currency Gain: {}", currency.to_string()),
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)
             }

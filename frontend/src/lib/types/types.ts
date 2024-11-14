@@ -39,10 +39,10 @@ export interface UpdateCharacter {
 }
 
 export interface InsertEvent {
-    character_id?: number;
+    character?: number;
     event_type: string;
     description: string;
-    value?: number;
+    data: Record<string, unknown>;
 }
 
 export interface Log {

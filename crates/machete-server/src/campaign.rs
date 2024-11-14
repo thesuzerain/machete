@@ -19,7 +19,7 @@ use crate::{
         campaigns::InsertCampaign,
         characters::{CharacterFilters, InsertCharacter, ModifyCharacter},
         encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
-        events::{EventFilters, InsertEvent},
+        events::{EditEvent, EventFilters, InsertEvent},
         logs::{InsertLog, LogFilters},
     },
     dummy_test_user, ServerError,
@@ -41,10 +41,6 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/logs", post(insert_log))
         .route("/:id/logs/:id", patch(edit_log))
         .route("/:id/logs/:id", delete(delete_log))
-        .route("/:id/encounters", get(get_encounters))
-        .route("/:id/encounters", post(insert_encounter))
-        .route("/:id/encounters/:id", patch(edit_encounter))
-        .route("/:id/encounters/:id", delete(delete_encounter))
 }
 
 async fn get_campaigns(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
@@ -147,7 +143,7 @@ async fn insert_events(
 async fn edit_event(
     State(pool): State<PgPool>,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
-    Json(event): Json<EventType>,
+    Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::events::edit_event(&pool, dummy_test_user(), event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -166,41 +162,5 @@ async fn delete_events(
     Json(ids): Json<Vec<InternalId>>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::events::delete_events(&pool, dummy_test_user(), &ids).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn get_encounters(
-    Query(filters): Query<EncounterFilters>,
-    Path(id): Path<InternalId>,
-    State(pool): State<PgPool>,
-) -> Result<impl IntoResponse, ServerError> {
-    let encounters =
-        database::encounters::get_encounters(&pool, dummy_test_user(), id, &filters).await?;
-    Ok(Json(encounters))
-}
-
-async fn insert_encounter(
-    State(pool): State<PgPool>,
-    Path(id): Path<InternalId>,
-    Json(events): Json<Vec<InsertEncounter>>,
-) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::insert_encounters(&pool, dummy_test_user(), &events).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn edit_encounter(
-    State(pool): State<PgPool>,
-    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
-    Json(event): Json<ModifyEncounter>,
-) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::edit_encounter(&pool, dummy_test_user(), event_id, &event).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn delete_encounter(
-    State(pool): State<PgPool>,
-    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
-) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::delete_encounters(&pool, dummy_test_user(), &vec![event_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
