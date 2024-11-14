@@ -6,15 +6,15 @@ use axum::{
     Json, Router,
 };
 use machete::models::library::{
-    classes::{ClassFilters, LibraryClass},
-    creature::{CreatureFilters, LibraryCreature},
-    hazard::{HazardFilters, LibraryHazard},
-    item::{ItemFilters, LibraryItem},
-    spell::{LibrarySpell, SpellFilters},
+    classes::{ LibraryClass},
+    creature::{ LibraryCreature},
+    hazard::{ LibraryHazard},
+    item::{ LibraryItem},
+    spell::{LibrarySpell},
 };
 use sqlx::{PgPool, Pool};
 
-use crate::{database, ServerError};
+use crate::{database::{self, classes::ClassFilters, creatures::CreatureFilters, hazards::HazardFilters, items::ItemFilters, spells::SpellFilters}, ServerError};
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
     Router::new()

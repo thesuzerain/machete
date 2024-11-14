@@ -1,10 +1,30 @@
 use machete::models::library::{
-    creature::{Alignment, CreatureFilters, LibraryCreature, Size},
+    creature::{Alignment, LibraryCreature, Size},
     GameSystem, Rarity,
 };
 use machete_core::ids::InternalId;
+use serde::{Deserialize, Serialize};
+
+use crate::models::query::CommaSeparatedVec;
 
 use super::DEFAULT_MAX_LIMIT;
+
+#[derive(Default, Serialize, Deserialize, Debug)]
+pub struct CreatureFilters {
+    pub ids: Option<CommaSeparatedVec>,
+    pub min_level: Option<i8>,
+    pub max_level: Option<i8>,
+    pub name: Option<String>,
+    pub rarity: Option<Rarity>,
+    pub alignment: Option<Alignment>,
+    pub size: Option<Size>,
+    pub game_system: Option<GameSystem>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+
+    pub limit : Option<u64>,
+    pub page : Option<u64>,
+}
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
@@ -18,6 +38,8 @@ pub async fn get_creatures(
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
 
+    let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
+    log::info!("ids: {:?}", ids);
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -45,9 +67,10 @@ pub async fn get_creatures(
             AND ($6::int IS NULL OR alignment = $6)
             AND ($7::int IS NULL OR size = $7)
             AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
+            AND ($9::int[] IS NULL OR lo.id = ANY($9))
         
         GROUP BY lo.id, lc.id ORDER BY lo.name
-        LIMIT $9 OFFSET $10
+        LIMIT $10 OFFSET $11
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -57,6 +80,7 @@ pub async fn get_creatures(
         condition.alignment.as_ref().map(|a| a.as_i64() as i32),
         condition.size.as_ref().map(|s| s.as_i64() as i32),
         condition.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
+        &ids as _,
         limit as i64,
         offset as i64,
     );
@@ -66,6 +90,7 @@ pub async fn get_creatures(
         .await?
         .into_iter()
         .map(|row| {
+            log::info!("Found record: {:?}", row);
             Ok(LibraryCreature {
                 id: InternalId(row.id as u64),
                 name: row.name,

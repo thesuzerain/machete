@@ -1,3 +1,5 @@
+import type { Currency } from "$lib/types/library";
+
 export enum EncounterDifficulty {
     Trivial = "Trivial",
     Low = "Low",
@@ -14,7 +16,6 @@ interface PartyConfig {
 export function getExperienceFromLevel(partyLevel: number, creatureLevel: number): number {
     const levelDifference = creatureLevel - partyLevel;
 
-    console.log("calculating xp from level difference", levelDifference, partyLevel, creatureLevel);
     // Base XP values from the Pathfinder 2e rules
     const xpByDifference: { [key: number]: number } = {
         '-4': 10,
@@ -51,15 +52,11 @@ export function getSeverityFromExperience(totalXP: number, partyConfig: PartyCon
         extreme: 40
     }
 
-    const diffOff = partyConfig.playerCount - 4;
-
+    console.log("partyConfig", partyConfig);
     console.log("totalXP", totalXP);
-    console.log("diffOff", diffOff);
-    console.log("Extreme check", totalXP + playerAdjustmentThresholds.extreme*diffOff, baseThresholds.extreme);
-    console.log("Severe check", totalXP + playerAdjustmentThresholds.severe*diffOff, baseThresholds.severe);
-    console.log("Moderate check", totalXP + playerAdjustmentThresholds.moderate*diffOff, baseThresholds.moderate);
-    console.log("Low check", totalXP + playerAdjustmentThresholds.low*diffOff, baseThresholds.low);
 
+    const diffOff = partyConfig.playerCount - 4;
+    console.log("diffOff", diffOff);
     if (totalXP - playerAdjustmentThresholds.extreme*diffOff >= baseThresholds.extreme) return EncounterDifficulty.Extreme;
     if (totalXP - playerAdjustmentThresholds.severe*diffOff >= baseThresholds.severe) return EncounterDifficulty.Severe;
     if (totalXP - playerAdjustmentThresholds.moderate*diffOff >= baseThresholds.moderate) return EncounterDifficulty.Moderate;
@@ -69,7 +66,7 @@ export function getSeverityFromExperience(totalXP: number, partyConfig: PartyCon
 
 export function getRewardForLevelSeverity(level: number, severity: EncounterDifficulty): { 
     xp: number,
-    currency: { gold?: number, silver?: number, copper?: number }
+    currency: Currency
 } {
     // Base XP rewards
     const xpRewards = {

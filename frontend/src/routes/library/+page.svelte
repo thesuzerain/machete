@@ -4,9 +4,10 @@
         LibraryEntity,
         LibraryEntityType,
         TableColumn,
-        LibraryResponse
+        LibraryResponse,
+        getFullUrl
     } from '$lib/types/library';
-    import { fade } from 'svelte/transition';
+    import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
 
     let activeTab: LibraryEntityType = 'class';
@@ -18,7 +19,6 @@
     let page = 0;
     const LIMIT = 100;
 
-    console.log("library page");
     // Data stores
     let entities: LibraryEntity[] = [];
     let hasMore = true;
@@ -69,6 +69,117 @@
         hazard: 'hazards',
         item: 'items'
     };
+
+    // Add state for expanded row and preview
+    let expandedRow: number | null = null;
+    let previewEntity: LibraryEntity | null = null;
+    let previewPosition = { x: 0, y: 0 };
+
+    // Modify encounter state handling
+    let currentEncounter: any | null = null;
+    let isEncounterMode = false;
+
+    export let data: { activeEncounter: boolean | null, startTab: string | null };
+
+    onMount(async () => {
+        await fetchLibraryData(true);
+        
+        // If we have an active encounter ID from URL, activate encounter mode
+        if (data.activeEncounter) {
+            await loadEncounter();
+            isEncounterMode = true;
+        } else {
+            // Still load the encounter but don't activate mode
+            await loadEncounter();
+        }
+
+        if (data.startTab) {
+            activeTab = data.startTab as LibraryEntityType;
+        }
+    });
+
+    async function loadEncounter() {
+        try {
+            const response = await fetch(`/api/encounters/draft`);
+            if (response.ok) {
+                currentEncounter = await response.json();
+            }
+        } catch (e) {
+            console.error('Failed to load encounter');
+        }
+    }
+
+    function activateEncounterMode() {
+        isEncounterMode = true;
+    }
+
+    function exitEncounterMode() {
+        isEncounterMode = false;
+    }
+
+    function handleRowClick(entity: LibraryEntity) {
+        if (expandedRow === entity.id) {
+            expandedRow = null;
+        } else {
+            expandedRow = entity.id;
+        }
+    }
+
+    function handleMouseMove(event: MouseEvent, entity: LibraryEntity) {
+        previewEntity = entity;
+        previewPosition = {
+            x: event.clientX + 20,
+            y: event.clientY + 20
+        };
+    }
+
+    function handleMouseLeave() {
+        previewEntity = null;
+    }
+
+    async function addToEncounter(entity: LibraryEntity, type: 'enemy' | 'hazard' | 'treasure') {
+        if (!currentEncounter) {
+            error = 'No encounter in progress';
+            return;
+        }
+
+        try {
+            // Update the draft with the new entity
+            const updatedDraft = { ...currentEncounter };
+            
+            switch (type) {
+                case 'enemy':
+                    updatedDraft.enemies = [...updatedDraft.enemies, entity.id];
+                    break;
+                case 'hazard':
+                    updatedDraft.hazards = [...updatedDraft.hazards, entity.id];
+                    break;
+                case 'treasure':
+                    updatedDraft.treasure_items = [...updatedDraft.treasure_items, entity.id];
+                    break;
+            }
+
+            const response = await fetch(`/api/encounters/draft`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatedDraft)
+            });
+
+            if (!response.ok) throw new Error(`Failed to add ${type} to encounter`);
+            
+            const responseGet = await fetch(`/api/encounters/draft`);
+            currentEncounter = await responseGet.json();
+            
+            // Show success message
+            // TODO: Add toast notification
+            console.log(`Added ${entity.name} to encounter as ${type}`);
+        } catch (e) {
+            console.error(e);
+            error = e instanceof Error ? e.message : `Failed to add to encounter`;
+        }
+    }
 
     async function fetchLibraryData(reset: boolean = false) {
         console.log("fetching library data");
@@ -128,12 +239,26 @@
             fetchLibraryData(true);
         }
     }
-
-    onMount(() => fetchLibraryData(true));
 </script>
 
 <div class="library-page">
-    <h1>Game Library</h1>
+    <div class="header">
+        <h1>Game Library</h1>
+        {#if !isEncounterMode && currentEncounter}
+            <button 
+                class="activate-mode-button"
+                on:click={activateEncounterMode}
+            >
+                Start Adding to Encounter
+            </button>
+        {:else if isEncounterMode}
+            <div class="mode-indicator">
+                <span class="mode-badge">Encounter Mode</span>
+                <span class="encounter-name">{currentEncounter?.name || 'Unnamed Encounter'}</span>
+                <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+            </div>
+        {/if}
+    </div>
 
     {#if error}
         <div class="error" transition:fade>{error}</div>
@@ -182,14 +307,30 @@
         <table>
             <thead>
                 <tr>
+                    <th></th> <!-- Column for expand/collapse -->
                     {#each columns[activeTab] as column}
                         <th>{column.label}</th>
                     {/each}
+                    {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
+                        <th>Actions</th>
+                    {/if}
                 </tr>
             </thead>
             <tbody>
                 {#each entities as entity (entity.id)}
-                    <tr>
+                    <tr 
+                        class:expanded={expandedRow === entity.id}
+                        on:mouseenter={(e) => handleMouseMove(e, entity)}
+                        on:mouseleave={handleMouseLeave}
+                    >
+                        <td>
+                            <button 
+                                class="expand-button"
+                                on:click={() => handleRowClick(entity)}
+                            >
+                                {expandedRow === entity.id ? '−' : '+'}
+                            </button>
+                        </td>
                         {#each columns[activeTab] as column}
                             <td>
                                 {#if column.formatter}
@@ -199,7 +340,42 @@
                                 {/if}
                             </td>
                         {/each}
+                        {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
+                            <td class="actions">
+                                <button 
+                                    class="add-button"
+                                    on:click={() => addToEncounter(
+                                        entity,
+                                        activeTab === 'creature' ? 'enemy' :
+                                        activeTab === 'hazard' ? 'hazard' : 'treasure'
+                                    )}
+                                >
+                                    Add to Encounter
+                                </button>
+                            </td>
+                        {/if}
                     </tr>
+                    {#if expandedRow === entity.id}
+                        <tr class="detail-row" transition:slide>
+                            <td colspan={columns[activeTab].length + 2}>
+                                <div class="entity-details">
+                                    {#if entity.description}
+                                        <div class="description">
+                                            <h4>Description</h4>
+                                            <p>{entity.description}</p>
+                                        </div>
+                                    {/if}
+                                    {#if entity.url}
+                                        <div class="external-link">
+                                            <a href={getFullUrl(entity.url)} target="_blank" rel="noopener noreferrer">
+                                                View More Details ↗
+                                            </a>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </td>
+                        </tr>
+                    {/if}
                 {/each}
             </tbody>
         </table>
@@ -211,8 +387,29 @@
         />
     </div>
 
+    {#if previewEntity && !expandedRow}
+        <div 
+            class="preview-card"
+            style="left: {previewPosition.x}px; top: {previewPosition.y}px"
+            transition:fade
+        >
+            <h3>{previewEntity.name}</h3>
+            {#if previewEntity.description}
+                <p>{previewEntity.description.substring(0, 200)}...</p>
+            {/if}
+        </div>
+    {/if}
+
     {#if loading}
         <div class="loading">Loading more items...</div>
+    {/if}
+
+    {#if isEncounterMode}
+        <div class="encounter-indicator" transition:fade>
+            <span class="mode-badge">Editing: {currentEncounter?.name || 'Unnamed Encounter'}</span>
+            <a href="/encounters" class="view-encounter">View Encounter</a>
+            <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+        </div>
     {/if}
 </div>
 
@@ -360,4 +557,192 @@
         margin-top: 0.5rem;
     }
 
+    .expand-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: #6b7280;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    .expand-button:hover {
+        background: #f3f4f6;
+    }
+
+    tr.expanded {
+        background: #f8fafc;
+    }
+
+    .detail-row {
+        background: #f8fafc;
+    }
+
+    .entity-details {
+        padding: 1rem;
+        display: grid;
+        gap: 1rem;
+    }
+
+    .description h4 {
+        margin: 0 0 0.5rem 0;
+        color: #374151;
+    }
+
+    .description p {
+        color: #4b5563;
+        line-height: 1.5;
+    }
+
+    .external-link a {
+        color: #3b82f6;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .external-link a:hover {
+        text-decoration: underline;
+    }
+
+    .preview-card {
+        position: fixed;
+        background: white;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        max-width: 300px;
+        z-index: 50;
+    }
+
+    .preview-card h3 {
+        margin: 0 0 0.5rem 0;
+        color: #111827;
+    }
+
+    .preview-card p {
+        margin: 0;
+        color: #4b5563;
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .add-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        white-space: nowrap;
+    }
+
+    .add-button:hover {
+        background: #2563eb;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .mode-indicator {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .mode-badge {
+        background: #3b82f6;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .encounter-name {
+        color: #374151;
+        font-weight: 500;
+    }
+
+    .start-draft {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .start-draft:hover {
+        background: #2563eb;
+    }
+
+    .exit-mode {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .exit-mode:hover {
+        background: #4b5563;
+    }
+
+    .encounter-indicator {
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        background: white;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        z-index: 50;
+    }
+
+    .view-encounter {
+        color: #3b82f6;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .view-encounter:hover {
+        text-decoration: underline;
+    }
+
+    .activate-mode-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .activate-mode-button:hover {
+        background: #2563eb;
+    }
 </style> 

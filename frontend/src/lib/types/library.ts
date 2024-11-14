@@ -3,9 +3,16 @@ export interface LibraryEntity {
     name: string;
     description?: string;
     level?: number;
+    url?: string;
     rarity?: 'common' | 'uncommon' | 'rare' | 'unique';
     source?: string;
     traits?: string[];
+}
+
+export function getFullUrl(url : string) {
+    const aon = "https://2e.aonprd.com";
+    console.log("url", aon + url);
+    return aon + url;
 }
 
 export interface LibraryClass extends LibraryEntity {
@@ -38,13 +45,29 @@ export interface LibraryHazard extends LibraryEntity {
 
 export interface LibraryItem extends LibraryEntity {
     category: string;
-    price?: {
-        gold?: number;
-        silver?: number;
-        copper?: number;
-    };
+    price?: Currency;
     bulk?: number;
     hands?: number;
+}
+
+export interface Currency {
+    gold?: number;
+    silver?: number;
+    copper?: number;
+}
+
+export function formatCurrency(currency: Currency): string {
+    const parts: string[] = [];
+    if (currency.gold) {
+        parts.push(`${currency.gold} G`);
+    }
+    if (currency.silver) {
+        parts.push(`${currency.silver} S`);
+    }
+    if (currency.copper) {
+        parts.push(`${currency.copper} C`);
+    }
+    return parts.join(' ');
 }
 
 export type LibraryEntityType = 'class' | 'spell' | 'creature' | 'hazard' | 'item';
@@ -54,4 +77,10 @@ export interface TableColumn {
     label: string;
     sortable?: boolean;
     formatter?: (value: any) => string;
+}
+
+export interface LibraryResponse<T extends LibraryEntity> {
+    items: T[];
+    total: number;
+    hasMore: boolean;
 }

@@ -4,6 +4,7 @@ use tower_http::cors::CorsLayer;
 
 pub mod campaign;
 pub mod database;
+pub mod encounters;
 pub mod library;
 pub mod models;
 
@@ -22,6 +23,7 @@ pub async fn run_server() {
         .route("/", get(root))
         .nest("/library", library::router())
         .nest("/campaign", campaign::router())
+        .nest("/encounters", encounters::router())
         .with_state(pool)
         .layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
 
@@ -68,6 +70,9 @@ impl ServerError {
 
 impl IntoResponse for ServerError {
     fn into_response(self) -> http::Response<axum::body::Body> {
+        // Log the error
+        log::error!("{}", self);
+
         let mut res = http::Response::new(self.body().into());
         *res.status_mut() = self.status_code();
         res

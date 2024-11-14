@@ -1,10 +1,20 @@
 use machete::models::library::{
-    classes::{ClassFilters, LibraryClass},
+    classes::LibraryClass,
     GameSystem, Rarity,
 };
 use machete_core::ids::InternalId;
+use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+pub struct ClassFilters {
+    pub name : Option<String>,
+
+    pub limit : Option<u64>,
+    pub page : Option<u64>,
+}
+
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_classes(

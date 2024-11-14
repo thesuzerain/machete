@@ -1,10 +1,28 @@
 use machete::models::library::{
-    spell::{LibrarySpell, SpellFilters},
+    spell::LibrarySpell,
     GameSystem, Rarity,
 };
 use machete_core::ids::InternalId;
+use serde::{Deserialize, Serialize};
+
+use crate::models::query::CommaSeparatedVec;
 
 use super::DEFAULT_MAX_LIMIT;
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+pub struct SpellFilters {
+    pub ids: Option<CommaSeparatedVec>,
+    pub min_rank: Option<u8>,
+    pub max_rank: Option<u8>,
+    pub name: Option<String>,
+    pub rarity: Option<Rarity>,
+    pub game_system: Option<GameSystem>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
+}
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
@@ -18,6 +36,7 @@ pub async fn get_spells(
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
 
+    let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -42,9 +61,10 @@ pub async fn get_spells(
             AND ($4::int IS NULL OR rank >= $4)
             AND ($5::int IS NULL OR rank <= $5)
             AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
+            AND ($7::int[] IS NULL OR lo.id = ANY($7))
 
         GROUP BY lo.id, lc.id ORDER BY lo.name
-        LIMIT $7 OFFSET $8
+        LIMIT $8 OFFSET $9
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -52,6 +72,7 @@ pub async fn get_spells(
         condition.min_rank.map(|r| r as i32),
         condition.max_rank.map(|r| r as i32),
         condition.tags.first(), // TODO: Incorrect, only returning one tag.
+        &ids as _,
         limit as i64,
         offset as i64,
     );

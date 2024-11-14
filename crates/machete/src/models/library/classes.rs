@@ -20,11 +20,3 @@ pub struct LibraryClass {
     #[filter(string)]
     pub tags: Vec<String>,
 }
-
-#[derive(Default, Debug, Serialize, Deserialize)]
-pub struct ClassFilters {
-    pub name : Option<String>,
-
-    pub limit : Option<u64>,
-    pub page : Option<u64>,
-}

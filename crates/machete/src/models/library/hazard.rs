@@ -31,17 +31,3 @@ pub enum HazardType {
     Environmental,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
-pub struct HazardFilters {
-    pub min_level: Option<i8>,
-    pub max_level: Option<i8>,
-    pub hazard_type: Option<HazardType>,
-    pub name: Option<String>,
-    pub rarity: Option<Rarity>,
-    pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
-
-    pub limit : Option<u64>,
-    pub page : Option<u64>,
-}

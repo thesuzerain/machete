@@ -1,44 +1,106 @@
 <script lang="ts">
+    import type { Currency } from '$lib/types/library';
     import { onMount } from 'svelte';
+    import { debounce } from '$lib/utils';
 
     interface LibraryEntity {
         id: number;
         name: string;
-        level?: number;  // Optional for creatures/hazards
-        price?: Currency;  // Optional for items (cost)
-    }
-
-    // TODO: Abstract, this shouldn't be here.
-    interface Currency {
-        gold?: number;
-        silver?: number;
-        copper?: number;
+        level?: number;
+        price?: Currency;
     }
 
     export let entityType: 'creature' | 'hazard' | 'item' | 'class';
     export let onSelect: (entityId: number) => void;
     export let placeholder = "Search...";
+    export let initialIds: number[] = [];
 
-    let entities: LibraryEntity[] = [];
+    let entities: Map<number, LibraryEntity> = new Map();
     let searchTerm = '';
     let loading = true;
     let error: string | null = null;
     let showDropdown = false;
-    let routePart = {
+    let page = 0;
+    let hasMore = true;
+    let loadingMore = false;
+
+    const routePart = {
         'creature': 'creatures',
         'hazard': 'hazards',
         'item': 'items',
         'class': 'classes'
     };
 
+    async function fetchEntities(params: Record<string, string>) {
+        const endpoint = routePart[entityType];
+        const queryString = new URLSearchParams(params).toString();
+        const response = await fetch(`/api/library/${endpoint}?${queryString}`);
+        if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
+        const data = await response.json();
+
+        console.log("data", data);
+        
+        data.forEach((entity: LibraryEntity) => {
+            entities.set(entity.id, entity);
+        });
+        entities = entities;
+
+        hasMore = data.length === 100;
+        return data;
+    }
+
+    const debouncedSearch = debounce(async (searchTerm: string) => {
+        try {
+            loading = true;
+            page = 0;
+            entities = new Map();
+            const data = await fetchEntities({ 
+                name: searchTerm,
+                page: '0'
+            });
+            data.forEach((entity: LibraryEntity) => {
+                entities.set(entity.id, entity);
+            });
+            entities = entities;
+        } catch (e) {
+            error = e instanceof Error ? e.message : `Failed to load ${entityType}s`;
+        } finally {
+            loading = false;
+        }
+    }, 300);
+
+    async function loadMore() {
+        if (loadingMore || !hasMore) return;
+        
+        try {
+            loadingMore = true;
+            page += 1;
+            await fetchEntities({ 
+                name: searchTerm,
+                page: page.toString()
+            });
+        } catch (e) {
+            error = e instanceof Error ? e.message : `Failed to load more ${entityType}s`;
+            hasMore = false;
+        } finally {
+            loadingMore = false;
+        }
+    }
+
+    function handleScroll(event: Event) {
+        const target = event.target as HTMLDivElement;
+        if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
+            loadMore();
+        }
+    }
+
     onMount(async () => {
         try {
-            // Map entity type to endpoint
-            const endpoint = routePart[entityType];
-            const response = await fetch(`/api/library/${endpoint}`);
-            if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
-            entities = await response.json();
-            console.log("entities",entities)
+            if (initialIds.length > 0) {
+                await fetchEntities({ ids: initialIds.join(',') });
+            }
+            
+            await fetchEntities({ page: '0' });
         } catch (e) {
             error = e instanceof Error ? e.message : `Failed to load ${entityType}s`;
         } finally {
@@ -46,12 +108,14 @@
         }
     });
 
-    $: filteredEntities = entities.filter(entity => 
-        entity.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    $: filteredEntities = Array.from(entities.values())
+        .filter(entity => entity.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    $: if (searchTerm) {
+        debouncedSearch(searchTerm);
+    }
 
     function handleSelect(entity: LibraryEntity) {
-        console.log("selected:", entity);
         onSelect(entity.id);
         searchTerm = '';
         showDropdown = false;
@@ -67,8 +131,8 @@
     />
     
     {#if showDropdown && searchTerm.length > 0}
-        <div class="dropdown">
-            {#if loading}
+        <div class="dropdown" on:scroll={handleScroll}>
+            {#if loading && !loadingMore}
                 <div class="dropdown-item loading">Loading...</div>
             {:else if error}
                 <div class="dropdown-item error">{error}</div>
@@ -89,6 +153,9 @@
                         {/if}
                     </button>
                 {/each}
+                {#if loadingMore}
+                    <div class="dropdown-item loading">Loading more...</div>
+                {/if}
             {/if}
         </div>
     {/if}
