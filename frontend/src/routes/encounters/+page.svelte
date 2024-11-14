@@ -66,12 +66,14 @@ library.add(faLink)
         enemies: [],
         hazards: [],
         treasure_items: [],
-        treasure_currency: { gold: 0 }
+        treasure_currency: { gold: 0 },
+        party_level: 1,
+        party_size: 4
     };
 
-    let partyConfig: PartyConfig = {
-        playerCount: 4, // Will be updated with actual party count
-        partyLevel: 1  // Will be updated with actual party level
+    let campaignPartyConfig: PartyConfig = {
+        party_level: 1,
+        party_size: 4
     };
 
     // Add these variables near the top of the script section, with the other state variables
@@ -85,6 +87,66 @@ library.add(faLink)
     let encounterFilter = '';
     let encounterSort: 'name' | 'level' | 'xp' = 'name';
     let sortDirection: 'asc' | 'desc' = 'asc';
+
+    // Add a new state variable for selected campaign
+    let selectedCampaign: string | null = null;
+    let campaigns: { id: string, name: string, playerCount: number, partyLevel: number }[] = [];
+
+    // Add this state variable near the top with other state variables
+    let selectedCompletionCampaign: string | null = null;
+
+    // Fetch campaigns data
+    async function fetchCampaigns() {
+        try {
+            const response = await fetch('/api/campaign');
+            if (!response.ok) {
+                console.error('Failed to fetch campaigns', response);
+                throw new Error('Failed to fetch campaigns');
+            }
+            campaigns = await response.json();
+            if (campaigns.length > 0) {
+                selectedCampaign = campaigns[0].id; // Default to the first available campaign
+                await fetchCampaignCharacters(selectedCampaign); // Fetch characters for the default campaign
+            }
+        } catch (e) {
+            console.error(e);
+            error = e instanceof Error ? e.message : 'Failed to fetch campaigns';
+        }
+    }
+
+    // Fetch characters for the selected campaign
+    async function fetchCampaignCharacters(campaignId: string) {
+        try {
+            const response = await fetch(`/api/campaign/${campaignId}/characters`);
+            if (!response.ok) throw new Error('Failed to fetch campaign characters');
+            campaignCharacters = await response.json();
+
+            // Set PartyConfig to the player count and level of the campaign
+            draftEncounter.party_size = campaignCharacters.length;
+            draftEncounter.party_level = campaignCharacters.reduce((max, char) => Math.max(max, char.level), 0);
+            campaignPartyConfig = {
+                party_size: campaignCharacters.length,
+                party_level: draftEncounter.party_level
+            };
+        } catch (e) {
+            console.error(e);
+            error = e instanceof Error ? e.message : 'Failed to fetch campaign characters';
+        }
+    }
+
+    // Watch for changes in selectedCampaign
+    $: if (selectedCampaign) {
+        const campaign = campaigns.find(c => c.id === selectedCampaign);
+        if (campaign) {
+            fetchCampaignCharacters(selectedCampaign); // Fetch characters whenever a new campaign is selected
+        }
+    }
+
+    // Reset selectedCampaign to 'None' if player count or level is manually changed
+    $: if (draftEncounter.party_size !== draftEncounter.party_size ||
+           draftEncounter.party_level !== campaignPartyConfig.party_level) {
+        selectedCampaign = null;
+    }
 
     async function loadLibraryData() {
         try {
@@ -146,6 +208,7 @@ library.add(faLink)
             
             // After we have all encounters (including draft), load their entity details
             await loadLibraryData();
+            await fetchCampaigns();
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -188,10 +251,9 @@ library.add(faLink)
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
+                body: JSON.stringify([{
                     ...draftEncounter,
-                    status: 'Prepared'
-                }),
+                }]),
             });
 
             if (!response.ok) throw new Error('Failed to create encounter');
@@ -235,7 +297,7 @@ library.add(faLink)
     }
 
     async function completeEncounter(encounter: Encounter | null) {
-        if (!encounter) return;
+        if (!encounter || !selectedCompletionCampaign) return;
 
         if (!selectedCharacterIds.length) {
             error = "Please select at least one character";
@@ -244,7 +306,7 @@ library.add(faLink)
 
         try {
             // Create a log with all the events
-            const logResponse = await fetch(`/api/campaign/${campaignId}/logs`, {
+            const logResponse = await fetch(`/api/campaign/${selectedCompletionCampaign}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -254,7 +316,7 @@ library.add(faLink)
                         // Enemy defeated events
                         ...encounter.enemies.flatMap(enemyId => 
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
-                                character_id: charId,
+                                character: charId,
                                 event_type: 'EnemyDefeated',
                                 description: `Defeated ${libraryEnemies.get(enemyId)?.name}`,
                                 data: {
@@ -265,18 +327,18 @@ library.add(faLink)
                         // Enemy experience events
                         ...encounter.enemies.flatMap(enemyId => 
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
-                                character_id: charId,
+                                character: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(partyConfig.partyLevel, libraryEnemies.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(draftEncounter.party_level, libraryEnemies.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(partyConfig.partyLevel, libraryEnemies.get(enemyId)?.level || 0)
+                                    experience: getExperienceFromLevel(draftEncounter.party_level, libraryEnemies.get(enemyId)?.level || 0)
                                 }
                             })).flat()
                         ),
                         // Hazard defeated events
                         ...encounter.hazards.flatMap(hazardId => 
                             selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
-                                character_id: charId,
+                                character: charId,
                                 event_type: 'HazardDefeated',
                                 description: `Overcame ${libraryHazards.get(hazardId)?.name}`,
                                 data: {
@@ -287,17 +349,17 @@ library.add(faLink)
                         // Hazard experience events
                         ...encounter.hazards.flatMap(hazardId => 
                             selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
-                                character_id: charId,
+                                character: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(partyConfig.partyLevel, libraryHazards.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(draftEncounter.party_level, libraryHazards.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(partyConfig.partyLevel, libraryHazards.get(hazardId)?.level || 0)
+                                    experience: getExperienceFromLevel(draftEncounter.party_level, libraryHazards.get(hazardId)?.level || 0)
                                 }
                             })).flat()
                         ),
                         // Treasure events
                         ...selectedCharacterIds.map(charId => ({
-                            character_id: charId,
+                            character: charId,
                             event_type: 'CurrencyGain',
                             description: `Gained ${encounter.treasure_currency.gold} currency from ${encounter.name}`,
                             data: {
@@ -307,7 +369,7 @@ library.add(faLink)
                         // Item gain events
                         ...encounter.treasure_items.flatMap(itemId => 
                             selectedCharacterIds.map(charId => ({
-                                character_id: charId,
+                                character: charId,
                                 event_type: 'ItemGain',
                                 description: `Found ${libraryItems.get(itemId)?.name}`,
                                 data: {
@@ -378,7 +440,7 @@ library.add(faLink)
         return draftEncounter.enemies.reduce((total, enemyId) => {
             const enemy = getEnemyDetails(enemyId);
             if (enemy?.level) {
-                return total + getExperienceFromLevel(partyConfig.partyLevel, enemy.level);
+                return total + getExperienceFromLevel(draftEncounter.party_level, enemy.level);
             }
             return total;
         }, 0);
@@ -388,16 +450,16 @@ library.add(faLink)
         return draftEncounter.hazards.reduce((total, hazardId) => {
             const hazard = getHazardDetails(hazardId);
             if (hazard?.level) {
-                return total + getExperienceFromLevel(partyConfig.partyLevel, hazard.level);
+                return total + getExperienceFromLevel(draftEncounter.party_level, hazard.level);
             }
             return total;
         }, 0);
     }
 
     // Add reactive statement for difficulty calculation
-    $: encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), partyConfig);
+    $: encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
     $: if (libraryEnemies || libraryHazards || libraryItems || draftEncounter.enemies || draftEncounter.hazards || draftEncounter.treasure_items) {
-        encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), partyConfig);
+        encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
     }
 
     // Add reactive statements for auto-saving
@@ -418,13 +480,13 @@ library.add(faLink)
         encounter.enemies.forEach(enemyId => {
             const enemy = getEnemyDetails(enemyId);
             if (enemy?.level) {
-                total += getExperienceFromLevel(partyConfig.partyLevel, enemy.level);
+                total += getExperienceFromLevel(draftEncounter.party_level, enemy.level);
             }
         });
         encounter.hazards.forEach(hazardId => {
             const hazard = getHazardDetails(hazardId);
             if (hazard?.level) {
-                total += getExperienceFromLevel(partyConfig.partyLevel, hazard.level);
+                total += getExperienceFromLevel(draftEncounter.party_level, hazard.level);
             }
         });
         return total;
@@ -439,13 +501,19 @@ library.add(faLink)
                 case 'name':
                     return direction * a.name.localeCompare(b.name);
                 case 'level':
-                    return direction * (partyConfig.partyLevel - partyConfig.partyLevel);
+                    return direction * (draftEncounter.party_level - draftEncounter.party_level);
                 case 'xp':
                     return direction * (getEncounterXP(a) - getEncounterXP(b));
                 default:
                     return 0;
             }
         });
+
+    // Add this reactive statement to reset character selection when campaign changes
+    $: if (selectedCompletionCampaign) {
+        selectedCharacterIds = [];
+        fetchCampaignCharacters(selectedCompletionCampaign);
+    }
 </script>
 
 <div class="encounters-page">
@@ -459,7 +527,7 @@ library.add(faLink)
         <h2>Create New Encounter</h2>
         <form on:submit={createEncounter} class="encounter-form">
             <div class="encounter-form-container">
-                
+            
             <div class="party-config section">
                 <h3>Encounter Configuration</h3>
 
@@ -468,17 +536,18 @@ library.add(faLink)
                     <input 
                         type="text" 
                         id="name" 
+                        class="name-input"
                         bind:value={draftEncounter.name}
                         required
                     />
                 </div>
     
+                <label for="description">Description</label>
                 <div class="form-group">
-                    <label for="description">Description</label>
                     <textarea
                         id="description"
+                        class="description-input"
                         bind:value={draftEncounter.description}
-                        required
                     ></textarea>
                 </div>
             </div>
@@ -492,7 +561,7 @@ library.add(faLink)
                             <input 
                                 type="number" 
                                 id="playerCount"
-                                bind:value={partyConfig.playerCount}
+                                bind:value={draftEncounter.party_size}
                                 min="1"
                                 max="6"
                             /></div>
@@ -501,16 +570,24 @@ library.add(faLink)
                             <input 
                                 type="number" 
                                 id="partyLevel"
-                                bind:value={partyConfig.partyLevel}
+                                bind:value={draftEncounter.party_level}
                                 min="1"
                                 max="20"
                             /></div>
 
-                        
+                    </div>
+                    <div class="campaign-defaults-setter">
+                        <label for="campaign">Select Campaign</label>
+                        <select id="campaign" bind:value={selectedCampaign}>
+                            <option value={null}>None</option>
+                            {#each campaigns as campaign}
+                                <option value={campaign.id}>{campaign.name}</option>
+                            {/each}
+                        </select>
                     </div>
                     <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
-                        This is a <b>{encounterDifficulty.toLowerCase()}</b> encounter for <b>{partyConfig.playerCount}</b> level <b>{partyConfig.partyLevel}</b> players
                         <div class="xp-total">Total XP: {getEnemiesXP() + getHazardsXP()}</div>
+                        This is a <b>{encounterDifficulty.toLowerCase()}</b> encounter for <b>{draftEncounter.party_size}</b> level <b>{draftEncounter.party_level}</b> players
                         </div>
                     </div>
             
@@ -540,7 +617,7 @@ library.add(faLink)
                                                 <FontAwesomeIcon icon={['fas', 'link']} />
                                             </a>
                                         </div>
-                                        <div class="entity-xp">XP: {getExperienceFromLevel(partyConfig.partyLevel, getEnemyDetails(enemyId)?.level || 0)}</div>
+                                        <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getEnemyDetails(enemyId)?.level || 0)}</div>
                                         <div class="entity-level">Level {getEnemyDetails(enemyId)?.level}</div>
                                         <button 
                                             type="button" 
@@ -594,7 +671,7 @@ library.add(faLink)
                                                 <FontAwesomeIcon icon={['fas', 'link']} />
                                             </a>
                                         </div>
-                                        <div class="entity-xp">XP: {getExperienceFromLevel(partyConfig.partyLevel, getHazardDetails(hazardId)?.level || 0)}</div>
+                                        <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getHazardDetails(hazardId)?.level || 0)}</div>
                                         <div class="entity-level">Level {getHazardDetails(hazardId)?.level}</div>
                                         <button 
                                             type="button" 
@@ -743,7 +820,7 @@ library.add(faLink)
                                     <div class="encounter-meta">
                                         <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
                                         <span class="xp">XP: {getEncounterXP(encounter)}</span>
-                                        <span class="party">Level {partyConfig.partyLevel} ({partyConfig.playerCount} players)</span>
+                                        <span class="party">Level {draftEncounter.party_level} ({draftEncounter.party_size} players)</span>
                                     </div>
                                 </div>
                                 <span class="toggle-icon">{encounterOpenStates[encounter.id] ? '▼' : '▶'}</span>
@@ -759,7 +836,7 @@ library.add(faLink)
                                             <ul>
                                                 {#each encounter.enemies as enemyId}
                                                     {#if getEnemyDetails(enemyId)}
-                                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(partyConfig.partyLevel, getEnemyDetails(enemyId)?.level || 0)})</li>
+                                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(draftEncounter.party_level, getEnemyDetails(enemyId)?.level || 0)})</li>
                                                     {/if}
                                                 {/each}
                                             </ul>
@@ -770,7 +847,7 @@ library.add(faLink)
                                             <ul>
                                                 {#each encounter.hazards as hazardId}
                                                     {#if getHazardDetails(hazardId)}
-                                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(partyConfig.partyLevel, getHazardDetails(hazardId)?.level || 0)})</li>
+                                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(draftEncounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
                                                     {/if}
                                                 {/each}
                                             </ul>
@@ -822,24 +899,43 @@ library.add(faLink)
             <p>{completingEncounter.description}</p>
 
             <div class="form-group">
-                <h3>Select Participating Characters</h3>
-                {#each campaignCharacters as character}
-                    <label class="checkbox-label">
-                        <input 
-                            type="checkbox"
-                            value={character.id}
-                            bind:group={selectedCharacterIds}
-                        />
-                        {character.name}
-                    </label>
-                {/each}
+                <h3>Select Campaign</h3>
+                <select 
+                    bind:value={selectedCompletionCampaign}
+                    required
+                >
+                    <option value="">Select a campaign...</option>
+                    {#each campaigns as campaign}
+                        <option value={campaign.id}>{campaign.name}</option>
+                    {/each}
+                </select>
             </div>
+
+            {#if selectedCompletionCampaign}
+                <div class="form-group">
+                    <h3>Select Participating Characters</h3>
+                    {#if campaignCharacters.length === 0}
+                        <p>No characters found in this campaign.</p>
+                    {:else}
+                        {#each campaignCharacters as character}
+                            <label class="checkbox-label">
+                                <input 
+                                    type="checkbox"
+                                    value={character.id}
+                                    bind:group={selectedCharacterIds}
+                                />
+                                {character.name} (Level {character.level})
+                            </label>
+                        {/each}
+                    {/if}
+                </div>
+            {/if}
 
             <div class="modal-actions">
                 <button 
                     class="complete-button"
                     on:click={() => completeEncounter(completingEncounter)}
-                    disabled={selectedCharacterIds.length === 0}
+                    disabled={!selectedCompletionCampaign || selectedCharacterIds.length === 0}
                 >
                     Complete Encounter
                 </button>
@@ -848,6 +944,7 @@ library.add(faLink)
                     on:click={() => {
                         completingEncounter = null;
                         selectedCharacterIds = [];
+                        selectedCompletionCampaign = null;
                     }}
                 >
                     Cancel
@@ -1291,5 +1388,38 @@ library.add(faLink)
     .party-config-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
+    }
+
+    .name-input {
+        width: 100%;
+        font-size: 1.2rem;
+        font-family: inherit;
+    }
+
+    .description-input {
+        width: 100%;
+        font-size: 1rem;
+        /* lock size */
+        resize: none;
+        font-family: inherit;
+    }
+
+    .modal select {
+        width: 100%;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .form-group h3 {
+        margin-bottom: 0.75rem;
+        color: #374151;
+    }
+
+    .form-group p {
+        color: #6b7280;
+        font-style: italic;
     }
 </style> 

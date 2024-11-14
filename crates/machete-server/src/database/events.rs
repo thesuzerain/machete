@@ -17,6 +17,13 @@ pub struct InsertEvent {
     pub event_type: EventType,
 }
 
+#[derive(serde::Deserialize, Debug)]
+pub struct EditEvent {
+    pub character: Option<InternalId>,
+    #[serde(flatten)]
+    pub event_type: Option<EventType>,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -45,6 +52,7 @@ pub async fn get_events(
             ($1::int IS NULL OR ev.character = $1)
             AND ca.id = $2
             AND ($3::text IS NULL OR ev.event_data->>'type' = $3)
+        ORDER BY ev.timestamp
     "#,
         condition.character,
         campaign_id.0 as i32,
@@ -77,17 +85,18 @@ pub async fn get_events_ids(
     let query = sqlx::query!(
         r#"
         SELECT 
-            ev.id,
+            ev.id AS "id!",
             ch.id AS "character?",
-            ev.timestamp,
+            ev.timestamp AS "timestamp!",
             ev.event_group AS "log?",
-            ev.event_data
+            ev.event_data AS "event_data!"
         FROM events ev
         LEFT JOIN characters ch ON ev.character = ch.id
         LEFT JOIN campaigns ca ON ev.campaign = ca.id
         LEFT JOIN event_groups eg ON ev.event_group = eg.id
         WHERE 
             ev.id = ANY($1::int[])
+        ORDER BY ev.timestamp
     "#,
         &event_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
     );
@@ -158,21 +167,24 @@ pub async fn edit_event(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
     event_id: InternalId,
-    new_event: &EventType,
+    new_event: &EditEvent,
 ) -> crate::Result<()> {
-    let event_type = serde_json::to_value(&new_event)?;
+    let event_type = new_event.event_type.clone().map(|et| serde_json::to_value(&et)).transpose()?;
 
     sqlx::query!(
         r#"
         UPDATE events
-        SET event_data = $1::jsonb
-        WHERE id = $2
+        SET event_data = COALESCE($1, event_data),
+            character = COALESCE($2, character)
+        WHERE id = $3
         AND EXISTS (
             SELECT 1 FROM campaigns ca
-            WHERE ca.id = events.campaign AND ca.owner = $3
+            WHERE ca.id = events.campaign AND ca.owner = $4
         )
         "#,
-        &event_type,
+        event_type,
+        // TODO: Ensure no bad conversions with these
+        new_event.character.map(|c| c.0 as i64),
         event_id.0 as i32,
         owner.0 as i32,
     )

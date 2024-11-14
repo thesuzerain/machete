@@ -59,6 +59,8 @@ CREATE TABLE encounters (
     description TEXT,
     enemies BIGINT[] NOT NULL,
     hazards BIGINT[] NOT NULL,
+    party_level INT NOT NULL,
+    party_size INT NOT NULL,
     treasure_currency INTEGER,
     treasure_items BIGINT[] NOT NULL
 );

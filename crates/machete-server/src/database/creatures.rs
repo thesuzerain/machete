@@ -26,6 +26,15 @@ pub struct CreatureFilters {
     pub page : Option<u64>,
 }
 
+impl CreatureFilters {
+    pub fn from_id(id: u32) -> Self {
+        CreatureFilters {
+            ids: Some(CommaSeparatedVec(vec![id])),
+            ..Default::default()
+        }
+    }
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -39,7 +48,6 @@ pub async fn get_creatures(
     let offset = page * limit;
 
     let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
-    log::info!("ids: {:?}", ids);
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -90,7 +98,6 @@ pub async fn get_creatures(
         .await?
         .into_iter()
         .map(|row| {
-            log::info!("Found record: {:?}", row);
             Ok(LibraryCreature {
                 id: InternalId(row.id as u64),
                 name: row.name,

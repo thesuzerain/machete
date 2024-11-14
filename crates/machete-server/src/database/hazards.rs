@@ -24,6 +24,15 @@ pub struct HazardFilters {
     pub page : Option<u64>,
 }
 
+impl HazardFilters {
+    pub fn from_id(id: u32) -> Self {
+        HazardFilters {
+            ids: Some(CommaSeparatedVec(vec![id])),
+            ..Default::default()
+        }
+    }
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,

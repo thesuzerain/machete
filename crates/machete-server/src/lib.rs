@@ -53,6 +53,8 @@ pub enum ServerError {
     SqlxError(#[from] sqlx::Error),
     #[error("Internal error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+    #[error("Not found")]
+    NotFound,
 }
 
 impl ServerError {
@@ -60,6 +62,8 @@ impl ServerError {
         match self {
             ServerError::SqlxError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::SerdeJsonError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+
+            ServerError::NotFound => http::StatusCode::NOT_FOUND,
         }
     }
 

@@ -37,8 +37,6 @@
         const response = await fetch(`/api/library/${endpoint}?${queryString}`);
         if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
         const data = await response.json();
-
-        console.log("data", data);
         
         data.forEach((entity: LibraryEntity) => {
             entities.set(entity.id, entity);

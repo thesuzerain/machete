@@ -24,6 +24,15 @@ pub struct SpellFilters {
     pub page: Option<u64>,
 }
 
+impl SpellFilters {
+    pub fn from_id(id: u32) -> Self {
+        Self {
+            ids: Some(CommaSeparatedVec(vec![id])),
+            ..Default::default()
+        }
+    }
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,

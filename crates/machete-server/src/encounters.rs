@@ -31,7 +31,7 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/", post(insert_encounter))
         .route("/draft", get(get_encounter_draft))
         .route("/draft", post(insert_encounter_draft))
-        .route("/draft", patch(clear_encounter_draft))
+        .route("/draft", delete(clear_encounter_draft))
         .route("/:id", patch(edit_encounter))
         .route("/:id/", delete(delete_encounter))
 }
@@ -47,7 +47,6 @@ async fn get_encounters(
 
 async fn insert_encounter(
     State(pool): State<PgPool>,
-    Path(event_id): Path<InternalId>,
     Json(events): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::encounters::insert_encounters(&pool, dummy_test_user(), &events).await?;

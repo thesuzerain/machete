@@ -9,8 +9,8 @@ export enum EncounterDifficulty {
 }
 
 interface PartyConfig {
-    playerCount: number;
-    partyLevel: number;
+    party_size: number;
+    party_level: number;
 }
 
 export function getExperienceFromLevel(partyLevel: number, creatureLevel: number): number {
@@ -34,7 +34,7 @@ export function getExperienceFromLevel(partyLevel: number, creatureLevel: number
     return xpByDifference[clampedDiff] || 40; // Default to level 0 if something goes wrong
 }
 
-export function getSeverityFromExperience(totalXP: number, partyConfig: PartyConfig): EncounterDifficulty {
+export function getSeverityFromExperience(totalXP: number, partySize: number): EncounterDifficulty {
     // XP thresholds based on the party size
     const baseThresholds = {
         trivial: 40,
@@ -52,11 +52,7 @@ export function getSeverityFromExperience(totalXP: number, partyConfig: PartyCon
         extreme: 40
     }
 
-    console.log("partyConfig", partyConfig);
-    console.log("totalXP", totalXP);
-
-    const diffOff = partyConfig.playerCount - 4;
-    console.log("diffOff", diffOff);
+    const diffOff = partySize - 4;
     if (totalXP - playerAdjustmentThresholds.extreme*diffOff >= baseThresholds.extreme) return EncounterDifficulty.Extreme;
     if (totalXP - playerAdjustmentThresholds.severe*diffOff >= baseThresholds.severe) return EncounterDifficulty.Severe;
     if (totalXP - playerAdjustmentThresholds.moderate*diffOff >= baseThresholds.moderate) return EncounterDifficulty.Moderate;

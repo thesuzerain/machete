@@ -10,6 +10,9 @@ pub struct Encounter {
     pub name: String,
     pub description: Option<String>,
 
+    pub party_level: u32,
+    pub party_size: u32,
+
     pub enemies: Vec<InternalId>,
     pub hazards: Vec<InternalId>,
 

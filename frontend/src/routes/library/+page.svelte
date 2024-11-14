@@ -1,21 +1,38 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import type { 
-        LibraryEntity,
-        LibraryEntityType,
-        TableColumn,
-        LibraryResponse,
+    import { 
+        type LibraryEntity,
+        type LibraryEntityType,
+        type TableColumn,
+        type LibraryResponse,
+        
+
+        formatCurrency,
+
         getFullUrl
+
+
     } from '$lib/types/library';
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
+    import { getExperienceFromLevel } from '$lib/utils/encounter';
+
+    export let data: { activeEncounter: boolean | null, startTab: string | null };
 
     let activeTab: LibraryEntityType = 'class';
+    if (data.startTab) {
+        activeTab = data.startTab as LibraryEntityType;
+    }
     let loading = false;
     let error: string | null = null;
     let searchQuery = '';
     let filterRarity: string = '';
-    let filterLevel: string = '';
+
+    let minLevel = -1;
+    let maxLevel = 30;
+    let minMinLevel: number = -1;
+    let maxMaxLevel: number = 30;
+
     let page = 0;
     const LIMIT = 100;
 
@@ -54,8 +71,7 @@
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
-            { key: 'price', label: 'Price', formatter: (price: any) => 
-                price ? `${price.gold || 0}g ${price.silver || 0}s ${price.copper || 0}c` : ''
+            { key: 'price', label: 'Price', formatter: (price: any) =>  formatCurrency(price)
             },
             { key: 'category', label: 'Category' },
             { key: 'bulk', label: 'Bulk' }
@@ -79,7 +95,10 @@
     let currentEncounter: any | null = null;
     let isEncounterMode = false;
 
-    export let data: { activeEncounter: boolean | null, startTab: string | null };
+    // Add state for notification
+    let notification: string | null = null;
+
+    let lockToCommonRange = false;
 
     onMount(async () => {
         await fetchLibraryData(true);
@@ -91,10 +110,6 @@
         } else {
             // Still load the encounter but don't activate mode
             await loadEncounter();
-        }
-
-        if (data.startTab) {
-            activeTab = data.startTab as LibraryEntityType;
         }
     });
 
@@ -173,8 +188,8 @@
             currentEncounter = await responseGet.json();
             
             // Show success message
-            // TODO: Add toast notification
-            console.log(`Added ${entity.name} to encounter as ${type}`);
+            notification = `Added ${entity.name} to encounter as ${type}`;
+            setTimeout(() => notification = null, 3000); // Clear notification after 3 seconds
         } catch (e) {
             console.error(e);
             error = e instanceof Error ? e.message : `Failed to add to encounter`;
@@ -182,7 +197,6 @@
     }
 
     async function fetchLibraryData(reset: boolean = false) {
-        console.log("fetching library data");
         if (reset) {
             page = 0;
             entities = [];
@@ -193,13 +207,13 @@
 
         loading = true;
         try {
-            console.log("fetching library data2", page);
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: LIMIT.toString(),
                 ...(searchQuery && { search: searchQuery }),
                 ...(filterRarity && { rarity: filterRarity }),
-                ...(filterLevel && { level: filterLevel })
+                ...(minLevel && { min_level: minLevel }),
+                ...(maxLevel && { max_level: maxLevel })
             });
 
             const pluralType = pluralizations[activeTab];
@@ -208,7 +222,6 @@
             if (!response.ok) throw new Error(`Failed to fetch ${pluralType}`);
             
             const data: LibraryEntity[] = await response.json();
-            console.log(data);
             if (reset) {
                 entities = data;
             } else {
@@ -228,7 +241,7 @@
 
     // Reset and refetch when filters change
     $: {
-        if (searchQuery !== undefined || filterRarity !== undefined || filterLevel !== undefined) {
+        if (searchQuery !== undefined || filterRarity !== undefined || minLevel !== undefined || maxLevel !== undefined) {
             fetchLibraryData(true);
         }
     }
@@ -238,6 +251,23 @@
         if (activeTab) {
             fetchLibraryData(true);
         }
+    }
+
+    $: {
+        if (lockToCommonRange && currentEncounter) {
+            minMinLevel = Math.max(currentEncounter.party_level - 4, -1);
+            maxMaxLevel = currentEncounter.party_level + 3;
+
+            minLevel = Math.max(minLevel || minMinLevel, minMinLevel);
+            maxLevel = Math.min(maxLevel || maxMaxLevel, maxMaxLevel);
+        } else {
+            minMinLevel = -1;
+            maxMaxLevel = 100;
+        }
+    }
+
+    function toggleCommonRange() {
+        lockToCommonRange = !lockToCommonRange;
     }
 </script>
 
@@ -249,13 +279,21 @@
                 class="activate-mode-button"
                 on:click={activateEncounterMode}
             >
-                Start Adding to Encounter
+                Start adding to current encounter
             </button>
         {:else if isEncounterMode}
-            <div class="mode-indicator">
-                <span class="mode-badge">Encounter Mode</span>
-                <span class="encounter-name">{currentEncounter?.name || 'Unnamed Encounter'}</span>
-                <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+            <div class="mode-indicator-container">
+                <div class="mode-indicator">
+                    <span class="mode-badge">Encounter Mode</span>
+                    <span class="encounter-name">{currentEncounter?.name || 'Unnamed Encounter'}</span>
+                    <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+                </div>
+                <div class="toggle-range-container">
+                    <label class="toggle-range-label">
+                        <input type="checkbox" bind:checked={lockToCommonRange} />
+                        Lock to Common Range
+                    </label>
+                </div>
             </div>
         {/if}
     </div>
@@ -293,10 +331,21 @@
                 <option value="unique">Unique</option>
             </select>
 
-            <select bind:value={filterLevel} class="filter-select">
-                <option value="">All Levels</option>
-                {#each Array(20) as _, i}
-                    <option value={i + 1}>{i + 1}</option>
+            <select bind:value={minLevel} class="filter-select">
+                <option value=-2>Min Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
+                        <option value={i-3 + 1}>{i-3 + 1}</option>
+                    {/if}
+                {/each}
+            </select>
+
+            <select bind:value={maxLevel} class="filter-select">
+                <option value=-2>Max Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
+                        <option value={i-2 + 1}>{i-2 + 1}</option>
+                    {/if}
                 {/each}
             </select>
         </div>
@@ -311,6 +360,9 @@
                     {#each columns[activeTab] as column}
                         <th>{column.label}</th>
                     {/each}
+                    {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
+                        <th>Experience</th>
+                    {/if}
                     {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
                         <th>Actions</th>
                     {/if}
@@ -322,11 +374,12 @@
                         class:expanded={expandedRow === entity.id}
                         on:mouseenter={(e) => handleMouseMove(e, entity)}
                         on:mouseleave={handleMouseLeave}
+                        on:click={() => handleRowClick(entity)}
                     >
                         <td>
                             <button 
                                 class="expand-button"
-                                on:click={() => handleRowClick(entity)}
+                                on:click={(e) => { e.stopPropagation(); handleRowClick(entity); }}
                             >
                                 {expandedRow === entity.id ? '−' : '+'}
                             </button>
@@ -340,15 +393,20 @@
                                 {/if}
                             </td>
                         {/each}
+                        {#if isEncounterMode && activeTab === 'creature'}
+                            <td>
+                                {getExperienceFromLevel(currentEncounter.party_level, entity.level)}
+                            </td>
+                        {/if}
                         {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
                             <td class="actions">
                                 <button 
                                     class="add-button"
-                                    on:click={() => addToEncounter(
+                                    on:click={(e) => { e.stopPropagation(); addToEncounter(
                                         entity,
                                         activeTab === 'creature' ? 'enemy' :
                                         activeTab === 'hazard' ? 'hazard' : 'treasure'
-                                    )}
+                                    ); }}
                                 >
                                     Add to Encounter
                                 </button>
@@ -357,7 +415,7 @@
                     </tr>
                     {#if expandedRow === entity.id}
                         <tr class="detail-row" transition:slide>
-                            <td colspan={columns[activeTab].length + 2}>
+                            <td colspan={columns[activeTab].length + (isEncounterMode && activeTab === 'creature' ? 1 : 0) + 2}>
                                 <div class="entity-details">
                                     {#if entity.description}
                                         <div class="description">
@@ -406,10 +464,13 @@
 
     {#if isEncounterMode}
         <div class="encounter-indicator" transition:fade>
-            <span class="mode-badge">Editing: {currentEncounter?.name || 'Unnamed Encounter'}</span>
-            <a href="/encounters" class="view-encounter">View Encounter</a>
+            <a href="/encounters" class="view-encounter"><span class="mode-badge">Editing: {currentEncounter?.name || 'Unnamed Encounter'}</span></a>
             <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
         </div>
+    {/if}
+
+    {#if notification}
+        <div class="notification" transition:fade>{notification}</div>
     {/if}
 </div>
 
@@ -657,6 +718,12 @@
         margin-bottom: 2rem;
     }
 
+    .mode-indicator-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
     .mode-indicator {
         display: flex;
         align-items: center;
@@ -744,5 +811,41 @@
 
     .activate-mode-button:hover {
         background: #2563eb;
+    }
+
+    .notification {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        background: #34d399; /* Green background for success */
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+
+    .toggle-range-container {
+        margin-top: 0.5rem;
+    }
+
+    .toggle-range-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #374151;
+    }
+
+    .toggle-range-label input {
+        cursor: pointer;
+    }
+
+    .table-container tr:nth-child(even) {
+        background-color: #f9fafb; /* Light background for even rows */
+    }
+
+    .table-container tr:nth-child(odd) {
+        background-color: white; /* Default background for odd rows */
     }
 </style> 

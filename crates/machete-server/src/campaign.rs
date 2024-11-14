@@ -19,7 +19,7 @@ use crate::{
         campaigns::InsertCampaign,
         characters::{CharacterFilters, InsertCharacter, ModifyCharacter},
         encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
-        events::{EventFilters, InsertEvent},
+        events::{EditEvent, EventFilters, InsertEvent},
         logs::{InsertLog, LogFilters},
     },
     dummy_test_user, ServerError,
@@ -143,7 +143,7 @@ async fn insert_events(
 async fn edit_event(
     State(pool): State<PgPool>,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
-    Json(event): Json<EventType>,
+    Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
     database::events::edit_event(&pool, dummy_test_user(), event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)

@@ -11,7 +11,6 @@ export interface LibraryEntity {
 
 export function getFullUrl(url : string) {
     const aon = "https://2e.aonprd.com";
-    console.log("url", aon + url);
     return aon + url;
 }
 
@@ -59,14 +58,18 @@ export interface Currency {
 export function formatCurrency(currency: Currency): string {
     const parts: string[] = [];
     if (currency.gold) {
-        parts.push(`${currency.gold} G`);
+        parts.push(`${currency.gold}g`);
     }
     if (currency.silver) {
-        parts.push(`${currency.silver} S`);
+        parts.push(`${currency.silver}s`);
     }
     if (currency.copper) {
-        parts.push(`${currency.copper} C`);
+        parts.push(`${currency.copper}c`);
     }
+    if (parts.length === 0) {
+        return '0g';
+    }
+
     return parts.join(' ');
 }
 
