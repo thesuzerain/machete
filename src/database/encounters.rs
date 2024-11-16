@@ -1,12 +1,9 @@
-use itertools::Itertools;
-use machete::models::{
+use crate::models::{
     encounter::{CompletionStatus, Encounter},
-    events::{Event, EventType},
     library::item::Currency,
 };
-use machete_core::ids::InternalId;
+use crate::models::ids::InternalId;
 use serde::{Deserialize, Serialize};
-
 use crate::models::currency::CurrencyOrGold;
 
 #[derive(Default, Serialize, Deserialize, Debug)]

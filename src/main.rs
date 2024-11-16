@@ -1,4 +1,4 @@
 #[tokio::main]
 async fn main() {
-    machete_server::run_server().await;
+    machete::run_server().await;
 }

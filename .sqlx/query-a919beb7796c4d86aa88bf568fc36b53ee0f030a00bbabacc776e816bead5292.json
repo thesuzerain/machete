@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            ch.id,\n            ch.name,\n            ch.player,\n            ch.level,\n            ch.class\n        FROM characters ch\n        LEFT JOIN campaigns ca ON ch.campaign = ca.id\n        WHERE \n            ($1::text IS NULL OR ch.name ILIKE '%' || $1 || '%')\n            AND ($2::int IS NULL OR ca.id = $2)\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "player",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "class",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a919beb7796c4d86aa88bf568fc36b53ee0f030a00bbabacc776e816bead5292"
+}

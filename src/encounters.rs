@@ -5,22 +5,15 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
-use machete::models::{
-    campaign::CampaignPartial,
-    characters::Character,
-    events::{Event, EventGroup, EventType},
-};
-use machete_core::ids::InternalId;
+use crate::models::ids::InternalId;
+
+
 use sqlx::{PgPool, Pool};
 
 use crate::{
     database::{
         self,
-        campaigns::InsertCampaign,
-        characters::{CharacterFilters, InsertCharacter, ModifyCharacter},
         encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
-        events::{EventFilters, InsertEvent},
-        logs::{InsertLog, LogFilters},
     },
     dummy_test_user, ServerError,
 };

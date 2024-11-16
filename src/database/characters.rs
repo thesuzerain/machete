@@ -1,5 +1,6 @@
-use machete::models::characters::Character;
-use machete_core::ids::InternalId;
+use crate::models::characters::Character;
+use crate::models::ids::InternalId;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Debug)]

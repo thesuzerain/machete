@@ -1,4 +1,4 @@
-use machete::models::library::item::Currency;
+use super::library::item::Currency;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

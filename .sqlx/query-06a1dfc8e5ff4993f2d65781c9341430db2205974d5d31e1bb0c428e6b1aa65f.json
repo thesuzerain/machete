@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM campaigns\n        WHERE id = $1 AND owner = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06a1dfc8e5ff4993f2d65781c9341430db2205974d5d31e1bb0c428e6b1aa65f"
+}

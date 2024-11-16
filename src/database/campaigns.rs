@@ -1,5 +1,6 @@
-use machete::models::campaign::CampaignPartial;
-use machete_core::ids::InternalId;
+use crate::models::campaign::CampaignPartial;
+use crate::models::ids::InternalId;
+
 
 #[derive(serde::Deserialize)]
 pub struct InsertCampaign {

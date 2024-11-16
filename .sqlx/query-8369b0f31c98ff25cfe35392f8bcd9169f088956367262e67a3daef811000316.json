@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE events\n        SET event_data = COALESCE($1, event_data),\n            character = COALESCE($2, character)\n        WHERE id = $3\n        AND EXISTS (\n            SELECT 1 FROM campaigns ca\n            WHERE ca.id = events.campaign AND ca.owner = $4\n        )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Int8",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8369b0f31c98ff25cfe35392f8bcd9169f088956367262e67a3daef811000316"
+}

@@ -1,6 +1,7 @@
 use itertools::Itertools;
-use machete::models::events::{Event, EventType};
-use machete_core::ids::InternalId;
+use crate::models::events::{Event, EventType};
+use crate::models::ids::InternalId;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Debug)]

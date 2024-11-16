@@ -1,8 +1,9 @@
-use machete::models::library::{
+use crate::models::library::{
     creature::{Alignment, LibraryCreature, Size},
     GameSystem, Rarity,
 };
-use machete_core::ids::InternalId;
+use crate::models::ids::InternalId;
+
 use serde::{Deserialize, Serialize};
 
 use crate::models::query::CommaSeparatedVec;

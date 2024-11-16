@@ -1,9 +1,10 @@
-use machete::models::library::{
+use crate::models::library::{
     classes::LibraryClass,
     GameSystem, Rarity,
 };
-use machete_core::ids::InternalId;
+
 use serde::{Deserialize, Serialize};
+use crate::models::ids::InternalId;
 
 use super::DEFAULT_MAX_LIMIT;
 

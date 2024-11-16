@@ -1,4 +1,5 @@
 use axum::{http, response::IntoResponse, routing::get, Router};
+use models::ids::InternalId;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
@@ -41,8 +42,8 @@ async fn root() -> &'static str {
 }
 
 // TODO: users are not added yet. all users use this same id.
-pub fn dummy_test_user() -> machete_core::ids::InternalId {
-    machete_core::ids::InternalId(1)
+pub fn dummy_test_user() -> InternalId {
+    InternalId(1)
 }
 
 pub type Result<T> = std::result::Result<T, ServerError>;

@@ -1,7 +1,6 @@
-use machete::models::events::EventGroup;
-use machete_core::ids::InternalId;
+use crate::models::events::EventGroup;
 use serde::{Deserialize, Serialize};
-
+use crate::models::ids::InternalId;
 use crate::models::log::Log;
 
 use super::events::{self, InsertEvent};

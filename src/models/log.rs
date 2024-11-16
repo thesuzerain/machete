@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use machete::models::events::{Event, EventGroup};
-use machete_core::ids::InternalId;
+use super::{events::{Event, EventGroup}, ids::InternalId};
+
 use serde::Serialize;
 
 #[derive(Default, Serialize, Debug)]

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde::Deserializer;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct CommaSeparatedVec(pub Vec<u32>);
