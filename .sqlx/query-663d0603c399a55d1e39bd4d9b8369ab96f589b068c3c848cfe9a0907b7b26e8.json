@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            lo.id,\n            lo.name,\n            lo.game_system,\n            lo.url,\n            lo.description,\n            rarity,\n            level,\n            ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags\n        FROM library_objects lo\n        INNER JOIN library_hazards lc ON lo.id = lc.id\n        LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n        LEFT JOIN tags t ON lot.tag_id = t.id\n\n        WHERE 1=1\n            AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')\n            AND ($2::int IS NULL OR rarity = $2)\n            AND ($3::int IS NULL OR game_system = $3)\n            AND ($4::int IS NULL OR level >= $4)\n            AND ($5::int IS NULL OR level <= $5)\n            AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')\n            AND ($7::int[] IS NULL OR lo.id = ANY($7))\n\n        GROUP BY lo.id, lc.id ORDER BY lo.name\n        LIMIT $8 OFFSET $9\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "game_system",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "rarity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "tags",
+        "type_info": "VarcharArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4Array",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "663d0603c399a55d1e39bd4d9b8369ab96f589b068c3c848cfe9a0907b7b26e8"
+}

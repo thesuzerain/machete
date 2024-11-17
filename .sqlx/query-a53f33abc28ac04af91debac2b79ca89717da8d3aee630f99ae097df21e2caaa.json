@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            ev.id,\n            ch.id AS \"character?\",\n            ev.timestamp,\n            ev.event_group AS \"log?\",\n            ev.event_data\n        FROM events ev\n        LEFT JOIN characters ch ON ev.character = ch.id\n        LEFT JOIN campaigns ca ON ev.campaign = ca.id\n        LEFT JOIN event_groups eg ON ev.event_group = eg.id\n        WHERE \n            ($1::int IS NULL OR ev.character = $1)\n            AND ca.id = $2\n            AND ($3::text IS NULL OR ev.event_data->>'type' = $3)\n        ORDER BY ev.timestamp\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "character?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "log?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "event_data",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "a53f33abc28ac04af91debac2b79ca89717da8d3aee630f99ae097df21e2caaa"
+}

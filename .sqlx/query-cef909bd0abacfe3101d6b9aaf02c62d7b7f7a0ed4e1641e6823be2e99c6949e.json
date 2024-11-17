@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            eg.id,\n            eg.name,\n            eg.timestamp,\n            eg.description,\n            array_agg(DISTINCT ev.id) filter (where ev.id is not null) AS events\n        FROM event_groups eg\n        LEFT JOIN events ev ON eg.id = ev.event_group\n        WHERE eg.campaign = $1 AND ($2::int IS NULL OR ev.character = $2)\n        GROUP BY eg.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "events",
+        "type_info": "Int4Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "cef909bd0abacfe3101d6b9aaf02c62d7b7f7a0ed4e1641e6823be2e99c6949e"
+}

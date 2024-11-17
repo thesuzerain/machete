@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            ev.id AS \"id!\",\n            ch.id AS \"character?\",\n            ev.timestamp AS \"timestamp!\",\n            ev.event_group AS \"log?\",\n            ev.event_data AS \"event_data!\"\n        FROM events ev\n        LEFT JOIN characters ch ON ev.character = ch.id\n        LEFT JOIN campaigns ca ON ev.campaign = ca.id\n        LEFT JOIN event_groups eg ON ev.event_group = eg.id\n        WHERE \n            ev.id = ANY($1::int[])\n        ORDER BY ev.timestamp\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "character?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "timestamp!",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "log?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "event_data!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "1ea9165bf6eb5a229bfeadf503fdffcbb6453aee2023bcfcbfd717abc2bb7322"
+}
