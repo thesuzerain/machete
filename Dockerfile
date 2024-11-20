@@ -4,9 +4,9 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/machete
 # Download and compile deps
 COPY . .
-COPY docker_utils/dummy.rs /usr/src/machete/crates/machete-server/dummy.rs
+COPY docker_utils/dummy.rs /usr/src/machete/dummy.rs
 
-WORKDIR  /usr/src/machete/crates/machete-server
+WORKDIR  /usr/src/machete
 
 # Change temporarely the path of the code
 RUN sed -i 's|src/main.rs|dummy.rs|' Cargo.toml
