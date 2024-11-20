@@ -32,7 +32,7 @@ RUN apt-get update \
 
 RUN update-ca-certificates
 
-COPY --from=build /usr/src/machete/target/release/machete-server /machete/machete
+COPY --from=build /usr/src/machete/target/release/machete /machete/machete
 COPY --from=build /wait /wait
 WORKDIR /machete
 
