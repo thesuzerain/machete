@@ -1,12 +1,12 @@
-FROM rust:1.79.0 as build
+FROM rust:1.81.0 as build
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
 WORKDIR /usr/src/machete
 # Download and compile deps
 COPY . .
-COPY docker_utils/dummy.rs /usr/src/machete/crates/machete-server/dummy.rs
+COPY docker_utils/dummy.rs /usr/src/machete/dummy.rs
 
-WORKDIR  /usr/src/machete/crates/machete-server
+WORKDIR  /usr/src/machete
 
 # Change temporarely the path of the code
 RUN sed -i 's|src/main.rs|dummy.rs|' Cargo.toml
@@ -32,7 +32,7 @@ RUN apt-get update \
 
 RUN update-ca-certificates
 
-COPY --from=build /usr/src/machete/target/release/machete-server /machete/machete
+COPY --from=build /usr/src/machete/target/release/machete /machete/machete
 COPY --from=build /wait /wait
 WORKDIR /machete
 

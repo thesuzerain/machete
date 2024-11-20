@@ -24,6 +24,8 @@
   import {
     faLink,
   } from '@fortawesome/free-solid-svg-icons'
+  import { API_URL } from '$lib/config';
+
 library.add(faLink)
 
 
@@ -98,7 +100,7 @@ library.add(faLink)
     // Fetch campaigns data
     async function fetchCampaigns() {
         try {
-            const response = await fetch('/api/campaign');
+            const response = await fetch(`${API_URL}/campaign`);
             if (!response.ok) {
                 console.error('Failed to fetch campaigns', response);
                 throw new Error('Failed to fetch campaigns');
@@ -117,7 +119,7 @@ library.add(faLink)
     // Fetch characters for the selected campaign
     async function fetchCampaignCharacters(campaignId: string) {
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
             if (!response.ok) throw new Error('Failed to fetch campaign characters');
             campaignCharacters = await response.json();
 
@@ -157,7 +159,7 @@ library.add(faLink)
             );
             
             if (enemyIds.size > 0) {
-                const enemiesResponse = await fetch(`/api/library/creatures?ids=${Array.from(enemyIds).join(',')}`);
+                const enemiesResponse = await fetch(`${API_URL}/library/creatures?ids=${Array.from(enemyIds).join(',')}`);
                 if (!enemiesResponse.ok) throw new Error('Failed to fetch creatures');
                 const enemies: LibraryEntity[] = await enemiesResponse.json();
                 libraryEnemies = new Map(enemies.map(e => [e.id, e]));
@@ -169,7 +171,7 @@ library.add(faLink)
                     .concat(draftEncounter.hazards)
             );
             if (hazardIds.size > 0) {
-                const hazardsResponse = await fetch(`/api/library/hazards?ids=${Array.from(hazardIds).join(',')}`);
+                const hazardsResponse = await fetch(`${API_URL}/library/hazards?ids=${Array.from(hazardIds).join(',')}`);
                 if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
                 const hazards: LibraryEntity[] = await hazardsResponse.json();
                 libraryHazards = new Map(hazards.map(h => [h.id, h]));
@@ -181,7 +183,7 @@ library.add(faLink)
                     .concat(draftEncounter.treasure_items)
             );
             if (itemIds.size > 0) {
-                const itemsResponse = await fetch(`/api/library/items?ids=${Array.from(itemIds).join(',')}`);
+                const itemsResponse = await fetch(`${API_URL}/library/items?ids=${Array.from(itemIds).join(',')}`);
                 if (!itemsResponse.ok) throw new Error('Failed to fetch items');
                 const items: LibraryEntity[] = await itemsResponse.json();
                 libraryItems = new Map(items.map(i => [i.id, i]));
@@ -195,7 +197,7 @@ library.add(faLink)
     onMount(async () => {
         try {
             // First check for any in-progress encounter
-            const inProgressResponse = await fetch(`/api/encounters/draft`);
+            const inProgressResponse = await fetch(`${API_URL}/encounters/draft`);
             if (inProgressResponse.ok) {
                 const inProgress: CreateEncounter = await inProgressResponse.json();
                 if (inProgress) {
@@ -222,7 +224,7 @@ library.add(faLink)
         
         saveTimeout = setTimeout(async () => {
             try {
-                const response = await fetch(`/api/encounters/draft`, {
+                const response = await fetch(`${API_URL}/encounters/draft`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -246,7 +248,7 @@ library.add(faLink)
         event.preventDefault();
         
         try {
-            const response = await fetch(`/api/encounters`, {
+            const response = await fetch(`${API_URL}/encounters`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -269,7 +271,7 @@ library.add(faLink)
             };
             
             // Clear any existing draft
-            await fetch(`/api/encounters/draft`, {
+            await fetch(`${API_URL}/encounters/draft`, {
                 method: 'DELETE',
             });
 
@@ -281,7 +283,7 @@ library.add(faLink)
 
     async function updateEncounter(encounter: Encounter) {
         try {
-            const response = await fetch(`/api/encounters/${encounter.id}`, {
+            const response = await fetch(`${API_URL}/encounters/${encounter.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({encounter}),
@@ -306,7 +308,7 @@ library.add(faLink)
 
         try {
             // Create a log with all the events
-            const logResponse = await fetch(`/api/campaign/${selectedCompletionCampaign}/logs`, {
+            const logResponse = await fetch(`${API_URL}/campaign/${selectedCompletionCampaign}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -384,7 +386,7 @@ library.add(faLink)
             if (!logResponse.ok) throw new Error('Failed to create completion log');
 
             // Update encounter status
-            const statusResponse = await fetch(`/api/encounters/${encounter.id}`, {
+            const statusResponse = await fetch(`${API_URL}/encounters/${encounter.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -428,7 +430,7 @@ library.add(faLink)
 
     async function fetchEncounters() {
         try {
-            const response = await fetch(`/api/encounters`);
+            const response = await fetch(`${API_URL}/encounters`);
             if (!response.ok) throw new Error('Failed to fetch encounters');
             encounters = await response.json();
         } catch (e) {

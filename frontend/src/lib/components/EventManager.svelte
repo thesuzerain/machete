@@ -3,6 +3,7 @@
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
     import { formatCurrency } from '$lib/types/library';
     import LibraryEntityName from './LibraryEntityName.svelte';
+    import { API_URL } from '$lib/config';
     
     export let events: Event[] = [];
     export let characters: Character[] = [];
@@ -39,7 +40,7 @@
                 return acc;
             }, {});
 
-            const response = await fetch(`/api/campaign/${campaignId}/events/${eventId}`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -63,7 +64,7 @@
         if (!selectedEventIds.length) return;
         
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/events`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(selectedEventIds),

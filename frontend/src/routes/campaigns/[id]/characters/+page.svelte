@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import type { Character, InsertCharacter, LibraryClass, UpdateCharacter } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
+    import { API_URL } from '$lib/config';
 
     const campaignId = parseInt($page.params.id);
     let campaignCharacters: Character[] = [];
@@ -20,7 +21,7 @@
     };
 
     async function loadLibraryData() {
-        const response = await fetch('/api/library/classes');
+        const response = await fetch(`${API_URL}/library/classes`);
         if (!response.ok) throw new Error('Failed to fetch classes');
         const classes: LibraryClass[] = await response.json();
         libraryClasses = new Map(classes.map(c => [c.id, c]));
@@ -28,7 +29,7 @@
 
     onMount(async () => {
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
             if (!response.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await response.json();
             await loadLibraryData();
@@ -43,7 +44,7 @@
         event.preventDefault();
         
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -69,7 +70,7 @@
     async function updateCharacter(character: UpdateCharacter | null) {
         if (!character) return;
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters/${character.id}`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${character.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -88,7 +89,7 @@
 
     async function fetchCharacters() {
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
             if (!response.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await response.json();
         } catch (e) {
