@@ -11,6 +11,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-cloudflare": "^4.7.4",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^4.0.0",
 		"@types/node": "^20.0.0",
@@ -28,7 +29,6 @@
 		"@fortawesome/svelte-fontawesome": "^0.2.0",
 		"date-fns": "^3.3.1",
 		"svelte-infinite-scroll": "^2.0.1",
-		"svelte-transitions": "^1.2.0",
-		"@sveltejs/adapter-cloudflare": "^1.1.0"
+		"svelte-transitions": "^1.2.0"
 	}
 }
