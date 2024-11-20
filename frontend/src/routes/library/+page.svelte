@@ -16,6 +16,7 @@
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
     import { getExperienceFromLevel } from '$lib/utils/encounter';
+    import { API_URL } from '$lib/config';
 
     export let data: { activeEncounter: boolean | null, startTab: string | null };
 
@@ -115,7 +116,7 @@
 
     async function loadEncounter() {
         try {
-            const response = await fetch(`/api/encounters/draft`);
+            const response = await fetch(`${API_URL}/encounters/draft`);
             if (response.ok) {
                 currentEncounter = await response.json();
             }
@@ -174,7 +175,7 @@
                     break;
             }
 
-            const response = await fetch(`/api/encounters/draft`, {
+            const response = await fetch(`${API_URL}/encounters/draft`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -184,7 +185,7 @@
 
             if (!response.ok) throw new Error(`Failed to add ${type} to encounter`);
             
-            const responseGet = await fetch(`/api/encounters/draft`);
+            const responseGet = await fetch(`${API_URL}/encounters/draft`);
             currentEncounter = await responseGet.json();
             
             // Show success message
@@ -217,7 +218,7 @@
             });
 
             const pluralType = pluralizations[activeTab];
-            const response = await fetch(`/api/library/${pluralType}?${params}`);
+            const response = await fetch(`${API_URL}/library/${pluralType}?${params}`);
             
             if (!response.ok) throw new Error(`Failed to fetch ${pluralType}`);
             

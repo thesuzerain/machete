@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { API_URL } from '$lib/config';
     import type { LibraryEntity } from '$lib/types/library';
     
     export let entityType: 'creature' | 'hazard' | 'item';
@@ -10,7 +11,7 @@
 
     async function loadEntity() {
         try {
-            const response = await fetch(`/api/library/${entityType}s/${entityId}`);
+            const response = await fetch(`${API_URL}/library/${entityType}s/${entityId}`);
             if (!response.ok) throw new Error('Failed to load entity');
             entity = await response.json();
         } catch (e) {

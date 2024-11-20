@@ -11,6 +11,7 @@
     import LibraryEntityName from '$lib/components/LibraryEntityName.svelte';
     import { fade } from 'svelte/transition';
     import { getExperienceFromLevel } from '$lib/utils/encounter';
+    import { API_URL } from '$lib/config';
 
     const campaignId = parseInt($page.params.id);
     let logs: Log[] = [];
@@ -71,19 +72,19 @@
     async function loadLibraryData() {
         try {
             // Load enemies
-            const enemiesResponse = await fetch('/api/library/creatures');
+            const enemiesResponse = await fetch(`${API_URL}/library/creatures`);
             if (!enemiesResponse.ok) throw new Error('Failed to fetch creatures');
             const enemies: LibraryEntity[] = await enemiesResponse.json();
             libraryEnemies = new Map(enemies.map(e => [e.id, e]));
 
             // Load items
-            const itemsResponse = await fetch('/api/library/items');
+            const itemsResponse = await fetch(`${API_URL}/library/items`);
             if (!itemsResponse.ok) throw new Error('Failed to fetch items');
             const items: LibraryEntity[] = await itemsResponse.json();
             libraryItems = new Map(items.map(i => [i.id, i]));
 
             // Load hazards
-            const hazardsResponse = await fetch('/api/library/hazards');
+            const hazardsResponse = await fetch(`${API_URL}/library/hazards`);
             if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
             const hazards: LibraryEntity[] = await hazardsResponse.json();
             libraryHazards = new Map(hazards.map(h => [h.id, h]));
@@ -94,7 +95,7 @@
 
     async function fetchCampaignCharacters() {
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
             if (!response.ok) throw new Error('Failed to fetch campaign characters');
             campaignCharacters = await response.json();
         } catch (e) {
@@ -118,7 +119,7 @@
 
     async function fetchLogs() {
         try {
-            const logsResponse = await fetch(`/api/campaign/${campaignId}/logs`);
+            const logsResponse = await fetch(`${API_URL}/campaign/${campaignId}/logs`);
             if (!logsResponse.ok) throw new Error('Failed to fetch logs');
             logs = await logsResponse.json();
         } catch (e) {
@@ -202,7 +203,7 @@
 
         try {
             console.log("Submitting log:", JSON.stringify(newLog))
-            const response = await fetch(`/api/campaign/${campaignId}/logs`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newLog),
@@ -225,7 +226,7 @@
 
     async function updateLog(log: Log) {
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/logs/${log.id}`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${log.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -249,7 +250,7 @@
         }
 
         try {
-            const response = await fetch(`/api/campaign/${campaignId}/logs/${logId}`, {
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${logId}`, {
                 method: 'DELETE',
             });
 
@@ -271,7 +272,7 @@
 
         try {
             await Promise.all(selectedLogs.map(logId => 
-                fetch(`/api/campaign/${campaignId}/logs/${logId}`, {
+                fetch(`${API_URL}/campaign/${campaignId}/logs/${logId}`, {
                     method: 'DELETE',
                 })
             ));
@@ -576,7 +577,7 @@
                     characters={campaignCharacters}
                     onEventCreate={async (event) => {
                         try {
-                            const response = await fetch(`/api/campaign/${campaignId}/events`, {
+                            const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({

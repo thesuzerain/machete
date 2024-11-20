@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Campaign, InsertCampaign } from '$lib/types/types';
+    import { API_URL } from '$lib/config';
 
   let loading = true;
   let error: string | null = null;
@@ -9,10 +10,13 @@
 
   onMount(async () => {
     try {
-      const response = await fetch(`/api/campaign`);
+      console.error("Test")
+      const response = await fetch(`${API_URL}/campaign`);
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       campaigns = await response.json();
+      console.log(campaigns)
     } catch (e) {
+      console.error(e)
       error = e instanceof Error ? e.message : 'An error occurred';
     } finally {
       loading = false;
@@ -27,7 +31,7 @@
         name: newCampaignName
       };
 
-      const response = await fetch(`/api/campaign`, {
+      const response = await fetch(`${API_URL}/campaign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,7 +42,7 @@
       if (!response.ok) throw new Error('Failed to create campaign');
       
       // Refresh the campaigns list
-      const campaignsResponse = await fetch(`/api/campaign`);
+      const campaignsResponse = await fetch(`${API_URL}/campaign`);
       if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
       campaigns = await campaignsResponse.json();
       

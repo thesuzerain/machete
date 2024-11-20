@@ -2,6 +2,7 @@
     import type { Currency } from '$lib/types/library';
     import { onMount } from 'svelte';
     import { debounce } from '$lib/utils';
+    import { API_URL } from '$lib/config';
 
     interface LibraryEntity {
         id: number;
@@ -34,7 +35,7 @@
     async function fetchEntities(params: Record<string, string>) {
         const endpoint = routePart[entityType];
         const queryString = new URLSearchParams(params).toString();
-        const response = await fetch(`/api/library/${endpoint}?${queryString}`);
+        const response = await fetch(`${API_URL}/library/${endpoint}?${queryString}`);
         if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
         const data = await response.json();
         
