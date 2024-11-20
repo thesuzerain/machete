@@ -202,7 +202,6 @@
         };
 
         try {
-            console.log("Submitting log:", JSON.stringify(newLog))
             const response = await fetch(`${API_URL}/campaign/${campaignId}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

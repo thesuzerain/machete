@@ -10,11 +10,9 @@
 
   onMount(async () => {
     try {
-      console.error("Test")
       const response = await fetch(`${API_URL}/campaign`);
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       campaigns = await response.json();
-      console.log(campaigns)
     } catch (e) {
       console.error(e)
       error = e instanceof Error ? e.message : 'An error occurred';
