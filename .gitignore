@@ -2,6 +2,7 @@ fixtures/
 examples/
 
 .env
+!frontend/.env
 
 .DS_Store
 .idea
