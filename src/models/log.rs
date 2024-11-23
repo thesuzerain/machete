@@ -1,5 +1,8 @@
+use super::{
+    events::{Event, EventGroup},
+    ids::InternalId,
+};
 use chrono::{DateTime, Utc};
-use super::{events::{Event, EventGroup}, ids::InternalId};
 
 use serde::Serialize;
 

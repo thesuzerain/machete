@@ -1,11 +1,11 @@
+use crate::models::ids::InternalId;
 use crate::models::library::{
     hazard::{HazardType, LibraryHazard},
     GameSystem, Rarity,
 };
-use crate::models::ids::InternalId;
 
-use serde::{Deserialize, Serialize};
 use crate::models::query::CommaSeparatedVec;
+use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
 
@@ -21,8 +21,8 @@ pub struct HazardFilters {
     #[serde(default)]
     pub tags: Vec<String>,
 
-    pub limit : Option<u64>,
-    pub page : Option<u64>,
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
 impl HazardFilters {
@@ -46,7 +46,12 @@ pub async fn get_hazards(
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
 
-    let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
+    let ids = condition.ids.clone().map(|t| {
+        t.into_inner()
+            .into_iter()
+            .map(|id| id as i32)
+            .collect::<Vec<i32>>()
+    });
     let query = sqlx::query!(
         r#"
         SELECT 

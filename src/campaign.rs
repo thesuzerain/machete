@@ -1,3 +1,4 @@
+use crate::models::ids::InternalId;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -5,7 +6,6 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
-use crate::models::ids::InternalId;
 
 use sqlx::{PgPool, Pool};
 

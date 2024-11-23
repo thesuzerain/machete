@@ -1,3 +1,4 @@
+use crate::models::ids::InternalId;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -5,8 +6,6 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
-use crate::models::ids::InternalId;
-
 
 use sqlx::{PgPool, Pool};
 
@@ -63,10 +62,7 @@ async fn delete_encounter(
     Ok(StatusCode::NO_CONTENT)
 }
 
-
-async fn get_encounter_draft(
-    State(pool): State<PgPool>,
-) -> Result<impl IntoResponse, ServerError> {
+async fn get_encounter_draft(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
     let encounter = database::encounters::get_encounter_draft(&pool, dummy_test_user()).await?;
     Ok(Json(encounter))
 }

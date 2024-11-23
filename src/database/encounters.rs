@@ -1,10 +1,10 @@
+use crate::models::currency::CurrencyOrGold;
+use crate::models::ids::InternalId;
 use crate::models::{
     encounter::{CompletionStatus, Encounter},
     library::item::Currency,
 };
-use crate::models::ids::InternalId;
 use serde::{Deserialize, Serialize};
-use crate::models::currency::CurrencyOrGold;
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
@@ -344,25 +344,25 @@ pub async fn get_encounter_draft(
                 .collect(),
             party_level: row.party_level as u32,
             party_size: row.party_size as u32,
-            treasure_currency: Currency::from_base_unit(
-                row.treasure_currency.unwrap_or(0) as u32
-            ),
+            treasure_currency: Currency::from_base_unit(row.treasure_currency.unwrap_or(0) as u32),
         }))
     } else {
         // If no draft exists- create one
         insert_encounter_draft(exec, owner, &InsertEncounter::default())
             .await
-            .map(|id| Some(Encounter {
-                id,
-                name: "".to_string(),
-                description: Some("".to_string()),
-                status: CompletionStatus::Draft,
-                enemies: vec![],
-                hazards: vec![],
-                treasure_items: vec![],
-                treasure_currency: Currency::default(),
-                party_level: 0,
-                party_size: 0,
-            }))
+            .map(|id| {
+                Some(Encounter {
+                    id,
+                    name: "".to_string(),
+                    description: Some("".to_string()),
+                    status: CompletionStatus::Draft,
+                    enemies: vec![],
+                    hazards: vec![],
+                    treasure_items: vec![],
+                    treasure_currency: Currency::default(),
+                    party_level: 0,
+                    party_size: 0,
+                })
+            })
     }
 }

@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 use super::{ids::InternalId, library::item::Currency};
@@ -6,7 +5,7 @@ use super::{ids::InternalId, library::item::Currency};
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct Encounter {
     pub id: InternalId,
-    pub status : CompletionStatus,
+    pub status: CompletionStatus,
     pub name: String,
     pub description: Option<String>,
 

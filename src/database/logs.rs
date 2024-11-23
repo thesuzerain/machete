@@ -1,7 +1,7 @@
 use crate::models::events::EventGroup;
-use serde::{Deserialize, Serialize};
 use crate::models::ids::InternalId;
 use crate::models::log::Log;
+use serde::{Deserialize, Serialize};
 
 use super::events::{self, InsertEvent};
 

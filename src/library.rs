@@ -1,3 +1,7 @@
+use crate::models::library::{
+    classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
+    spell::LibrarySpell,
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -5,16 +9,15 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use crate::models::library::{
-    classes::{ LibraryClass},
-    creature::{ LibraryCreature},
-    hazard::{ LibraryHazard},
-    item::{ LibraryItem},
-    spell::{LibrarySpell},
-};
 use sqlx::{PgPool, Pool};
 
-use crate::{database::{self, classes::ClassFilters, creatures::CreatureFilters, hazards::HazardFilters, items::ItemFilters, spells::SpellFilters}, ServerError};
+use crate::{
+    database::{
+        self, classes::ClassFilters, creatures::CreatureFilters, hazards::HazardFilters,
+        items::ItemFilters, spells::SpellFilters,
+    },
+    ServerError,
+};
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
     Router::new()
@@ -47,7 +50,10 @@ async fn get_creature_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = CreatureFilters::from_id(id);
-    let creature = database::creatures::get_creatures(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    let creature = database::creatures::get_creatures(&pool, &payload)
+        .await?
+        .pop()
+        .ok_or(ServerError::NotFound)?;
     Ok(Json(creature))
 }
 
@@ -72,7 +78,10 @@ async fn get_item_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = ItemFilters::from_id(id);
-    let item = database::items::get_items(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    let item = database::items::get_items(&pool, &payload)
+        .await?
+        .pop()
+        .ok_or(ServerError::NotFound)?;
     Ok(Json(item))
 }
 
@@ -97,7 +106,10 @@ async fn get_spell_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = SpellFilters::from_id(id);
-    let spell = database::spells::get_spells(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    let spell = database::spells::get_spells(&pool, &payload)
+        .await?
+        .pop()
+        .ok_or(ServerError::NotFound)?;
     Ok(Json(spell))
 }
 
@@ -122,7 +134,10 @@ async fn get_hazard_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = HazardFilters::from_id(id);
-    let hazard = database::hazards::get_hazards(&pool, &payload).await?.pop().ok_or(ServerError::NotFound)?;
+    let hazard = database::hazards::get_hazards(&pool, &payload)
+        .await?
+        .pop()
+        .ok_or(ServerError::NotFound)?;
     Ok(Json(hazard))
 }
 

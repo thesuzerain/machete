@@ -1,10 +1,10 @@
 use super::{GameSystem, Rarity};
-use serde::{Deserialize, Serialize};
 use crate::models::ids::InternalId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct LibraryItem {
-    pub id : InternalId,
+    pub id: InternalId,
     pub name: String,
     pub game_system: GameSystem,
     pub rarity: Rarity,
@@ -14,7 +14,6 @@ pub struct LibraryItem {
 
     pub url: Option<String>,
     pub description: String,
-
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]

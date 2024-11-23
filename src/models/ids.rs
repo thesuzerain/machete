@@ -1,4 +1,7 @@
-use std::{fmt::Display, hash::{DefaultHasher, Hasher}};
+use std::{
+    fmt::Display,
+    hash::{DefaultHasher, Hasher},
+};
 
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};

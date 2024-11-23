@@ -16,11 +16,11 @@ impl CommaSeparatedVec {
 }
 impl<'de> Deserialize<'de> for CommaSeparatedVec {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>
+    where
+        D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let vec : Result<Vec<u32>, _> = s.split(',').map(|s| s.parse()).collect();
+        let vec: Result<Vec<u32>, _> = s.split(',').map(|s| s.parse()).collect();
         Ok(CommaSeparatedVec(vec.map_err(serde::de::Error::custom)?))
     }
 }

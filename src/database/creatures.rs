@@ -1,8 +1,8 @@
+use crate::models::ids::InternalId;
 use crate::models::library::{
     creature::{Alignment, LibraryCreature, Size},
     GameSystem, Rarity,
 };
-use crate::models::ids::InternalId;
 
 use serde::{Deserialize, Serialize};
 
@@ -23,8 +23,8 @@ pub struct CreatureFilters {
     #[serde(default)]
     pub tags: Vec<String>,
 
-    pub limit : Option<u64>,
-    pub page : Option<u64>,
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
 impl CreatureFilters {
@@ -48,7 +48,12 @@ pub async fn get_creatures(
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
 
-    let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
+    let ids = condition.ids.clone().map(|t| {
+        t.into_inner()
+            .into_iter()
+            .map(|id| id as i32)
+            .collect::<Vec<i32>>()
+    });
     let query = sqlx::query!(
         r#"
         SELECT 

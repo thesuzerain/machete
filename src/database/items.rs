@@ -1,11 +1,11 @@
+use crate::models::ids::InternalId;
 use crate::models::library::{
     item::{Currency, LibraryItem},
     GameSystem, Rarity,
 };
-use crate::models::ids::InternalId;
 
-use serde::{Deserialize, Serialize};
 use crate::models::query::CommaSeparatedVec;
+use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
 
@@ -22,8 +22,8 @@ pub struct ItemFilters {
     #[serde(default)]
     pub tags: Vec<String>,
 
-    pub limit : Option<u64>,
-    pub page : Option<u64>,
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
 impl ItemFilters {
@@ -47,7 +47,12 @@ pub async fn get_items(
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
 
-    let ids = condition.ids.clone().map(|t| t.into_inner().into_iter().map(|id| id as i32).collect::<Vec<i32>>());
+    let ids = condition.ids.clone().map(|t| {
+        t.into_inner()
+            .into_iter()
+            .map(|id| id as i32)
+            .collect::<Vec<i32>>()
+    });
     // TODO: data type 'as'
     let query = sqlx::query!(
         r#"

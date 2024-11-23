@@ -1,7 +1,6 @@
 use crate::models::campaign::CampaignPartial;
 use crate::models::ids::InternalId;
 
-
 #[derive(serde::Deserialize)]
 pub struct InsertCampaign {
     pub name: String,

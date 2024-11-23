@@ -1,6 +1,6 @@
-use itertools::Itertools;
 use crate::models::events::{Event, EventType};
 use crate::models::ids::InternalId;
+use itertools::Itertools;
 
 use serde::{Deserialize, Serialize};
 
@@ -170,7 +170,11 @@ pub async fn edit_event(
     event_id: InternalId,
     new_event: &EditEvent,
 ) -> crate::Result<()> {
-    let event_type = new_event.event_type.clone().map(|et| serde_json::to_value(&et)).transpose()?;
+    let event_type = new_event
+        .event_type
+        .clone()
+        .map(|et| serde_json::to_value(&et))
+        .transpose()?;
 
     sqlx::query!(
         r#"

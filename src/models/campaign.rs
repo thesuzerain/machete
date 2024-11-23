@@ -24,7 +24,7 @@ impl Default for Campaign {
     }
 }
 
-// TODO: Campaign vs CampaignPartial - remove campaign? only use campaign? 
+// TODO: Campaign vs CampaignPartial - remove campaign? only use campaign?
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CampaignPartial {
     pub id: InternalId,

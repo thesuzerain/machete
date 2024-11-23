@@ -48,7 +48,9 @@ impl Default for Event {
             log: None,
             timestamp: Utc::now(),
             character: None,
-            event_type: EventType::CurrencyGain { currency: Currency::default() },
+            event_type: EventType::CurrencyGain {
+                currency: Currency::default(),
+            },
         }
     }
 }
@@ -60,22 +62,18 @@ pub enum EventType {
     CurrencyGain { currency: Currency },
     ExperienceGain { experience: u64 },
     // TODO: EnemyDefeated, HazardDefeated, ItemGain, etc should be by ID.
-    EnemyDefeated {
-        id: InternalId,
-    },
-    HazardDefeated {
-        id: InternalId,
-    },
-    ItemGain {
-        id: InternalId,
-    },
+    EnemyDefeated { id: InternalId },
+    HazardDefeated { id: InternalId },
+    ItemGain { id: InternalId },
     // TODO: Some kind of custom event type.
 }
 
 impl Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EventType::CurrencyGain { currency } => write!(f, "Currency Gain: {}", currency.to_string()),
+            EventType::CurrencyGain { currency } => {
+                write!(f, "Currency Gain: {}", currency.to_string())
+            }
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)
             }
