@@ -1,4 +1,4 @@
-use crate::models::ids::InternalId;
+use crate::{auth::extract_user_from_cookies, models::ids::InternalId};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 
+use axum_extra::extract::CookieJar;
 use sqlx::{PgPool, Pool};
 
 use crate::{
@@ -38,80 +39,109 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/logs/:id", delete(delete_log))
 }
 
-async fn get_campaigns(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
-    let campaigns = database::campaigns::get_campaign(&pool, dummy_test_user()).await?;
+async fn get_campaigns(State(pool): State<PgPool>, 
+    jar: CookieJar,
+) -> Result<impl IntoResponse, ServerError> {
+    log::info!("get_campaigns: {:?}", jar);
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+    log::info!("Getting campaigns for owner: {:?}", user);
+    let campaigns = database::campaigns::get_campaign(&pool, user.id).await?;
     Ok(Json(campaigns))
 }
 
 async fn insert_campaign(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::campaigns::insert_campaign(&pool, &campaign.name, dummy_test_user()).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::campaigns::insert_campaign(&pool, &campaign.name, user.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn get_characters(
     Query(filters): Query<CharacterFilters>,
+    jar: CookieJar,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
     let characters =
-        database::characters::get_characters(&pool, dummy_test_user(), id, &filters).await?;
+        database::characters::get_characters(&pool, user.id, id, &filters).await?;
     Ok(Json(characters))
 }
 
 async fn insert_characters(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path(id): Path<InternalId>,
     Json(characters): Json<Vec<InsertCharacter>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::characters::insert_characters(&pool, dummy_test_user(), id, &characters).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::characters::insert_characters(&pool, user.id, id, &characters).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_character(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path((campaign_id, character_id)): Path<(InternalId, InternalId)>,
     Json(character): Json<ModifyCharacter>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::characters::edit_character(&pool, character_id, dummy_test_user(), &character)
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::characters::edit_character(&pool, character_id, user.id, &character)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn get_logs(
     Query(filters): Query<LogFilters>,
+    jar: CookieJar,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let logs = database::logs::get_logs(&pool, dummy_test_user(), id, &filters).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let logs = database::logs::get_logs(&pool, user.id, id, &filters).await?;
     Ok(Json(logs))
 }
 
 async fn insert_log(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path(id): Path<InternalId>,
     Json(log): Json<InsertLog>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::logs::insert_log(&pool, dummy_test_user(), id, &log).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::logs::insert_log(&pool, user.id, id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_log(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
     Json(log): Json<InsertLog>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::logs::edit_log(&pool, dummy_test_user(), log_id, &log).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::logs::edit_log(&pool, user.id, log_id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn delete_log(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::logs::delete_log(&pool, dummy_test_user(), log_id)
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::logs::delete_log(&pool, user.id, log_id)
         .await
         .unwrap();
     Ok(StatusCode::NO_CONTENT)
@@ -121,41 +151,56 @@ async fn get_events(
     Query(filters): Query<EventFilters>,
     Path(id): Path<InternalId>,
     State(pool): State<PgPool>,
+    jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
-    let events = database::events::get_events(&pool, dummy_test_user(), id, &filters).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let events = database::events::get_events(&pool, user.id, id, &filters).await?;
     Ok(Json(events))
 }
 
 async fn insert_events(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path(id): Path<InternalId>,
     Json(events): Json<Vec<InsertEvent>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::insert_events(&pool, dummy_test_user(), id, None, &events).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::events::insert_events(&pool, user.id, id, None, &events).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_event(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::edit_event(&pool, dummy_test_user(), event_id, &event).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::events::edit_event(&pool, user.id, event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn delete_event(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::delete_events(&pool, dummy_test_user(), &vec![event_id]).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::events::delete_events(&pool, user.id, &vec![event_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn delete_events(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(ids): Json<Vec<InternalId>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::events::delete_events(&pool, dummy_test_user(), &ids).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::events::delete_events(&pool, user.id, &ids).await?;
     Ok(StatusCode::NO_CONTENT)
 }

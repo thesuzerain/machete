@@ -11,6 +11,7 @@ pub async fn get_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     owner: InternalId,
 ) -> crate::Result<Vec<CampaignPartial>> {
+    log::info!("Getting campaigns for owner: {:?}", owner);
     let query = sqlx::query!(
         r#"
         SELECT 

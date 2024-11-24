@@ -29,7 +29,9 @@
 
     onMount(async () => {
         try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!response.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await response.json();
             await loadLibraryData();
@@ -46,6 +48,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -72,6 +75,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${character.id}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -89,7 +93,9 @@
 
     async function fetchCharacters() {
         try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!response.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await response.json();
         } catch (e) {

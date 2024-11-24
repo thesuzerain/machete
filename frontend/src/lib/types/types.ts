@@ -1,3 +1,4 @@
+// TODO: Ensure these line up with the things currently being exported from the backend
 export interface Campaign {
     id: number;
     name: string;
@@ -68,3 +69,9 @@ export interface LibraryClass {
     rarity: string;
     tags: string[];
 } 
+
+export interface User {
+    id: number;
+    username: string;
+    is_admin: boolean;
+}

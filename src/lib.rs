@@ -1,8 +1,10 @@
-use axum::{http, response::IntoResponse, routing::get, Router};
+use axum::{http::{self, HeaderValue}, response::IntoResponse, routing::get, Router};
 use models::ids::InternalId;
+use reqwest::Method;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
+pub mod auth;
 pub mod campaign;
 pub mod database;
 pub mod encounters;
@@ -22,11 +24,29 @@ pub async fn run_server() {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
+        .nest("/auth", auth::router())
         .nest("/library", library::router())
         .nest("/campaign", campaign::router())
         .nest("/encounters", encounters::router())
         .with_state(pool)
-        .layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
+        .layer(
+            ServiceBuilder::new()
+            .layer(
+                CorsLayer::permissive().allow_credentials(true).allow_headers(vec![
+                    http::header::AUTHORIZATION,
+                    http::header::CONTENT_TYPE,
+                    http::header::COOKIE,
+                    http::header::SET_COOKIE,
+                ]).allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::PUT])
+                .expose_headers(vec![http::header::AUTHORIZATION, http::header::SET_COOKIE])
+                .allow_origin(["http://localhost:8123".parse::<HeaderValue>().unwrap(),
+                "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+                "http://localhost:8080".parse::<HeaderValue>().unwrap(),
+                "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+                ])
+
+        )
+        );
 
     // run our app with hyper, listening globally on port 3000
     let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
@@ -56,6 +76,10 @@ pub enum ServerError {
     SerdeJsonError(#[from] serde_json::Error),
     #[error("Not found")]
     NotFound,
+    #[error("Unauthorized")]
+    Unauthorized,
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 }
 
 impl ServerError {
@@ -65,6 +89,10 @@ impl ServerError {
             ServerError::SerdeJsonError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
 
             ServerError::NotFound => http::StatusCode::NOT_FOUND,
+
+            ServerError::Unauthorized => http::StatusCode::UNAUTHORIZED,
+
+            ServerError::BadRequest(_) => http::StatusCode::BAD_REQUEST,
         }
     }
 

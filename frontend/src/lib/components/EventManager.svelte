@@ -43,6 +43,7 @@
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     event_type: editingEvent?.event_type,
                     data: newData,
@@ -66,6 +67,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                 method: 'DELETE',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(selectedEventIds),
             });

@@ -1,5 +1,6 @@
 use sqlx::PgPool;
 
+pub mod auth;
 pub mod campaigns;
 pub mod characters;
 pub mod classes;

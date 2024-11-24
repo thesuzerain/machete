@@ -10,7 +10,10 @@
 
   onMount(async () => {
     try {
-      const response = await fetch(`${API_URL}/campaign`);
+      console.log("Current cookies: ", document.cookie);
+      const response = await fetch(`${API_URL}/campaign`, {
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       campaigns = await response.json();
     } catch (e) {
@@ -31,6 +34,7 @@
 
       const response = await fetch(`${API_URL}/campaign`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -40,7 +44,9 @@
       if (!response.ok) throw new Error('Failed to create campaign');
       
       // Refresh the campaigns list
-      const campaignsResponse = await fetch(`${API_URL}/campaign`);
+      const campaignsResponse = await fetch(`${API_URL}/campaign`, {
+        credentials: 'include',
+      });
       if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
       campaigns = await campaignsResponse.json();
       
