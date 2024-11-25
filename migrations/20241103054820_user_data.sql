@@ -1,6 +1,5 @@
 ALTER TABLE users ADD COLUMN name VARCHAR(20);
 INSERT INTO users(id, name) VALUES (0, 'Machete');
-INSERT INTO users(id, name) VALUES (1, 'Test');
 
 ALTER TABLE library_objects ADD COLUMN url VARCHAR(255);
 ALTER TABLE library_objects ADD COLUMN description TEXT;

@@ -1,6 +1,9 @@
-use crate::models::library::{
-    classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
-    spell::LibrarySpell,
+use crate::{
+    auth::extract_admin_from_cookies,
+    models::library::{
+        classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
+        spell::LibrarySpell,
+    },
 };
 use axum::{
     extract::{Path, Query, State},
@@ -9,6 +12,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use axum_extra::extract::CookieJar;
 use sqlx::{PgPool, Pool};
 
 use crate::{
@@ -59,8 +63,10 @@ async fn get_creature_id(
 
 async fn insert_creatures(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(payload): Json<Vec<LibraryCreature>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_cookies(&jar, &pool).await?;
     database::creatures::insert_creatures(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -87,8 +93,11 @@ async fn get_item_id(
 
 async fn insert_items(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(payload): Json<Vec<LibraryItem>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_cookies(&jar, &pool).await?;
+
     database::items::insert_items(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -115,8 +124,11 @@ async fn get_spell_id(
 
 async fn insert_spells(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(payload): Json<Vec<LibrarySpell>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_cookies(&jar, &pool).await?;
+
     database::spells::insert_spells(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -143,8 +155,11 @@ async fn get_hazard_id(
 
 async fn insert_hazards(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(payload): Json<Vec<LibraryHazard>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_cookies(&jar, &pool).await?;
+
     database::hazards::insert_hazards(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -159,8 +174,11 @@ async fn get_classes(
 
 async fn insert_classes(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(payload): Json<Vec<LibraryClass>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_cookies(&jar, &pool).await?;
+
     database::classes::insert_classes(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
 }

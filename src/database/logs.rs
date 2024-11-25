@@ -35,10 +35,15 @@ pub async fn get_logs(
         FROM event_groups eg
         LEFT JOIN events ev ON eg.id = ev.event_group
         WHERE eg.campaign = $1 AND ($2::int IS NULL OR ev.character = $2)
+        AND EXISTS (
+            SELECT 1 FROM campaigns ca
+            WHERE ca.id = eg.campaign AND ca.owner = $3
+        )
         GROUP BY eg.id
         "#,
         campaign_id.0 as i32,
         condition.character,
+        owner.0 as i32,
     );
 
     let logs = query.fetch_all(exec).await?;
@@ -49,7 +54,7 @@ pub async fn get_logs(
         .flatten()
         .map(|id| InternalId(id as u64))
         .collect::<Vec<_>>();
-    let all_events = events::get_events_ids(exec, all_event_ids).await?;
+    let all_events = events::get_events_ids(exec, &all_event_ids).await?;
 
     let logs = logs
         .into_iter()
@@ -73,9 +78,38 @@ pub async fn get_logs(
     Ok(logs)
 }
 
+pub async fn get_owned_logs_ids(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    log_ids: &[InternalId],
+    owner: InternalId,
+) -> crate::Result<Vec<InternalId>> {
+    let query = sqlx::query!(
+        r#"
+        SELECT 
+            eg.id AS "id!"
+        FROM event_groups eg
+        WHERE 
+            eg.id = ANY($1::int[])
+            AND EXISTS (
+                SELECT 1 FROM campaigns ca
+                WHERE ca.id = eg.campaign AND ca.owner = $2
+            )
+        "#,
+        &log_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        owner.0 as i32,
+    )
+    .fetch_all(exec)
+    .await?
+    .iter()
+    .map(|row| InternalId(row.id as u64))
+    .collect();
+
+    Ok(query)
+}
+
+/// Campaign ownership needs to already be checked
 pub async fn insert_log(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    owner: InternalId,
     campaign_id: InternalId,
     log: &InsertLog,
 ) -> crate::Result<InternalId> {
@@ -97,7 +131,6 @@ pub async fn insert_log(
     // Add events associated with the log
     events::insert_events(
         exec,
-        owner,
         campaign_id,
         Some(InternalId(log_id as u64)),
         &log.events,

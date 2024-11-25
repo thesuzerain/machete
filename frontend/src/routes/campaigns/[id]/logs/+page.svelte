@@ -12,6 +12,7 @@
     import { fade } from 'svelte/transition';
     import { getExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let logs: Log[] = [];
@@ -95,7 +96,9 @@
 
     async function fetchCampaignCharacters() {
         try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!response.ok) throw new Error('Failed to fetch campaign characters');
             campaignCharacters = await response.json();
         } catch (e) {
@@ -104,6 +107,8 @@
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             await Promise.all([
                 fetchLogs(),
@@ -119,7 +124,9 @@
 
     async function fetchLogs() {
         try {
-            const logsResponse = await fetch(`${API_URL}/campaign/${campaignId}/logs`);
+            const logsResponse = await fetch(`${API_URL}/campaign/${campaignId}/logs`, {
+                credentials: 'include',
+            });
             if (!logsResponse.ok) throw new Error('Failed to fetch logs');
             logs = await logsResponse.json();
         } catch (e) {
@@ -204,6 +211,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/logs`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newLog),
             });
@@ -227,6 +235,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${log.id}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: log.name,
@@ -251,6 +260,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${logId}`, {
                 method: 'DELETE',
+                credentials: 'include',
             });
 
             if (!response.ok) throw new Error('Failed to delete log');
@@ -273,6 +283,7 @@
             await Promise.all(selectedLogs.map(logId => 
                 fetch(`${API_URL}/campaign/${campaignId}/logs/${logId}`, {
                     method: 'DELETE',
+                    credentials: 'include',
                 })
             ));
             
@@ -578,6 +589,7 @@
                         try {
                             const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                                 method: 'POST',
+                                credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     ...event,

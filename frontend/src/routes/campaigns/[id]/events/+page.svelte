@@ -4,6 +4,7 @@
     import type { Event, Character, InsertEvent } from '$lib/types/types';
     import EventManager from '$lib/components/EventManager.svelte';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let campaignEvents: Event[] = [];
@@ -58,14 +59,20 @@
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             // Fetch characters for character selection
-            const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!charactersResponse.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await charactersResponse.json();
 
             // Fetch events
-            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`);
+            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
+                credentials: 'include',
+            });
             if (!eventsResponse.ok) throw new Error('Failed to fetch events');
             campaignEvents = await eventsResponse.json();
         } catch (e) {
@@ -111,6 +118,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -120,7 +128,9 @@
             if (!response.ok) throw new Error('Failed to create events');
             
             // Refresh events list
-            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`);
+            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
+                credentials: 'include',
+            });
             if (!eventsResponse.ok) throw new Error('Failed to fetch events');
             campaignEvents = await eventsResponse.json();
             
@@ -136,6 +146,7 @@
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                 method: 'DELETE',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -157,6 +168,7 @@
             const eventType = campaignEvents.find(event => event.id === eventId)?.event_type; 
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },

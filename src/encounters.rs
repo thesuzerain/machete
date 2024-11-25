@@ -1,4 +1,4 @@
-use crate::models::ids::InternalId;
+use crate::{auth::extract_user_from_cookies, models::ids::InternalId};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 
+use axum_extra::extract::CookieJar;
 use sqlx::{PgPool, Pool};
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
         self,
         encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
     },
-    dummy_test_user, ServerError,
+    ServerError,
 };
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
@@ -30,54 +31,92 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
 
 async fn get_encounters(
     Query(filters): Query<EncounterFilters>,
+    jar: CookieJar,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let encounters =
-        database::encounters::get_encounters(&pool, dummy_test_user(), &filters).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let encounters = database::encounters::get_encounters(&pool, user.id, &filters).await?;
     Ok(Json(encounters))
 }
 
 async fn insert_encounter(
     State(pool): State<PgPool>,
-    Json(events): Json<Vec<InsertEncounter>>,
+    jar: CookieJar,
+    Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::insert_encounters(&pool, dummy_test_user(), &events).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_encounter(
     State(pool): State<PgPool>,
-    Path(event_id): Path<InternalId>,
-    Json(event): Json<ModifyEncounter>,
+    jar: CookieJar,
+    Path(encounter_id): Path<InternalId>,
+    Json(encounter): Json<ModifyEncounter>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::edit_encounter(&pool, dummy_test_user(), event_id, &event).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn delete_encounter(
     State(pool): State<PgPool>,
-    Path(event_id): Path<InternalId>,
+    jar: CookieJar,
+    Path(encounter_id): Path<InternalId>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::delete_encounters(&pool, dummy_test_user(), &vec![event_id]).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::encounters::delete_encounters(&pool, &vec![encounter_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_encounter_draft(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
-    let encounter = database::encounters::get_encounter_draft(&pool, dummy_test_user()).await?;
+async fn get_encounter_draft(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let encounter = database::encounters::get_encounter_draft(&pool, user.id).await?;
     Ok(Json(encounter))
 }
 
 async fn insert_encounter_draft(
     State(pool): State<PgPool>,
+    jar: CookieJar,
     Json(event): Json<InsertEncounter>,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::insert_encounter_draft(&pool, dummy_test_user(), &event).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::encounters::insert_user_encounter_draft(&pool, user.id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn clear_encounter_draft(
     State(pool): State<PgPool>,
+    jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
-    database::encounters::clear_encounter_draft(&pool, dummy_test_user()).await?;
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    database::encounters::clear_user_encounter_draft(&pool, user.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

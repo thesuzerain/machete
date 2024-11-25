@@ -2,17 +2,22 @@
   import { onMount } from 'svelte';
   import type { Campaign, InsertCampaign } from '$lib/types/types';
     import { API_URL } from '$lib/config';
+    import { campaignStore } from '$lib/stores/campaigns';
+    import { requireAuth } from '$lib/guards/auth';
 
   let loading = true;
   let error: string | null = null;
   let newCampaignName = '';
   let campaigns: Campaign[] = [];
 
+  // Subscribe to the store
+  $: campaigns = $campaignStore;
+
   onMount(async () => {
+    requireAuth();
+
     try {
-      const response = await fetch(`${API_URL}/campaign`);
-      if (!response.ok) throw new Error('Failed to fetch campaigns');
-      campaigns = await response.json();
+      await campaignStore.fetchCampaigns();
     } catch (e) {
       console.error(e)
       error = e instanceof Error ? e.message : 'An error occurred';
@@ -25,24 +30,9 @@
     if (!newCampaignName) return;
 
     try {
-      const newCampaign: InsertCampaign = {
+      await campaignStore.addCampaign({
         name: newCampaignName
-      };
-
-      const response = await fetch(`${API_URL}/campaign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newCampaign),
       });
-
-      if (!response.ok) throw new Error('Failed to create campaign');
-      
-      // Refresh the campaigns list
-      const campaignsResponse = await fetch(`${API_URL}/campaign`);
-      if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
-      campaigns = await campaignsResponse.json();
       
       // Reset form
       newCampaignName = '';

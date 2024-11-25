@@ -2,12 +2,22 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { auth } from '$lib/stores/auth';
+  import LoginModal from '$lib/components/LoginModal.svelte';
+  import SignupModal from '$lib/components/SignupModal.svelte';
+    import { API_URL } from '$lib/config';
 
-  onMount(() => {
-    if (browser) {
-      goto('/campaigns');
-    }
-  });
 </script>
 
-<div>Redirecting to campaigns...</div>
+<div class="container">
+    <div>Redirecting to campaigns...</div>
+</div>
+
+<style>
+  .container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+</style>

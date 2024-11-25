@@ -1,13 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Default)]
 pub struct CommaSeparatedVec(pub Vec<u32>);
-
-impl Default for CommaSeparatedVec {
-    fn default() -> Self {
-        CommaSeparatedVec(Vec::new())
-    }
-}
 
 impl CommaSeparatedVec {
     pub fn into_inner(self) -> Vec<u32> {

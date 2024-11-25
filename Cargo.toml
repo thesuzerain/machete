@@ -34,19 +34,11 @@ sqlx = { version = "0.7.3", features = [
 ] }
 axum = "0.7.5"
 axum-macros = "0.4.1"
-axum-extra = {version = "0.9.4", features = ["form", "query"] }
+axum-extra = {version = "0.9.6", features = ["form", "query", "cookie"] }
 tower-http = {version = "0.5.2", features = ["cors"] }
 tower = "0.4.13"
 reqwest = { version = "0.12.5", features = ["json"] }
 
-# feature "http":
-ehttp = { version = "0.5" }
-image = { version = "0.25",  features = ["jpeg", "png"] }
-poll-promise = { version = "0.3",  default-features = false }
-
-wasm-bindgen = { version = "=0.2.92" }
-wasm-bindgen-futures = { version = "0.4" }
-web-sys = {version = "0.3.58"}
-
-# Downstream random crate needs 'js' enabled for wasm
-getrandom = { version = "0.2.15", features = ["js"]}
+rand = "0.8.4"
+time = "0.3.26"
+bcrypt = "0.10.1"

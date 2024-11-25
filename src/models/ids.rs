@@ -3,7 +3,7 @@ use std::{
     hash::{DefaultHasher, Hasher},
 };
 
-use getrandom::getrandom;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 /// An internal identifier for a an object for user-local usage.
@@ -30,7 +30,7 @@ impl InternalId {
     /// Generate a new random internal ID.
     pub fn new() -> Self {
         let mut bytes = [0u8; 8];
-        getrandom(&mut bytes).expect("Failed to generate random bytes from the OS");
+        rand::thread_rng().fill(&mut bytes);
         let id = u64::from_ne_bytes(bytes);
         InternalId(id)
     }

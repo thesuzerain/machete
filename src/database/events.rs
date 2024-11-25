@@ -53,11 +53,13 @@ pub async fn get_events(
             ($1::int IS NULL OR ev.character = $1)
             AND ca.id = $2
             AND ($3::text IS NULL OR ev.event_data->>'type' = $3)
+            AND ca.owner = $4
         ORDER BY ev.timestamp
     "#,
         condition.character,
         campaign_id.0 as i32,
         condition.event_type,
+        owner.0 as i32,
     );
 
     let events = query
@@ -77,9 +79,39 @@ pub async fn get_events(
     Ok(events)
 }
 
+pub async fn get_owned_events_ids(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    event_ids: &[InternalId],
+    owner: InternalId,
+) -> crate::Result<Vec<InternalId>> {
+    let query = sqlx::query!(
+        r#"
+        SELECT 
+            ev.id AS "id!"
+        FROM events ev
+        WHERE 
+            ev.id = ANY($1::int[])
+            AND EXISTS (
+                SELECT 1 FROM campaigns ca
+                WHERE ca.id = ev.campaign AND ca.owner = $2
+            )
+        ORDER BY ev.timestamp
+    "#,
+        &event_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        owner.0 as i32,
+    )
+    .fetch_all(exec)
+    .await?
+    .into_iter()
+    .map(|row| InternalId(row.id as u64))
+    .collect();
+
+    Ok(query)
+}
+
 pub async fn get_events_ids(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
-    event_ids: Vec<InternalId>,
+    event_ids: &[InternalId],
 ) -> crate::Result<Vec<Event>> {
     // TODO: Campaign needs to be checked for ownership
 
@@ -119,9 +151,9 @@ pub async fn get_events_ids(
     Ok(events)
 }
 
+/// Requires ownership of the campaign to be checked
 pub async fn insert_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    owner: InternalId,
     campaign_id: InternalId,
     log_id: Option<InternalId>,
     events: &Vec<InsertEvent>,
@@ -202,7 +234,7 @@ pub async fn edit_event(
 pub async fn delete_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
-    event_id: &Vec<InternalId>,
+    event_id: &[InternalId],
 ) -> crate::Result<()> {
     if event_id.is_empty() {
         return Ok(());

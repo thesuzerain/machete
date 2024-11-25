@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import type { Campaign, Character, Event } from '$lib/types/types';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let campaign: Campaign | undefined;
@@ -12,19 +13,26 @@
     let error: string | null = null;
 
     onMount(async () => {
+        requireAuth();
         try {
             // Fetch campaign details
-            const campaignResponse = await fetch(`${API_URL}/campaign/${campaignId}`);
+            const campaignResponse = await fetch(`${API_URL}/campaign/${campaignId}`, {
+                credentials: 'include',
+            });
             if (!campaignResponse.ok) throw new Error('Failed to fetch campaign');
             campaign = await campaignResponse.json();
 
             // Fetch characters for this campaign
-            const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!charactersResponse.ok) throw new Error('Failed to fetch characters');
             campaignCharacters = await charactersResponse.json();
 
             // Fetch events for this campaign
-            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`);
+            const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
+                credentials: 'include',
+            });
             if (!eventsResponse.ok) throw new Error('Failed to fetch events');
             campaignEvents = await eventsResponse.json();
         } catch (e) {

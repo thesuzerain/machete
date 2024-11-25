@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { requireAuth } from '$lib/guards/auth';
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import type { Character } from '$lib/types/types';
@@ -25,9 +26,10 @@
     faLink,
   } from '@fortawesome/free-solid-svg-icons'
   import { API_URL } from '$lib/config';
+  import { encounterStore } from '$lib/stores/encounters';
+  import { campaignStore } from '$lib/stores/campaigns';
 
 library.add(faLink)
-
 
     interface LibraryEntity {
         id: number;
@@ -97,29 +99,23 @@ library.add(faLink)
     // Add this state variable near the top with other state variables
     let selectedCompletionCampaign: string | null = null;
 
+    // Subscribe to the store
+    $: encounters = $encounterStore;
+
+    // Subscribe to the campaign store
+    $: campaigns = $campaignStore;
+
     // Fetch campaigns data
     async function fetchCampaigns() {
-        try {
-            const response = await fetch(`${API_URL}/campaign`);
-            if (!response.ok) {
-                console.error('Failed to fetch campaigns', response);
-                throw new Error('Failed to fetch campaigns');
-            }
-            campaigns = await response.json();
-            if (campaigns.length > 0) {
-                selectedCampaign = campaigns[0].id; // Default to the first available campaign
-                await fetchCampaignCharacters(selectedCampaign); // Fetch characters for the default campaign
-            }
-        } catch (e) {
-            console.error(e);
-            error = e instanceof Error ? e.message : 'Failed to fetch campaigns';
-        }
+        await campaignStore.fetchCampaigns();
     }
 
     // Fetch characters for the selected campaign
     async function fetchCampaignCharacters(campaignId: string) {
         try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`);
+            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
+                credentials: 'include',
+            });
             if (!response.ok) throw new Error('Failed to fetch campaign characters');
             campaignCharacters = await response.json();
 
@@ -159,7 +155,9 @@ library.add(faLink)
             );
             
             if (enemyIds.size > 0) {
-                const enemiesResponse = await fetch(`${API_URL}/library/creatures?ids=${Array.from(enemyIds).join(',')}`);
+                const enemiesResponse = await fetch(`${API_URL}/library/creatures?ids=${Array.from(enemyIds).join(',')}`, {
+                    credentials: 'include',
+                });
                 if (!enemiesResponse.ok) throw new Error('Failed to fetch creatures');
                 const enemies: LibraryEntity[] = await enemiesResponse.json();
                 libraryEnemies = new Map(enemies.map(e => [e.id, e]));
@@ -171,7 +169,9 @@ library.add(faLink)
                     .concat(draftEncounter.hazards)
             );
             if (hazardIds.size > 0) {
-                const hazardsResponse = await fetch(`${API_URL}/library/hazards?ids=${Array.from(hazardIds).join(',')}`);
+                const hazardsResponse = await fetch(`${API_URL}/library/hazards?ids=${Array.from(hazardIds).join(',')}`, {
+                    credentials: 'include',
+                });
                 if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
                 const hazards: LibraryEntity[] = await hazardsResponse.json();
                 libraryHazards = new Map(hazards.map(h => [h.id, h]));
@@ -183,7 +183,9 @@ library.add(faLink)
                     .concat(draftEncounter.treasure_items)
             );
             if (itemIds.size > 0) {
-                const itemsResponse = await fetch(`${API_URL}/library/items?ids=${Array.from(itemIds).join(',')}`);
+                const itemsResponse = await fetch(`${API_URL}/library/items?ids=${Array.from(itemIds).join(',')}`, {
+                    credentials: 'include',
+                });
                 if (!itemsResponse.ok) throw new Error('Failed to fetch items');
                 const items: LibraryEntity[] = await itemsResponse.json();
                 libraryItems = new Map(items.map(i => [i.id, i]));
@@ -195,22 +197,21 @@ library.add(faLink)
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             // First check for any in-progress encounter
-            const inProgressResponse = await fetch(`${API_URL}/encounters/draft`);
-            if (inProgressResponse.ok) {
-                const inProgress: CreateEncounter = await inProgressResponse.json();
-                if (inProgress) {
-                    draftEncounter = inProgress;
-                }
+            const inProgress = await encounterStore.getDraft();
+            if (inProgress) {
+                draftEncounter = inProgress;
             }
 
-            // Then load other encounters
-            await fetchEncounters();
-            
-            // After we have all encounters (including draft), load their entity details
-            await loadLibraryData();
-            await fetchCampaigns();
+            // Then load other encounters and campaigns
+            await Promise.all([
+                fetchEncounters(),
+                fetchCampaigns(),
+                loadLibraryData()
+            ]);
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -224,19 +225,10 @@ library.add(faLink)
         
         saveTimeout = setTimeout(async () => {
             try {
-                const response = await fetch(`${API_URL}/encounters/draft`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        ...draftEncounter,
-                        status: 'InProgress'
-                    }),
+                await encounterStore.updateDraft({
+                    ...draftEncounter,
+                    status: 'InProgress'
                 });
-
-                if (!response.ok) throw new Error('Failed to save draft');
-                
             } catch (e) {
                 error = e instanceof Error ? e.message : 'Failed to save draft';
             }
@@ -250,6 +242,7 @@ library.add(faLink)
         try {
             const response = await fetch(`${API_URL}/encounters`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -273,6 +266,7 @@ library.add(faLink)
             // Clear any existing draft
             await fetch(`${API_URL}/encounters/draft`, {
                 method: 'DELETE',
+                credentials: 'include',
             });
 
             await fetchEncounters();
@@ -285,6 +279,7 @@ library.add(faLink)
         try {
             const response = await fetch(`${API_URL}/encounters/${encounter.id}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({encounter}),
             });
@@ -310,6 +305,7 @@ library.add(faLink)
             // Create a log with all the events
             const logResponse = await fetch(`${API_URL}/campaign/${selectedCompletionCampaign}/logs`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: `Completed: ${encounter.name}`,
@@ -388,6 +384,7 @@ library.add(faLink)
             // Update encounter status
             const statusResponse = await fetch(`${API_URL}/encounters/${encounter.id}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...encounter,
@@ -429,13 +426,7 @@ library.add(faLink)
     }
 
     async function fetchEncounters() {
-        try {
-            const response = await fetch(`${API_URL}/encounters`);
-            if (!response.ok) throw new Error('Failed to fetch encounters');
-            encounters = await response.json();
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to fetch encounters';
-        }
+        await encounterStore.fetchEncounters();
     }
 
     function getEnemiesXP(): number {

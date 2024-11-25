@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod campaign;
 pub mod characters;
 pub mod currency;
