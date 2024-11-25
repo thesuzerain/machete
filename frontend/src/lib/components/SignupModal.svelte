@@ -8,6 +8,10 @@
     let password = '';
     let error = '';
 
+    function handleBackgroundClick() {
+        dispatch('close');
+    }
+
     async function handleSignup(event: SubmitEvent) {
         event.preventDefault();
         error = '';
@@ -37,8 +41,8 @@
     }
 </script>
 
-<div class="modal">
-    <div class="modal-content">
+<div class="modal" on:click={handleBackgroundClick}>
+    <div class="modal-content" on:click|stopPropagation>
         <h2>Sign Up</h2>
         <form on:submit={handleSignup}>
             <div class="form-group">

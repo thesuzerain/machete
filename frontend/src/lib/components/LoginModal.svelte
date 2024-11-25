@@ -34,10 +34,14 @@
             error = 'Login failed';
         }
     }
+
+    function handleBackgroundClick() {
+        dispatch('close');
+    }
 </script>
 
-<div class="modal">
-    <div class="modal-content">
+<div class="modal" on:click={handleBackgroundClick}>
+    <div class="modal-content" on:click|stopPropagation>
         <h2>Login</h2>
         <form on:submit={handleLogin}>
             <div class="form-group">
