@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            eg.id,\n            eg.name,\n            eg.timestamp,\n            eg.description,\n            array_agg(DISTINCT ev.id) filter (where ev.id is not null) AS events\n        FROM event_groups eg\n        LEFT JOIN events ev ON eg.id = ev.event_group\n        WHERE eg.campaign = $1 AND ($2::int IS NULL OR ev.character = $2)\n        GROUP BY eg.id\n        ",
+  "query": "\n        SELECT \n            eg.id,\n            eg.name,\n            eg.timestamp,\n            eg.description,\n            array_agg(DISTINCT ev.id) filter (where ev.id is not null) AS events\n        FROM event_groups eg\n        LEFT JOIN events ev ON eg.id = ev.event_group\n        WHERE eg.campaign = $1 AND ($2::int IS NULL OR ev.character = $2)\n        AND EXISTS (\n            SELECT 1 FROM campaigns ca\n            WHERE ca.id = eg.campaign AND ca.owner = $3\n        )\n        GROUP BY eg.id\n        ",
   "describe": {
     "columns": [
       {
@@ -32,7 +32,8 @@
     "parameters": {
       "Left": [
         "Int8",
-        "Int4"
+        "Int4",
+        "Int8"
       ]
     },
     "nullable": [
@@ -43,5 +44,5 @@
       null
     ]
   },
-  "hash": "cef909bd0abacfe3101d6b9aaf02c62d7b7f7a0ed4e1641e6823be2e99c6949e"
+  "hash": "8f2575d113f580900747743d744c6e1afec4ff3cfb45b59a3120b936d1093d07"
 }

@@ -12,6 +12,7 @@
     import { fade } from 'svelte/transition';
     import { getExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let logs: Log[] = [];
@@ -106,6 +107,8 @@
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             await Promise.all([
                 fetchLogs(),

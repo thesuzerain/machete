@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM encounters\n        WHERE status = $1\n        AND owner = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "35c3f7937e739617595869a128736e8b9dc5ccbde35888ff51a5fede4678289e"
+}

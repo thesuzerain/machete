@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import type { Campaign, Character, Event } from '$lib/types/types';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let campaign: Campaign | undefined;
@@ -12,6 +13,7 @@
     let error: string | null = null;
 
     onMount(async () => {
+        requireAuth();
         try {
             // Fetch campaign details
             const campaignResponse = await fetch(`${API_URL}/campaign/${campaignId}`, {

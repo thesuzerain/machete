@@ -1,7 +1,10 @@
-use crate::{auth::extract_admin_from_cookies, models::library::{
-    classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
-    spell::LibrarySpell,
-}};
+use crate::{
+    auth::extract_admin_from_cookies,
+    models::library::{
+        classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
+        spell::LibrarySpell,
+    },
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,

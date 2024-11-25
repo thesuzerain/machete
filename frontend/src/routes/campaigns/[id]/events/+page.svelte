@@ -4,6 +4,7 @@
     import type { Event, Character, InsertEvent } from '$lib/types/types';
     import EventManager from '$lib/components/EventManager.svelte';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let campaignEvents: Event[] = [];
@@ -58,6 +59,8 @@
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             // Fetch characters for character selection
             const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {

@@ -11,7 +11,6 @@ pub async fn get_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     owner: InternalId,
 ) -> crate::Result<Vec<CampaignPartial>> {
-    log::info!("Getting campaigns for owner: {:?}", owner);
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -36,6 +35,30 @@ pub async fn get_campaign(
         })
         .collect::<Result<Vec<CampaignPartial>, sqlx::Error>>()?;
     Ok(campaigns)
+}
+
+pub async fn get_owned_campaign_id(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    campaign_id: InternalId,
+    owner: InternalId,
+) -> crate::Result<Option<InternalId>> {
+    let query = sqlx::query!(
+        r#"
+        SELECT 
+            ca.id AS "id!"
+        FROM campaigns ca
+        WHERE 
+            ca.id = $1
+            AND ca.owner = $2
+    "#,
+        campaign_id.0 as i32,
+        owner.0 as i32,
+    )
+    .fetch_optional(exec)
+    .await?
+    .map(|row| InternalId(row.id as u64));
+
+    Ok(query)
 }
 
 pub async fn insert_campaign(

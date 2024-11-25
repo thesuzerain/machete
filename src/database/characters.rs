@@ -47,9 +47,11 @@ pub async fn get_characters(
         WHERE 
             ($1::text IS NULL OR ch.name ILIKE '%' || $1 || '%')
             AND ($2::int IS NULL OR ca.id = $2)
+            AND ca.owner = $3
     "#,
         condition.name,
         campaign_id.0 as i32,
+        owner.0 as i32,
     );
 
     let characters = query
@@ -69,10 +71,42 @@ pub async fn get_characters(
     Ok(characters)
 }
 
+pub async fn get_chracter_id(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    character_id: InternalId,
+    owner: InternalId,
+) -> crate::Result<Option<Character>> {
+    let query = sqlx::query!(
+        r#"
+        SELECT 
+            ch.id,
+            ch.name,
+            ch.player,
+            ch.level,
+            ch.class
+        FROM characters ch
+        LEFT JOIN campaigns ca ON ch.campaign = ca.id
+        WHERE 
+            ch.id = $1
+            AND ca.owner = $2
+    "#,
+        character_id.0 as i32,
+        owner.0 as i32,
+    );
+
+    let character = query.fetch_optional(exec).await?.map(|row| Character {
+        id: InternalId(row.id as u64),
+        name: row.name,
+        level: row.level as u8,
+        player: row.player,
+        class: InternalId(row.class as u64),
+    });
+    Ok(character)
+}
+
 pub async fn edit_character(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     character_id: InternalId,
-    owner: InternalId,
     character: &ModifyCharacter,
 ) -> crate::Result<()> {
     let query = sqlx::query!(
@@ -96,7 +130,6 @@ pub async fn edit_character(
 
 pub async fn insert_characters(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    owner: InternalId,
     campaign_id: InternalId,
     characters: &Vec<InsertCharacter>,
 ) -> crate::Result<()> {
@@ -140,7 +173,6 @@ pub async fn insert_characters(
 pub async fn delete_character(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     character_id: InternalId,
-    owner: InternalId,
 ) -> crate::Result<()> {
     sqlx::query!(
         r#"

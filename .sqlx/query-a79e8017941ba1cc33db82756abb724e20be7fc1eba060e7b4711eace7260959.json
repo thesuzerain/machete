@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            ev.id,\n            ch.id AS \"character?\",\n            ev.timestamp,\n            ev.event_group AS \"log?\",\n            ev.event_data\n        FROM events ev\n        LEFT JOIN characters ch ON ev.character = ch.id\n        LEFT JOIN campaigns ca ON ev.campaign = ca.id\n        LEFT JOIN event_groups eg ON ev.event_group = eg.id\n        WHERE \n            ($1::int IS NULL OR ev.character = $1)\n            AND ca.id = $2\n            AND ($3::text IS NULL OR ev.event_data->>'type' = $3)\n        ORDER BY ev.timestamp\n    ",
+  "query": "\n        SELECT \n            ev.id,\n            ch.id AS \"character?\",\n            ev.timestamp,\n            ev.event_group AS \"log?\",\n            ev.event_data\n        FROM events ev\n        LEFT JOIN characters ch ON ev.character = ch.id\n        LEFT JOIN campaigns ca ON ev.campaign = ca.id\n        LEFT JOIN event_groups eg ON ev.event_group = eg.id\n        WHERE \n            ($1::int IS NULL OR ev.character = $1)\n            AND ca.id = $2\n            AND ($3::text IS NULL OR ev.event_data->>'type' = $3)\n            AND ca.owner = $4\n        ORDER BY ev.timestamp\n    ",
   "describe": {
     "columns": [
       {
@@ -33,7 +33,8 @@
       "Left": [
         "Int4",
         "Int4",
-        "Text"
+        "Text",
+        "Int8"
       ]
     },
     "nullable": [
@@ -44,5 +45,5 @@
       false
     ]
   },
-  "hash": "a53f33abc28ac04af91debac2b79ca89717da8d3aee630f99ae097df21e2caaa"
+  "hash": "a79e8017941ba1cc33db82756abb724e20be7fc1eba060e7b4711eace7260959"
 }

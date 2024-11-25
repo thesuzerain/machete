@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO encounters (name, description, enemies, hazards, treasure_items, treasure_currency, status, party_size, party_level)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n        RETURNING id\n        ",
+  "query": "\n        INSERT INTO encounters (name, description, enemies, hazards, treasure_items, treasure_currency, status, party_size, party_level, owner)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -19,6 +19,7 @@
         "Int4",
         "Int2",
         "Int4",
+        "Int4",
         "Int4"
       ]
     },
@@ -26,5 +27,5 @@
       false
     ]
   },
-  "hash": "ed077b5b98d427ea7d3e1e1c637b50ae5146cd29f2f0ffdd38c727e16eb16661"
+  "hash": "040443c615c2b002b526ebf5d80d04bed83a77a0e442405acef177983cc8c150"
 }

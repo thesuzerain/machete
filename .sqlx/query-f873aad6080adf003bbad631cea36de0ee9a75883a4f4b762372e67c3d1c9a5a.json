@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            u.id,\n            u.username,\n            u.is_admin\n        FROM users u\n        JOIN sessions s ON u.id = s.user_id\n        WHERE \n            s.token = $1\n            AND s.expires_at > NOW()\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "username",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "is_admin",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "f873aad6080adf003bbad631cea36de0ee9a75883a4f4b762372e67c3d1c9a5a"
+}

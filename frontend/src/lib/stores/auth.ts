@@ -2,6 +2,7 @@ import { writable, derived } from 'svelte/store';
 import type { User } from '$lib/types/types';
 import { API_URL } from '$lib/config';
 import { browser } from '$app/environment';
+import { goto } from '$app/navigation';
 
 interface AuthState {
     user: User | null;
@@ -81,6 +82,8 @@ function createAuthStore() {
                     ...state,
                     user: null
                 }));
+
+                goto('/');
             }
         },
 

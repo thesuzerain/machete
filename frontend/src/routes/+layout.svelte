@@ -25,9 +25,12 @@
         <nav>
             <div class="nav-content">
                 <ul class="nav-links">
-                    <li><a href="/campaigns">Campaigns</a></li>
-                    <li><a href="/encounters">Encounters</a></li>
-                    <li><a href="/library">Libraries</a></li>
+                    <li><a href="/">Home</a></li>
+                    {#if $auth.user}
+                        <li><a href="/campaigns">Campaigns</a></li>
+                        <li><a href="/encounters">Encounters</a></li>
+                        <li><a href="/library">Libraries</a></li>
+                    {/if}
                     <li><a href="/etc">(TODO...)</a></li>
                 </ul>
 
@@ -59,10 +62,6 @@
         {#if showSignupModal}
             <SignupModal 
                 on:close={() => showSignupModal = false}
-                on:success={() => {
-                    showSignupModal = false;
-                    showLoginModal = true;
-                }}
             />
         {/if}
     </div>

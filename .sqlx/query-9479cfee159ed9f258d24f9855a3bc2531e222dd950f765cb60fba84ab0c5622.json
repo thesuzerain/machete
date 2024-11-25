@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            en.id\n        FROM encounters en\n        WHERE \n            en.id = ANY($1::int[])\n            AND en.owner = $2\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9479cfee159ed9f258d24f9855a3bc2531e222dd950f765cb60fba84ab0c5622"
+}

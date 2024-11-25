@@ -18,7 +18,7 @@ use crate::{
         events::{EditEvent, EventFilters, InsertEvent},
         logs::{InsertLog, LogFilters},
     },
-    dummy_test_user, ServerError,
+    ServerError,
 };
 
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
@@ -39,12 +39,11 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/logs/:id", delete(delete_log))
 }
 
-async fn get_campaigns(State(pool): State<PgPool>, 
+async fn get_campaigns(
+    State(pool): State<PgPool>,
     jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("get_campaigns: {:?}", jar);
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    log::info!("Getting campaigns for owner: {:?}", user);
     let campaigns = database::campaigns::get_campaign(&pool, user.id).await?;
     Ok(Json(campaigns))
 }
@@ -55,7 +54,6 @@ async fn insert_campaign(
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-
     database::campaigns::insert_campaign(&pool, &campaign.name, user.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -68,8 +66,15 @@ async fn get_characters(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    let characters =
-        database::characters::get_characters(&pool, user.id, id, &filters).await?;
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let characters = database::characters::get_characters(&pool, user.id, id, &filters).await?;
     Ok(Json(characters))
 }
 
@@ -81,20 +86,35 @@ async fn insert_characters(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::characters::insert_characters(&pool, user.id, id, &characters).await?;
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::characters::insert_characters(&pool, id, &characters).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_character(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path((campaign_id, character_id)): Path<(InternalId, InternalId)>,
+    Path((_, character_id)): Path<(InternalId, InternalId)>,
     Json(character): Json<ModifyCharacter>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::characters::edit_character(&pool, character_id, user.id, &character)
-        .await?;
+    // Check if user has access to the chracter
+    if database::characters::get_chracter_id(&pool, character_id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::characters::edit_character(&pool, character_id, &character).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -118,17 +138,33 @@ async fn insert_log(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::logs::insert_log(&pool, user.id, id, &log).await?;
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::logs::insert_log(&pool, id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_log(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
+    Path((_, log_id)): Path<(InternalId, InternalId)>,
     Json(log): Json<InsertLog>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the logs
+    if !database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
 
     database::logs::edit_log(&pool, user.id, log_id, &log).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -137,9 +173,17 @@ async fn edit_log(
 async fn delete_log(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path((campaign_id, log_id)): Path<(InternalId, InternalId)>,
+    Path((_, log_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the logs
+    if !database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
 
     database::logs::delete_log(&pool, user.id, log_id)
         .await
@@ -167,17 +211,33 @@ async fn insert_events(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::events::insert_events(&pool, user.id, id, None, &events).await?;
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::events::insert_events(&pool, id, None, &events).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_event(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
+    Path((_, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the event
+    if !database::events::get_owned_events_ids(&pool, &[event_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
 
     database::events::edit_event(&pool, user.id, event_id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -186,11 +246,19 @@ async fn edit_event(
 async fn delete_event(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path((campaign_id, event_id)): Path<(InternalId, InternalId)>,
+    Path((_, event_id)): Path<(InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::events::delete_events(&pool, user.id, &vec![event_id]).await?;
+    // Check if user has access to the event
+    if !database::events::get_owned_events_ids(&pool, &[event_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::events::delete_events(&pool, user.id, &[event_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -200,6 +268,11 @@ async fn delete_events(
     Json(ids): Json<Vec<InternalId>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the events
+    if database::events::get_events_ids(&pool, &ids).await?.len() != ids.len() {
+        return Err(ServerError::NotFound);
+    }
 
     database::events::delete_events(&pool, user.id, &ids).await?;
     Ok(StatusCode::NO_CONTENT)

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            eg.id AS \"id!\"\n        FROM event_groups eg\n        WHERE \n            eg.id = ANY($1::int[])\n            AND EXISTS (\n                SELECT 1 FROM campaigns ca\n                WHERE ca.id = eg.campaign AND ca.owner = $2\n            )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0e23c4a13096cc3445a2c9fd579d71453d9d5962285791cf59ff308274cc94a8"
+}

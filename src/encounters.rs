@@ -36,46 +36,64 @@ async fn get_encounters(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    let encounters =
-        database::encounters::get_encounters(&pool, user.id, &filters).await?;
+    let encounters = database::encounters::get_encounters(&pool, user.id, &filters).await?;
     Ok(Json(encounters))
 }
 
 async fn insert_encounter(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Json(events): Json<Vec<InsertEncounter>>,
+    Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::insert_encounters(&pool, user.id, &events).await?;
+    database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_encounter(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path(event_id): Path<InternalId>,
-    Json(event): Json<ModifyEncounter>,
+    Path(encounter_id): Path<InternalId>,
+    Json(encounter): Json<ModifyEncounter>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::edit_encounter(&pool, user.id, event_id, &event).await?;
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn delete_encounter(
     State(pool): State<PgPool>,
     jar: CookieJar,
-    Path(event_id): Path<InternalId>,
+    Path(encounter_id): Path<InternalId>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::delete_encounters(&pool, user.id, &vec![event_id]).await?;
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::encounters::delete_encounters(&pool, &vec![encounter_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_encounter_draft(State(pool): State<PgPool>,     jar: CookieJar) -> Result<impl IntoResponse, ServerError> {
+async fn get_encounter_draft(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     let encounter = database::encounters::get_encounter_draft(&pool, user.id).await?;
@@ -89,7 +107,7 @@ async fn insert_encounter_draft(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::insert_encounter_draft(&pool, user.id, &event).await?;
+    database::encounters::insert_user_encounter_draft(&pool, user.id, &event).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -99,6 +117,6 @@ async fn clear_encounter_draft(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::clear_encounter_draft(&pool, user.id).await?;
+    database::encounters::clear_user_encounter_draft(&pool, user.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

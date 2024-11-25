@@ -33,17 +33,12 @@ pub async fn get_user_by_name(
         username,
     );
 
-    let user = query
-        .fetch_optional(exec)
-        .await?
-        .map(|row| {
-            DatabaseUser {
-                id: row.id,
-                username: row.username,
-                is_admin: row.is_admin.unwrap_or(false),
-                password_hash: row.password_hash,
-            }
-        });
+    let user = query.fetch_optional(exec).await?.map(|row| DatabaseUser {
+        id: row.id,
+        username: row.username,
+        is_admin: row.is_admin.unwrap_or(false),
+        password_hash: row.password_hash,
+    });
     Ok(user)
 }
 
@@ -84,7 +79,6 @@ pub async fn delete_user(
     Ok(())
 }
 
-
 pub async fn create_session(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     user_id: InternalId,
@@ -123,16 +117,11 @@ pub async fn get_user_for_session(
         session_id,
     );
 
-    let user = query
-        .fetch_optional(exec)
-        .await?
-        .map(|row| {
-            User {
-                id: InternalId(row.id as u64),
-                username: row.username,
-                is_admin: row.is_admin.unwrap_or(false)
-            }
-        });
+    let user = query.fetch_optional(exec).await?.map(|row| User {
+        id: InternalId(row.id as u64),
+        username: row.username,
+        is_admin: row.is_admin.unwrap_or(false),
+    });
     Ok(user)
 }
 

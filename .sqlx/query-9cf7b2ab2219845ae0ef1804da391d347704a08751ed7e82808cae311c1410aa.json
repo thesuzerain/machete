@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            en.id,\n            en.name,\n            en.description,\n            en.enemies,\n            en.hazards,\n            en.treasure_items,\n            en.treasure_currency,\n            en.status,\n            en.party_size,\n            en.party_level\n        FROM encounters en\n        WHERE en.status = $1\n    ",
+  "query": "\n        SELECT \n            en.id,\n            en.name,\n            en.description,\n            en.enemies,\n            en.hazards,\n            en.treasure_items,\n            en.treasure_currency,\n            en.party_size,\n            en.party_level,\n            en.status,\n            en.owner\n        FROM encounters en\n        WHERE \n            ($1::text IS NULL OR en.name LIKE '%' || $1 || '%')\n            AND ($2::integer IS NULL OR en.status = $2)\n            AND en.owner = $3\n    ",
   "describe": {
     "columns": [
       {
@@ -40,23 +40,30 @@
       },
       {
         "ordinal": 7,
-        "name": "status",
-        "type_info": "Int2"
-      },
-      {
-        "ordinal": 8,
         "name": "party_size",
         "type_info": "Int4"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "party_level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "status",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 10,
+        "name": "owner",
         "type_info": "Int4"
       }
     ],
     "parameters": {
       "Left": [
-        "Int2"
+        "Text",
+        "Int4",
+        "Int4"
       ]
     },
     "nullable": [
@@ -69,8 +76,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "4ef7e45314ad43c0de64421fadf008683df9ff4ad9fcce6daacf9a905a4bdf37"
+  "hash": "9cf7b2ab2219845ae0ef1804da391d347704a08751ed7e82808cae311c1410aa"
 }

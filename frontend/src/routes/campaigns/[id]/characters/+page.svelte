@@ -4,6 +4,7 @@
     import type { Character, InsertCharacter, LibraryClass, UpdateCharacter } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     const campaignId = parseInt($page.params.id);
     let campaignCharacters: Character[] = [];
@@ -28,6 +29,8 @@
     }
 
     onMount(async () => {
+        requireAuth();
+
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
                 credentials: 'include',

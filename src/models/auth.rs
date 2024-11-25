@@ -6,7 +6,7 @@ use super::ids::InternalId;
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Session {
     pub token: String,
-    pub user : User,
+    pub user: User,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

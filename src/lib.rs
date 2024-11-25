@@ -1,4 +1,9 @@
-use axum::{http::{self, HeaderValue}, response::IntoResponse, routing::get, Router};
+use axum::{
+    http::{self, HeaderValue},
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
 use models::ids::InternalId;
 use reqwest::Method;
 use tower::ServiceBuilder;
@@ -30,22 +35,24 @@ pub async fn run_server() {
         .nest("/encounters", encounters::router())
         .with_state(pool)
         .layer(
-            ServiceBuilder::new()
-            .layer(
-                CorsLayer::permissive().allow_credentials(true).allow_headers(vec![
-                    http::header::AUTHORIZATION,
-                    http::header::CONTENT_TYPE,
-                    http::header::COOKIE,
-                    http::header::SET_COOKIE,
-                ]).allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::PUT])
-                .expose_headers(vec![http::header::AUTHORIZATION, http::header::SET_COOKIE])
-                .allow_origin(["http://localhost:8123".parse::<HeaderValue>().unwrap(),
-                "http://localhost:3000".parse::<HeaderValue>().unwrap(),
-                "http://localhost:8080".parse::<HeaderValue>().unwrap(),
-                "http://localhost:5173".parse::<HeaderValue>().unwrap(),
-                ])
-
-        )
+            ServiceBuilder::new().layer(
+                CorsLayer::permissive()
+                    .allow_credentials(true)
+                    .allow_headers(vec![
+                        http::header::AUTHORIZATION,
+                        http::header::CONTENT_TYPE,
+                        http::header::COOKIE,
+                        http::header::SET_COOKIE,
+                    ])
+                    .allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::PUT])
+                    .expose_headers(vec![http::header::AUTHORIZATION, http::header::SET_COOKIE])
+                    .allow_origin([
+                        "http://localhost:8123".parse::<HeaderValue>().unwrap(),
+                        "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+                        "http://localhost:8080".parse::<HeaderValue>().unwrap(),
+                        "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+                    ]),
+            ),
         );
 
     // run our app with hyper, listening globally on port 3000

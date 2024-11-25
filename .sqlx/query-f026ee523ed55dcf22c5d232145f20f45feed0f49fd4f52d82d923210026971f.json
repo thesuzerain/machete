@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            ca.id AS \"id!\"\n        FROM campaigns ca\n        WHERE \n            ca.id = $1\n            AND ca.owner = $2\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f026ee523ed55dcf22c5d232145f20f45feed0f49fd4f52d82d923210026971f"
+}

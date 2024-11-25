@@ -9,6 +9,8 @@ pub struct Encounter {
     pub name: String,
     pub description: Option<String>,
 
+    pub owner: InternalId,
+
     pub party_level: u32,
     pub party_size: u32,
 
