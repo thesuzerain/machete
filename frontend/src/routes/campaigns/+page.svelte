@@ -9,6 +9,7 @@
     import CampaignLogsTab from '$lib/components/CampaignLogsTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
     import { API_URL } from '$lib/config';
+    import { requireAuth } from '$lib/guards/auth';
 
     let selectedCampaignId: number | null = null;
     let loading = true;
@@ -48,6 +49,8 @@
 
     // Update onMount to include library data
     onMount(async () => {
+        requireAuth();
+
         try {
             await Promise.all([
                 campaignStore.fetchCampaigns(),
@@ -158,7 +161,6 @@
                 </span>
             </div>
         </div>
-    {/if}
 
     <div class="tabs">
         <button 
@@ -175,7 +177,6 @@
         </button>
     </div>
 
-    {#if selectedCampaignId}
         {#if activeTab === 'characters'}
             <CampaignCharactersTab
                 {selectedCampaignId}

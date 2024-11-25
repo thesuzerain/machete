@@ -39,7 +39,7 @@
                             <div class="character-identity">
                                 <h3>{character.name}</h3>
                                 <div class="character-subtitle">
-                                    Level {character.level} {character.ancestry} {classes.entities.get(character.class)?.name}
+                                    Level {character.level} {classes.entities.get(character.class)?.name}
                                 </div>
                             </div>
                             <div class="character-actions">

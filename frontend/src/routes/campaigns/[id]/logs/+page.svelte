@@ -592,8 +592,8 @@
                                 credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    ...event,
-                                    event_group: showingEventsForLog.id
+                                    event_group: showingEventsForLog?.id,
+                                    events: [event]
                                 }),
                             });
                             if (!response.ok) throw new Error('Failed to create event');

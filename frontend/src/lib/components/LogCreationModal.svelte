@@ -6,6 +6,7 @@
     import EventCreator from './EventCreator.svelte';
     import LibraryEntityName from './LibraryEntityName.svelte';
     import { formatCurrency } from '$lib/types/library';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
 
     export let show = false;
     export let selectedCampaignId: number;
@@ -30,9 +31,16 @@
     let selectedCharacterIds: number[] = [];
     let enemies: LogEnemy[] = [];
     let treasures: LogTreasure[] = [];
-    let libraryEnemies: Map<number, LibraryEntity> = new Map();
-    let libraryHazards: Map<number, LibraryEntity> = new Map();
-    let libraryItems: Map<number, LibraryEntity> = new Map();
+
+    // Subscribe to the stores
+    let libraryEnemies: Map<number, LibraryEntity>;
+    let libraryHazards: Map<number, LibraryEntity>;
+    let libraryItems: Map<number, LibraryEntity>;
+
+    creatureStore.subscribe(state => libraryEnemies = state.entities);
+    hazardStore.subscribe(state => libraryHazards = state.entities);
+    itemStore.subscribe(state => libraryItems = state.entities);
+
     let eventsToCreate: InsertEvent[] = [];
 
     let showEventDetails = false;
@@ -189,6 +197,7 @@
                 <div class="enemies-section">
                     <h3>Enemies/Hazards</h3>
                     {#each enemies as enemy, i}
+                        {JSON.stringify(enemy)}
                         <div class="enemy-entry">
                             <select bind:value={enemy.type}>
                                 <option value="enemy">Enemy</option>
@@ -280,6 +289,7 @@
                             />
         
                             <!-- Event List/Editor -->
+                             <!-- TODO: Can use EventManager instead -->
                             <div class="events-preview">
                                 <h4>Events to be Created ({eventsToCreate.length})
                                 

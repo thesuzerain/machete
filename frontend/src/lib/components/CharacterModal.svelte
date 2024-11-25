@@ -16,7 +16,6 @@
     let level = 1;
     let classId: number | null = null;
     let className = '';
-    let ancestry = '';
     let error: string | null = null;
 
     // Reset form when modal opens or editingCharacter changes
@@ -24,15 +23,13 @@
         if (editingCharacter) {
             name = editingCharacter.name;
             level = editingCharacter.level;
-            classId = editingCharacter.class_id;
+            classId = editingCharacter.class;
             className = editingCharacter.class_name;
-            ancestry = editingCharacter.ancestry;
         } else {
             name = '';
             level = 1;
             classId = null;
             className = '';
-            ancestry = '';
         }
     }
 
@@ -52,7 +49,6 @@
                 name,
                 level,
                 class: classId,
-                ancestry,
                 campaign_id: campaignId,
             };
 
@@ -60,7 +56,7 @@
                 const url = `${API_URL}/campaign/${campaignId}/characters/${editingCharacter.id}`
 
                 const response = await fetch(url, {
-                    method: 'POST',
+                    method: 'PATCH',
                     credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
@@ -128,7 +124,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="level">L2evel</label>
+                    <label for="level">Level</label>
                     <input 
                         type="number" 
                         id="level" 
@@ -146,16 +142,6 @@
                         onSelect={handleClassSelect}
                         placeholder="Search for a class..."
                         initialIds={classId ? [classId] : []}
-                    />
-                </div>
-
-                <div class="form-group">
-                    <label for="ancestry">Ancestry</label>
-                    <input 
-                        type="text" 
-                        id="ancestry" 
-                        bind:value={ancestry}
-                        required
                     />
                 </div>
 

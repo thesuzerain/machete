@@ -4,7 +4,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_extra::{extract::cookie::{Cookie, CookieJar}, headers::{authorization::Bearer, Authorization}, TypedHeader};
+use axum_extra::{
+    extract::cookie::{Cookie, CookieJar},
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use lazy_static::lazy_static;
 use rand::Rng;
 use reqwest::StatusCode;
@@ -22,9 +26,10 @@ use crate::{
 
 pub const SESSION_COOKIE_NAME: &str = "session_id";
 
-lazy_static!(
-    pub static ref ADMIN_API_KEY: String = std::env::var("ADMIN_API_KEY").expect("`ADMIN_API_KEY` must be set");
-);
+lazy_static! {
+    pub static ref ADMIN_API_KEY: String =
+        std::env::var("ADMIN_API_KEY").expect("`ADMIN_API_KEY` must be set");
+};
 
 #[derive(Deserialize, Debug)]
 pub struct CreateUser {
@@ -60,7 +65,7 @@ pub async fn extract_user_from_cookies(
 
 pub async fn extract_admin_from_cookies(
     jar: &CookieJar,
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     exec: &sqlx::PgPool,
 ) -> crate::Result<()> {
     // Check for api key as bearer token

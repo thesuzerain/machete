@@ -16,6 +16,7 @@ pub struct InsertEvent {
     pub character: Option<InternalId>,
     #[serde(flatten)]
     pub event_type: EventType,
+    pub event_group: Option<InternalId>,
 }
 
 #[derive(serde::Deserialize, Debug)]

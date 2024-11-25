@@ -12,7 +12,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_extra::{extract::CookieJar, headers::{authorization::Bearer, Authorization}, TypedHeader};
+use axum_extra::{
+    extract::CookieJar,
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use sqlx::{PgPool, Pool};
 
 use crate::{
@@ -62,7 +66,7 @@ async fn get_creature_id(
 }
 
 async fn insert_creatures(
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(payload): Json<Vec<LibraryCreature>>,
@@ -93,7 +97,7 @@ async fn get_item_id(
 }
 
 async fn insert_items(
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(payload): Json<Vec<LibraryItem>>,
@@ -125,12 +129,12 @@ async fn get_spell_id(
 }
 
 async fn insert_spells(
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(payload): Json<Vec<LibrarySpell>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    extract_admin_from_cookies(&jar, bearer,&pool).await?;
+    extract_admin_from_cookies(&jar, bearer, &pool).await?;
 
     database::spells::insert_spells(&pool, &payload).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -157,7 +161,7 @@ async fn get_hazard_id(
 }
 
 async fn insert_hazards(
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(payload): Json<Vec<LibraryHazard>>,
@@ -177,7 +181,7 @@ async fn get_classes(
 }
 
 async fn insert_classes(
-    bearer : Option<TypedHeader<Authorization<Bearer>>>,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(payload): Json<Vec<LibraryClass>>,

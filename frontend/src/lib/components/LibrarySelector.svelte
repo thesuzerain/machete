@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import { debounce } from '$lib/utils';
     import { API_URL } from '$lib/config';
+    import { classStore, creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
 
     interface LibraryEntity {
         id: number;
@@ -30,6 +31,13 @@
         'hazard': 'hazards',
         'item': 'items',
         'class': 'classes'
+    };
+
+    const stores = {
+        creature: creatureStore,
+        hazard: hazardStore,
+        item: itemStore,
+        class: classStore
     };
 
     async function fetchEntities(params: Record<string, string>) {
@@ -115,6 +123,9 @@
     }
 
     function handleSelect(entity: LibraryEntity) {
+        // Add to store
+        stores[entityType].insertEntity(entity);
+        
         onSelect(entity.id);
         searchTerm = '';
         showDropdown = false;

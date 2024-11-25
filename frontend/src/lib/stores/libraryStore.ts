@@ -78,6 +78,15 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         }
     }
 
+    async function insertEntity(entity: LibraryEntity) {
+        update(state => ({ 
+            ...state, 
+            entities: new Map([...state.entities, [entity.id, entity]]),
+            loading: false, 
+            error: null 
+        }));
+    }
+
     function reset() {
         set(initialState);
     }
@@ -86,6 +95,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         subscribe,
         fetchEntities,
         getEntity,
+        insertEntity,
         reset
     };
 }

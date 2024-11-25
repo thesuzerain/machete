@@ -13,6 +13,7 @@
     export let fetchLogs: () => Promise<void>;
 
     let logNewOpen = false;
+    let showingEventsForLogId: number | null = null;
     let showingEventsForLog: Log | null = null;
     let logFilter = '';
     let logSort: 'date' | 'name' = 'date';
@@ -33,8 +34,13 @@
             }
         });
 
-        async function viewLogEvents(log: Log) {
-        showingEventsForLog = log;
+    // if campaignLogs changes, update showingEventsForLog
+    $: if (campaignLogs.length > 0) {
+        showingEventsForLog = campaignLogs.find(log => log.id === showingEventsForLogId) ?? null;
+    }
+
+    async function viewLogEvents(log: Log) {
+        showingEventsForLogId = log.id;
     }
 
 </script>
@@ -101,8 +107,7 @@
                 <button class="close-button" on:click={() => showingEventsForLog = null}>Close</button>
             </div>
             <p>{showingEventsForLog.description}</p>
-            
-            <!-- Add EventCreator above the EventManager -->
+                
             <div class="modal-event-creator">
                 <EventCreator 
                     characters={characters}
@@ -112,9 +117,12 @@
                                 method: 'POST',
                                 credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    ...event,
-                                    event_group: showingEventsForLog?.id
+                                body: JSON.stringify(
+                                {
+                                    event_group: showingEventsForLog?.id,
+                                    events: [{
+                                        ...event,
+                                    }]
                                 }),
                             });
                             if (!response.ok) throw new Error('Failed to create event');
@@ -125,13 +133,14 @@
                     }}
                 />
             </div>
-
             <EventManager 
                 events={showingEventsForLog.events}
                 characters={characters}
                 campaignId={selectedCampaignId}
                 groupId={showingEventsForLog.id.toString()}
-                onEventsUpdate={fetchLogs}
+                onEventsUpdate={async () => {
+                    await fetchLogs();
+                }}
             />
         </div>
     </div>

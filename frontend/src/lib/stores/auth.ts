@@ -25,7 +25,6 @@ function createAuthStore() {
         update(state => ({ ...state, loading: true }));
         
         try {
-            console.log("1Current cookies: ", document.cookie);
             const response = await fetch(`${API_URL}/auth/me`, {
                 credentials: 'include'
             });

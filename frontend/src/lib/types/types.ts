@@ -12,7 +12,6 @@ export interface Character {
     experience: number;
     class: number;
     class_name: string;
-    ancestry: string;
     campaign_id: number;
 }
 export interface Event {
@@ -54,7 +53,7 @@ export interface Log {
     name: string;
     timestamp: string;
     description: string;
-    events: number[];
+    events: Event[];
 }
 
 export interface InsertLog {
