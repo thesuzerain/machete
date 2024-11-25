@@ -30,3 +30,12 @@ pub struct CampaignPartial {
     pub id: InternalId,
     pub name: String,
 }
+
+// Add this struct for campaign metadata
+#[derive(Debug, Serialize)]
+pub struct CampaignMetadata {
+    pub total_sessions: i32,
+    pub average_level: f32,
+    pub total_experience: i32,
+    pub last_session: Option<String>,
+}

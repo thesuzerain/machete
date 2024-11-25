@@ -385,7 +385,7 @@
 
 
 {#if logNewOpen}
-                        <div class="log-form-container" transition:fade>
+<div class="log-form-container" transition:fade>
     <form on:submit={createLog} class="log-form">
         <h2>Create Log</h2>
         <div class="form-header">

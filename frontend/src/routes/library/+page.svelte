@@ -216,7 +216,7 @@
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: LIMIT.toString(),
-                ...(searchQuery && { search: searchQuery }),
+                ...(searchQuery && { name: searchQuery }),
                 ...(filterRarity && { rarity: filterRarity }),
                 ...(minLevel && { min_level: minLevel }),
                 ...(maxLevel && { max_level: maxLevel })
