@@ -86,7 +86,7 @@ async fn delete_encounter(
         return Err(ServerError::NotFound);
     }
 
-    database::encounters::delete_encounters(&pool, &vec![encounter_id]).await?;
+    database::encounters::delete_encounters(&pool, &[encounter_id]).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -113,7 +113,7 @@ pub async fn get_hazards(
 
 pub async fn insert_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    hazards: &Vec<LibraryHazard>,
+    hazards: &[LibraryHazard],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 

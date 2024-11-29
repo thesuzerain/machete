@@ -75,7 +75,7 @@ pub async fn get_classes(
 
 pub async fn insert_classes(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    classes: &Vec<LibraryClass>,
+    classes: &[LibraryClass],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 

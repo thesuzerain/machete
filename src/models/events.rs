@@ -72,7 +72,7 @@ impl Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EventType::CurrencyGain { currency } => {
-                write!(f, "Currency Gain: {}", currency.to_string())
+                write!(f, "Currency Gain: {}", currency)
             }
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)

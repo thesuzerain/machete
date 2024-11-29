@@ -112,7 +112,7 @@ pub async fn get_spells(
 
 pub async fn insert_spells(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    spells: &Vec<LibrarySpell>,
+    spells: &[LibrarySpell],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 

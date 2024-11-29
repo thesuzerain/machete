@@ -123,7 +123,7 @@ pub async fn get_creatures(
 
 pub async fn insert_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    creatures: &Vec<LibraryCreature>,
+    creatures: &[LibraryCreature],
 ) -> crate::Result<()> {
     // TODO: we don't need two tables for this.
 

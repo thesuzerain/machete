@@ -31,11 +31,11 @@ pub enum GameSystem {
     DND5E,
 }
 
-impl ToString for GameSystem {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for GameSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GameSystem::PF2E => "PF2E".to_string(),
-            GameSystem::DND5E => "DND5E".to_string(),
+            GameSystem::PF2E => write!(f, "PF2E"),
+            GameSystem::DND5E => write!(f, "DND5E"),
         }
     }
 }
@@ -87,13 +87,13 @@ pub enum Rarity {
     Unique,
 }
 
-impl ToString for Rarity {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Rarity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Rarity::Common => "Common".to_string(),
-            Rarity::Uncommon => "Uncommon".to_string(),
-            Rarity::Rare => "Rare".to_string(),
-            Rarity::Unique => "Unique".to_string(),
+            Rarity::Common => write!(f, "Common"),
+            Rarity::Uncommon => write!(f, "Uncommon"),
+            Rarity::Rare => write!(f, "Rare"),
+            Rarity::Unique => write!(f, "Unique"),
         }
     }
 }
