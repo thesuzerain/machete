@@ -278,7 +278,7 @@ library.add(faLink)
     async function updateEncounter(encounter: Encounter) {
         try {
             const response = await fetch(`${API_URL}/encounters/${encounter.id}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({encounter}),
@@ -383,7 +383,7 @@ library.add(faLink)
 
             // Update encounter status
             const statusResponse = await fetch(`${API_URL}/encounters/${encounter.id}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

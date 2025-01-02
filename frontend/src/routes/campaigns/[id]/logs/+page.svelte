@@ -234,7 +234,7 @@
     async function updateLog(log: Log) {
         try {
             const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${log.id}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

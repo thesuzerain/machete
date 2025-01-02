@@ -41,7 +41,7 @@
             }, {});
 
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({

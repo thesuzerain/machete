@@ -42,7 +42,7 @@ function createCharacterStore() {
         updateCharacter: async (campaignId: string, character: Character) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${character.id}`, {
-                    method: 'PATCH',
+                    method: 'PUT',
                     credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
