@@ -25,7 +25,6 @@ function createAuthStore() {
         update(state => ({ ...state, loading: true }));
         
         try {
-            console.log("1Current cookies: ", document.cookie);
             const response = await fetch(`${API_URL}/auth/me`, {
                 credentials: 'include'
             });
@@ -37,12 +36,6 @@ function createAuthStore() {
             } else {
                 auth.setSession(null);
             }
-
-            console.log("2Current cookies: ", document.cookie);
-            const response2 = await fetch(`${API_URL}/auth/campaigns`, {
-                credentials: 'include',
-            });
-            console.log("123123213Response: ", response2);
 
         } catch (error) {
             console.error('Auth check failed:', error);

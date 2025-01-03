@@ -4,13 +4,14 @@
     import type { Campaign, Character, Event } from '$lib/types/types';
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
-
+    import { classStore } from '$lib/stores/libraryStore';
     const campaignId = parseInt($page.params.id);
     let campaign: Campaign | undefined;
     let campaignCharacters: Character[] = [];
     let campaignEvents: Event[] = [];
     let loading = true;
     let error: string | null = null;
+
 
     onMount(async () => {
         requireAuth();
@@ -54,12 +55,12 @@
         <div class="sections">
             <section class="characters">
                 <h2>Characters</h2>
-                <a href="/campaigns/{campaignId}/characters" class="button">Manage Characters</a>
+                <a href="/campaign/{campaignId}/characters" class="button">Manage Characters</a>
                 <div class="character-list">
                     {#each campaignCharacters as character}
                         <div class="character-card">
                             <h3>{character.name}</h3>
-                            <p>Level {character.level} {character.race} {character.class}</p>
+                            <p>Level {character.level} -  {classFromId(character.class)?.name}</p>
                         </div>
                     {/each}
                 </div>
@@ -67,7 +68,7 @@
 
             <section class="events">
                 <h2>Recent Events</h2>
-                <a href="/campaigns/{campaignId}/events" class="button">View All Events</a>
+                <a href="/campaign/{campaignId}/events" class="button">View All Events</a>
                 <div class="event-list">
                     {#each campaignEvents.slice(0, 5) as event}
                         <div class="event-card">

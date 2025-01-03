@@ -1,28 +1,32 @@
 <script lang="ts">
-    import { API_URL } from '$lib/config';
-    import type { LibraryEntity } from '$lib/types/library';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     
     export let entityType: 'creature' | 'hazard' | 'item';
     export let entityId: number;
 
-    let entity: LibraryEntity | null = null;
-    let loading = true;
-    let error: string | null = null;
+    const stores = {
+        creature: creatureStore,
+        hazard: hazardStore,
+        item: itemStore
+    };
 
-    async function loadEntity() {
-        try {
-            const response = await fetch(`${API_URL}/library/${entityType}s/${entityId}`);
-            if (!response.ok) throw new Error('Failed to load entity');
-            entity = await response.json();
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to load entity';
-        } finally {
-            loading = false;
-        }
-    }
+    const store = stores[entityType];
+    
+    let unsubscribe: () => void;
+    let entity = null;
+    let loading = false;
+    let error = null;
 
     $: if (entityId) {
-        loadEntity();
+        unsubscribe = store.subscribe(state => {
+            entity = state.entities.get(entityId);
+            loading = state.loading;
+            error = state.error;
+        });
+        
+        if (!entity && !loading) {
+            store.getEntity(entityId);
+        }
     }
 </script>
 
@@ -31,7 +35,7 @@
 {:else if error}
     <span class="error" title={error}>Error loading {entityType}</span>
 {:else if entity}
-<span class="entity-name">{entity.name}</span>
+    <span class="entity-name">{entity.name}</span>
 {:else}
     <span class="not-found">Unknown {entityType}</span>
 {/if}

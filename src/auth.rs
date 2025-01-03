@@ -4,7 +4,12 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_extra::extract::cookie::{Cookie, CookieJar};
+use axum_extra::{
+    extract::cookie::{Cookie, CookieJar},
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
+use lazy_static::lazy_static;
 use rand::Rng;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -20,6 +25,11 @@ use crate::{
 };
 
 pub const SESSION_COOKIE_NAME: &str = "session_id";
+
+lazy_static! {
+    pub static ref ADMIN_API_KEY: String =
+        std::env::var("ADMIN_API_KEY").expect("`ADMIN_API_KEY` must be set");
+};
 
 #[derive(Deserialize, Debug)]
 pub struct CreateUser {
@@ -39,7 +49,6 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/me", get(get_current_user))
-        .route("/campaigns", get(get_campaigns))
 }
 
 pub async fn extract_user_from_cookies(
@@ -56,11 +65,20 @@ pub async fn extract_user_from_cookies(
 
 pub async fn extract_admin_from_cookies(
     jar: &CookieJar,
+    bearer: Option<TypedHeader<Authorization<Bearer>>>,
     exec: &sqlx::PgPool,
-) -> crate::Result<User> {
+) -> crate::Result<()> {
+    // Check for api key as bearer token
+    if let Some(bearer) = bearer {
+        if bearer.token() == *ADMIN_API_KEY {
+            return Ok(());
+        }
+    }
+
+    // If no api key, check for user and return if admin
     let user = extract_user_from_cookies(jar, exec).await?;
     if user.is_admin {
-        Ok(user)
+        Ok(())
     } else {
         Err(crate::ServerError::Unauthorized)
     }
@@ -72,15 +90,6 @@ async fn get_current_user(
 ) -> Result<Json<User>, crate::ServerError> {
     let user = extract_user_from_cookies(&cookie_jar, &pool).await?;
     Ok(Json(user))
-}
-
-async fn get_campaigns(
-    State(pool): State<PgPool>,
-    jar: CookieJar,
-) -> Result<impl IntoResponse, crate::ServerError> {
-    let user = extract_user_from_cookies(&jar, &pool).await?;
-    let campaigns = database::campaigns::get_campaign(&pool, user.id).await?;
-    Ok(Json(campaigns))
 }
 
 async fn signup(

@@ -385,7 +385,7 @@
 
 
 {#if logNewOpen}
-                        <div class="log-form-container" transition:fade>
+<div class="log-form-container" transition:fade>
     <form on:submit={createLog} class="log-form">
         <h2>Create Log</h2>
         <div class="form-header">
@@ -592,8 +592,8 @@
                                 credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    ...event,
-                                    event_group: showingEventsForLog.id
+                                    event_group: showingEventsForLog?.id,
+                                    events: [event]
                                 }),
                             });
                             if (!response.ok) throw new Error('Failed to create event');

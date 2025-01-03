@@ -9,20 +9,11 @@
     export let characters: Character[] = [];
     export let campaignId: number;
     export let groupId: string | undefined; // Optional group ID for log-based events
-    export let onEventsUpdate: () => void | undefined; // Callback when events are modified
+    export let onEventsUpdate: () => Promise<void>;
 
     let selectedEventIds: number[] = [];
     let editingEvent: Event | null = null;
     let error: string | null = null;
-
-    // Helper function to get all unique keys from event data
-    function getEventDataKeys(events: Event[]): string[] {
-        const keys = new Set<string>();
-        events.forEach(event => {
-            Object.keys(event.data).forEach(key => keys.add(key));
-        });
-        return Array.from(keys);
-    }
 
     async function updateEvent(eventId: number, formData: Record<string, any>) {
         try {
@@ -133,7 +124,6 @@
 {#if error}
     <div class="error">{error}</div>
 {/if}
-
 {#if events.length > 0}
     {#if selectedEventIds.length > 0}
         <div class="bulk-actions">
@@ -169,6 +159,7 @@
             </thead>
             <tbody>
                 {#each events as event}
+                    
                     <tr>
                         <td>
                             <input 

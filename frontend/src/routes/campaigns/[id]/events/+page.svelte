@@ -122,7 +122,10 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(newEvents),
+                body: JSON.stringify({
+                    event_group: null,
+                    events: newEvents
+                }),
             });
 
             if (!response.ok) throw new Error('Failed to create events');

@@ -30,7 +30,10 @@ function createEventStore() {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(event),
+                    body: JSON.stringify({
+                        event_group: event.event_group,
+                        events: [event]
+                    }),
                 });
                 if (!response.ok) throw new Error('Failed to create event');
                 await eventStore.fetchEvents(campaignId);

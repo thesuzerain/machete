@@ -29,7 +29,7 @@
         if (!selectedCharacter || !selectedType) return;
 
         const event: InsertEvent = {
-            character_id: selectedCharacter,
+            character: selectedCharacter,
             event_type: selectedType,
             description: '',
             data: eventData

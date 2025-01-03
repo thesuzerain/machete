@@ -1,69 +1,75 @@
 import { writable } from 'svelte/store';
 import type { Character } from '$lib/types/types';
 import { API_URL } from '$lib/config';
-import { auth } from './auth';
 
 function createCharacterStore() {
-    const { subscribe, set, update } = writable<Record<string, Character[]>>({});
+    const { subscribe, set, update } = writable<Character[]>([]);
 
     return {
         subscribe,
-        fetchCharacters: async (campaignId: string) => {
+        fetchCharacters: async (campaignId : number) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
-                    credentials: 'include',
+                    credentials: 'include'
                 });
                 if (!response.ok) throw new Error('Failed to fetch characters');
                 const characters = await response.json();
-                update(store => ({ ...store, [campaignId]: characters }));
-                return characters;
-            } catch (e) {
-                console.error('Error fetching characters:', e);
-                return [];
+                set(characters);
+            } catch (error) {
+                console.error('Error fetching characters:', error);
+                throw error;
             }
         },
-        addCharacter: async (campaignId: string, character: Omit<Character, 'id'>) => {
+        addCharacter: async (campaignId : number, character: Omit<Character, 'id'>) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
                     method: 'POST',
                     credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify([character]),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(character),
                 });
-                if (!response.ok) throw new Error('Failed to create character');
-                await characterStore.fetchCharacters(campaignId);
-            } catch (e) {
-                console.error('Error adding character:', e);
-                throw e;
+                if (!response.ok) throw new Error('Failed to add character');
+                const newCharacter = await response.json();
+                update(chars => [...chars, newCharacter]);
+                return newCharacter;
+            } catch (error) {
+                console.error('Error adding character:', error);
+                throw error;
             }
         },
-        updateCharacter: async (campaignId: string, character: Character) => {
+        updateCharacter: async (campaignId : number, id: number, character: Partial<Character>) => {
             try {
-                const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${character.id}`, {
+                const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${id}`, {
                     method: 'PUT',
                     credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(character),
                 });
                 if (!response.ok) throw new Error('Failed to update character');
-                await characterStore.fetchCharacters(campaignId);
-            } catch (e) {
-                console.error('Error updating character:', e);
-                throw e;
+                const updatedCharacter = await response.json();
+                update(chars => chars.map(char => 
+                    char.id === id ? updatedCharacter : char
+                ));
+                return updatedCharacter;
+            } catch (error) {
+                console.error('Error updating character:', error);
+                throw error;
             }
         },
-        reset: () => set({}),
+        deleteCharacter: async (campaignId : number, id: number) => {
+            try {
+                const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+                if (!response.ok) throw new Error('Failed to delete character');
+                update(chars => chars.filter(char => char.id !== id));
+            } catch (error) {
+                console.error('Error deleting character:', error);
+                throw error;
+            }
+        }
     };
 }
 
-export const characterStore = createCharacterStore();
-
-auth.subscribe(($auth) => {
-    if (!$auth.user) {
-        characterStore.reset();
-    }
-}); 
+export const characterStore = createCharacterStore(); 

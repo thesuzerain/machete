@@ -54,6 +54,7 @@ pub async fn get_creatures(
             .map(|id| id as i32)
             .collect::<Vec<i32>>()
     });
+
     let query = sqlx::query!(
         r#"
         SELECT 

@@ -203,11 +203,17 @@ async fn get_events(
     Ok(Json(events))
 }
 
+#[derive(serde::Deserialize, Debug)]
+pub struct InsertEvents {
+    pub event_group: Option<InternalId>,
+    pub events: Vec<InsertEvent>,
+}
+
 async fn insert_events(
     State(pool): State<PgPool>,
     jar: CookieJar,
     Path(id): Path<InternalId>,
-    Json(events): Json<Vec<InsertEvent>>,
+    Json(events): Json<InsertEvents>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
@@ -219,7 +225,19 @@ async fn insert_events(
         return Err(ServerError::NotFound);
     }
 
-    database::events::insert_events(&pool, id, None, &events).await?;
+    // TODO: Not for this one necessarily, but check and note for when we do len() or isempty() checks on these db calls. We may be missing cases where
+    // the db coalesces duplicates (or similar) and the length is not what we expect evne if the data is allowed.
+    // Check if user has access to the log
+    if let Some(eg) = events.event_group {
+        if database::logs::get_owned_logs_ids(&pool, &[eg], user.id)
+            .await?
+            .is_empty()
+        {
+            return Err(ServerError::NotFound);
+        }
+    }
+
+    database::events::insert_events(&pool, id, events.event_group, &events.events).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

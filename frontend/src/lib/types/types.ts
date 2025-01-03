@@ -2,16 +2,17 @@
 export interface Campaign {
     id: number;
     name: string;
+    description?: string;
 }
 
 export interface Character {
     id: number;
-    campaign_id: number;
     name: string;
-    class: number;
     level: number;
-    race: string;
-    background: string;
+    experience: number;
+    class: number;
+    class_name: string;
+    campaign_id: number;
 }
 export interface Event {
     id: number;
@@ -52,7 +53,7 @@ export interface Log {
     name: string;
     timestamp: string;
     description: string;
-    events: number[];
+    events: Event[];
 }
 
 export interface InsertLog {
@@ -74,4 +75,18 @@ export interface User {
     id: number;
     username: string;
     is_admin: boolean;
+}
+
+export interface LibraryEntity {
+    id: number;
+    name: string;
+    level?: number;
+    // ... other properties
+}
+
+export interface Enemy {
+    id: number;
+    count: number;
+    type: 'enemy' | 'hazard';
+    level?: number;  // Add this
 }

@@ -1,215 +1,120 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
-    import { campaignStore } from '$lib/stores/campaigns';
+    import type { Character } from '$lib/types/types';
+    import CharacterModal from '$lib/components/CharacterModal.svelte';
     import { characterStore } from '$lib/stores/characters';
-    import type { Campaign, Log } from '$lib/types/types';
-    import CampaignModal from '$lib/components/CampaignModal.svelte';
-    import CampaignCharactersTab from '$lib/components/CampaignCharactersTab.svelte';
-    import CampaignLogsTab from '$lib/components/CampaignLogsTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
-    import { API_URL } from '$lib/config';
-    import { requireAuth } from '$lib/guards/auth';
 
-    let selectedCampaignId: number | null = null;
-    let loading = true;
-    let error: string | null = null;
-    let showNewCampaignModal = false;
-    let editingCampaign: Campaign | null = null;
-    let activeTab: 'characters' | 'logs' = 'characters';
-    let campaignLogs: Log[] = [];
+    export let selectedCampaignId: number;
+    export let error: string | null;
 
-    // Subscribe to stores
-    $: campaigns = $campaignStore;
+    let showNewCharacterModal = false;
+    let editingCharacter: Character | null = null;
+
     $: characters = $characterStore;
-
-    async function fetchLogs() {
-        if (!selectedCampaignId) return;
-        
-        try {
-            const response = await fetch(`${API_URL}/campaign/${selectedCampaignId}/logs`, {
-                credentials: 'include',
-            });
-            if (!response.ok) throw new Error('Failed to fetch logs');
-            campaignLogs = await response.json();
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to fetch logs';
-        }
-    }
-
-    // Update the watch for campaign changes
-    $: if (selectedCampaignId) {
-        Promise.all([
-            characterStore.fetchCharacters(selectedCampaignId),
-            fetchLogs(),
-        ]).catch(e => {
-            error = e instanceof Error ? e.message : 'An error occurred';
-        });
-    }
-
-    // Update onMount to include library data
-    onMount(async () => {
-        requireAuth();
-
-        try {
-            await Promise.all([
-                campaignStore.fetchCampaigns(),
-                classStore.fetchEntities({}),
-            ]);
-
-            if (campaigns.length > 0) {
-                selectedCampaignId = campaigns[0].id;
-            }
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to load campaigns';
-        } finally {
-            loading = false;
-        }
-    });
-
-    // Add logs-related helper functions
-    function generateEvents(characterIds: number[]): InsertEvent[] {
-        const events: InsertEvent[] = [];
-        
-        for (const enemy of enemies) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: enemy.type === 'enemy' ? 'EnemyDefeated' : 'HazardDefeated',
-                    description: `Defeated ${enemy.count} ${enemy.type}`,
-                    data: {
-                        id: enemy.id,
-                        count: enemy.count
-                    }
-                });
-
-                events.push({
-                    character: characterId,
-                    event_type: 'ExperienceGain',
-                    description: `Gained experience from ${enemy.type}`,
-                    data: {
-                        experience: getExperienceFromLevel(enemy.level || 0, characters.find(c => c.id === characterId)?.level || 0)
-                    }
-                });
-            }
-        }
-
-        for (const treasure of treasures) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: treasure.type === 'currency' ? 'CurrencyGain' : 'ItemGain',
-                    description: treasure.type === 'currency' 
-                        ? `Gained ${treasure.amount} currency`
-                        : `Gained item`,
-                    data: treasure.type === 'currency' 
-                        ? { currency: { gold: treasure.amount } }
-                        : { id: treasure.itemId }
-                });
-            }
-        }
-
-        return events;
-    }
+    $: classes = $classStore;
 
     async function handleCharacterDelete(id: number) {
         try {
-            if (selectedCampaignId) {
-                await characterStore.deleteCharacter(selectedCampaignId, id);
-            }
+            await characterStore.deleteCharacter(selectedCampaignId, id);
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to delete character';
         }
     }
 </script>
 
-<div class="campaigns-page">
-    {#if error}
-        <div class="error-message" transition:fade>{error}</div>
-    {/if}
-
-    <div class="campaign-selector">
-        <select bind:value={selectedCampaignId}>
-            <option value={null}>Select a campaign...</option>
-            {#each campaigns as campaign}
-                <option value={campaign.id}>{campaign.name}</option>
-            {/each}
-        </select>
-        <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
-            New Campaign
+<div class="characters-section" transition:fade>
+    <div class="characters-header">
+        <h2>Characters</h2>
+        <button class="add-character-btn" on:click={() => showNewCharacterModal = true}>
+            Add Character
         </button>
     </div>
 
-    {#if selectedCampaignId}
-        <div class="campaign-metadata" transition:fade>
-            <div class="metadata-item">
-                <span class="label">Total Sessions</span>
-                <!-- <span class="value">{metadata.total_sessions}</span> -->
-            </div>
-            <div class="metadata-item">
-                <span class="label">Average Level</span>
-                <!-- <span class="value">{metadata.average_level.toFixed(1)}</span> -->
-            </div>
-            <div class="metadata-item">
-                <span class="label">Total XP</span>
-                <!-- <span class="value">{metadata.total_experience}</span> -->
-            </div>
-            <div class="metadata-item">
-                <span class="label">Last Session</span>
-                <span class="value">
-                    <!-- {metadata.last_session ? new Date(metadata.last_session).toLocaleDateString() : 'Never'} -->
-                </span>
-            </div>
-        </div>
+    <div class="character-list">
+        {#each characters as character}
+        
+                    <div class="character-row" transition:fade>
+                    <div class="character-main">
+                            <div class="character-identity">
+                                <h3>{character.name}</h3>
+                                <div class="character-subtitle">
+                                    Level {character.level} {classes.entities.get(character.class)?.name}
+                                </div>
+                            </div>
+                            <div class="character-actions">
+                                <button class="edit-btn" on:click={() => {
+                                    editingCharacter = character;
+                                    showNewCharacterModal = true;
+                                }}>Edit</button>
+                                <button class="delete-btn" on:click={() => handleCharacterDelete(character.id)}>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
 
-    <div class="tabs">
-        <button 
-            class="tab-button {activeTab === 'characters' ? 'active' : ''}"
-            on:click={() => activeTab = 'characters'}
-        >
-            Characters
-        </button>
-        <button 
-            class="tab-button {activeTab === 'logs' ? 'active' : ''}"
-            on:click={() => activeTab = 'logs'}
-        >
-            Logs
-        </button>
+                        <div class="character-content">
+                            <div class="content-section">
+                                <h4>Experience</h4>
+                                <div class="xp-display">
+                                    <div class="xp-bar" style="--progress: {(character.experience % 1000) / 1000 * 100}%">
+                                        <span class="xp-text">{character.experience} / 1000 XP</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="content-section">
+                                <h4>Recent Activity</h4>
+                                <!-- Placeholder for activity graph -->
+                                <div class="activity-placeholder">
+                                    Activity graph coming soon
+                                </div>
+                            </div>
+
+                            <div class="content-section">
+                                <h4>Statistics</h4>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Sessions</span>
+                                        <span class="stat-value">12</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Enemies Defeated</span>
+                                        <span class="stat-value">47</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Gold Earned</span>
+                                        <span class="stat-value">1,234</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {/each}
     </div>
-
-        {#if activeTab === 'characters'}
-            <CampaignCharactersTab
-                {selectedCampaignId}
-                bind:error
-            />
-        {:else}
-            <CampaignLogsTab
-                {selectedCampaignId}
-                {campaignLogs}
-                {characters}
-                {fetchLogs}
-                bind:error
-            />
-        {/if}
-    {/if}
 </div>
 
-<CampaignModal
-    bind:show={showNewCampaignModal}
-    bind:editingCampaign
-    on:saved={async () => {
-        await campaignStore.fetchCampaigns();
-        showNewCampaignModal = false;
-        editingCampaign = null;
+<CharacterModal
+    bind:show={showNewCharacterModal}
+    campaignId={selectedCampaignId}
+    bind:editingCharacter
+    on:saved={async (event) => {
+        if (editingCharacter) {
+            await characterStore.updateCharacter(selectedCampaignId, editingCharacter.id, event.detail);
+        } else {
+            await characterStore.addCharacter(selectedCampaignId, event.detail);
+        }
+        showNewCharacterModal = false;
+        editingCharacter = null;
     }}
     on:close={() => {
-        showNewCampaignModal = false;
-        editingCampaign = null;
+        showNewCharacterModal = false;
+        editingCharacter = null;
     }}
 />
 
 <style>
-    .campaigns-page {
+campaigns-page {
         padding: 2rem;
         max-width: 1200px;
         margin: 0 auto;
@@ -586,5 +491,5 @@
     .item-name {
         min-width: 150px;
         font-weight: 500;
-    }
+}
 </style> 
