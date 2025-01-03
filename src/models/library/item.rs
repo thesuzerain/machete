@@ -26,8 +26,8 @@ pub struct Currency {
     pub copper: u32,
 }
 
-impl ToString for Currency {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = format!("{}g", self.gold);
         if self.silver > 0 {
             s.push_str(&format!(" {}s", self.silver));
@@ -35,7 +35,7 @@ impl ToString for Currency {
         if self.copper > 0 {
             s.push_str(&format!(" {}c", self.copper));
         }
-        s
+        write!(f, "{}", s)
     }
 }
 

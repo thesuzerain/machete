@@ -18,7 +18,7 @@ pub struct Log {
 impl Log {
     // Generate user-facing log from database log and events
     // Relevant events are cloned from the list of all events
-    pub fn from_log_events(log: EventGroup, events: &Vec<Event>) -> Log {
+    pub fn from_log_events(log: EventGroup, events: &[Event]) -> Log {
         let events = events
             .iter()
             .filter(|e| e.log == Some(log.id))

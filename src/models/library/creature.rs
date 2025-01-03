@@ -95,19 +95,19 @@ impl Alignment {
     }
 }
 
-impl ToString for Alignment {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Alignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Alignment::LawfulGood => "Lawful Good".to_string(),
-            Alignment::NeutralGood => "Neutral Good".to_string(),
-            Alignment::ChaoticGood => "Chaotic Good".to_string(),
-            Alignment::LawfulNeutral => "Lawful Neutral".to_string(),
-            Alignment::TrueNeutral => "True Neutral".to_string(),
-            Alignment::ChaoticNeutral => "Chaotic Neutral".to_string(),
-            Alignment::LawfulEvil => "Lawful Evil".to_string(),
-            Alignment::NeutralEvil => "Neutral Evil".to_string(),
-            Alignment::ChaoticEvil => "Chaotic Evil".to_string(),
-            Alignment::None => "None".to_string(),
+            Alignment::LawfulGood => write!(f, "Lawful Good"),
+            Alignment::NeutralGood => write!(f, "Neutral Good"),
+            Alignment::ChaoticGood => write!(f, "Chaotic Good"),
+            Alignment::LawfulNeutral => write!(f, "Lawful Neutral"),
+            Alignment::TrueNeutral => write!(f, "True Neutral"),
+            Alignment::ChaoticNeutral => write!(f, "Chaotic Neutral"),
+            Alignment::LawfulEvil => write!(f, "Lawful Evil"),
+            Alignment::NeutralEvil => write!(f, "Neutral Evil"),
+            Alignment::ChaoticEvil => write!(f, "Chaotic Evil"),
+            Alignment::None => write!(f, "None"),
         }
     }
 }
@@ -149,15 +149,15 @@ pub enum Size {
     Gargantuan,
 }
 
-impl ToString for Size {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Size::Tiny => "Tiny".to_string(),
-            Size::Small => "Small".to_string(),
-            Size::Medium => "Medium".to_string(),
-            Size::Large => "Large".to_string(),
-            Size::Huge => "Huge".to_string(),
-            Size::Gargantuan => "Gargantuan".to_string(),
+            Size::Tiny => write!(f, "Tiny"),
+            Size::Small => write!(f, "Small"),
+            Size::Medium => write!(f, "Medium"),
+            Size::Large => write!(f, "Large"),
+            Size::Huge => write!(f, "Huge"),
+            Size::Gargantuan => write!(f, "Gargantuan"),
         }
     }
 }

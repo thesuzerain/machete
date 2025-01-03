@@ -157,13 +157,14 @@ pub async fn insert_events(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     campaign_id: InternalId,
     log_id: Option<InternalId>,
-    events: &Vec<InsertEvent>,
+    events: &[InsertEvent],
 ) -> crate::Result<()> {
     if events.is_empty() {
         return Ok(());
     }
 
     // TODO: Campaign needs to be checked for ownership
+    #[allow(clippy::type_complexity)]
     let (characters, campaigns, event_types, event_groups): (
         Vec<Option<i32>>,
         Vec<i32>,

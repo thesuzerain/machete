@@ -42,7 +42,7 @@ function createLogStore() {
         updateLog: async (campaignId: string, logId: number, updates: Partial<Log>) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/logs/${logId}`, {
-                    method: 'PATCH',
+                    method: 'PUT',
                     credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',

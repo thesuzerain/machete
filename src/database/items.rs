@@ -123,7 +123,7 @@ pub async fn get_items(
 
 pub async fn insert_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    items: &Vec<LibraryItem>,
+    items: &[LibraryItem],
 ) -> crate::Result<()> {
     // TODO: Don't *need* two tables for this
 

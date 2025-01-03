@@ -131,7 +131,7 @@ pub async fn edit_character(
 pub async fn insert_characters(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     campaign_id: InternalId,
-    characters: &Vec<InsertCharacter>,
+    characters: &[InsertCharacter],
 ) -> crate::Result<()> {
     // TODO: Campaign needs to be checked for ownership
     if characters.is_empty() {

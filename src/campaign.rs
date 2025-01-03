@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, patch, post},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 
@@ -27,15 +27,15 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/", post(insert_campaign))
         .route("/:id/characters", get(get_characters))
         .route("/:id/characters", post(insert_characters))
-        .route("/:id/characters/:id", patch(edit_character))
+        .route("/:id/characters/:id", put(edit_character))
         .route("/:id/events", get(get_events))
         .route("/:id/events", post(insert_events))
-        .route("/:id/events/:id", patch(edit_event))
+        .route("/:id/events/:id", put(edit_event))
         .route("/:id/events/:id", delete(delete_event))
         .route("/:id/events", delete(delete_events))
         .route("/:id/logs", get(get_logs))
         .route("/:id/logs", post(insert_log))
-        .route("/:id/logs/:id", patch(edit_log))
+        .route("/:id/logs/:id", put(edit_log))
         .route("/:id/logs/:id", delete(delete_log))
 }
 

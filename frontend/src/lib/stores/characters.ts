@@ -40,7 +40,7 @@ function createCharacterStore() {
         updateCharacter: async (campaignId : number, id: number, character: Partial<Character>) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/characters/${id}`, {
-                    method: 'PATCH',
+                    method: 'PUT',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(character),

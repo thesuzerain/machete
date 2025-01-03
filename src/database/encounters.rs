@@ -251,7 +251,7 @@ pub async fn edit_encounter(
 
 pub async fn delete_encounters(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    encounter_id: &Vec<InternalId>,
+    encounter_id: &[InternalId],
 ) -> crate::Result<()> {
     if encounter_id.is_empty() {
         return Ok(());

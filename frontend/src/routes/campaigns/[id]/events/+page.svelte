@@ -170,7 +170,7 @@
         try {
             const eventType = campaignEvents.find(event => event.id === eventId)?.event_type; 
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
