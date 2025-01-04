@@ -22,6 +22,9 @@ pub async fn run_server() {
         .parse_default_env()
         .init();
 
+    // Check for required environment variables and stop if any are missing
+    check_env();
+
     let pool = database::connect().await.unwrap();
     log::info!("Connected to database");
 
@@ -67,6 +70,16 @@ pub async fn run_server() {
     log::info!("Listening on: {}", bind_addr);
     axum::serve(listener, app).await.unwrap();
 }
+
+// Check for required environment variables
+// Panics if any are missing
+fn check_env() {
+    dotenvy::dotenv().ok();
+    dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    dotenvy::var("BIND_URL").expect("BIND_URL must be set");
+    dotenvy::var("ADMIN_API_KEY").expect("ADMIN_API_KEY must be set");
+}
+
 
 // basic handler that responds with a static string
 async fn root() -> &'static str {

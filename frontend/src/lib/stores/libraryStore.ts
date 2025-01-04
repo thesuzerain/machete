@@ -55,6 +55,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         }
     }
 
+    // TODO: Should be able to use the cached entities instead of fetching from the API
     async function getEntity(id: number) {
         update(state => ({ ...state, loading: true, error: null }));
         
@@ -90,6 +91,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
     function reset() {
         set(initialState);
     }
+
 
     return {
         subscribe,

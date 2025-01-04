@@ -28,6 +28,7 @@ pub fn router() -> Router<Pool<sqlx::Postgres>> {
         .route("/:id/characters", get(get_characters))
         .route("/:id/characters", post(insert_characters))
         .route("/:id/characters/:id", put(edit_character))
+        .route("/:id/characters/:id", delete(delete_character))
         .route("/:id/events", get(get_events))
         .route("/:id/events", post(insert_events))
         .route("/:id/events/:id", put(edit_event))
@@ -115,6 +116,27 @@ async fn edit_character(
     }
 
     database::characters::edit_character(&pool, character_id, &character).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_character(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path((_, character_id)): Path<(InternalId, InternalId)>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the chracter
+    if database::characters::get_chracter_id(&pool, character_id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::characters::delete_character(&pool, character_id)
+        .await
+        .unwrap();
     Ok(StatusCode::NO_CONTENT)
 }
 

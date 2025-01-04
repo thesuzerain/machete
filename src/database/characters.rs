@@ -138,7 +138,10 @@ pub async fn insert_characters(
         return Ok(());
     }
 
-    let campaign_id = campaign_id.0 as i32;
+    let campaign_id = std::iter::once(campaign_id.0 as i32)
+        .cycle()
+        .take(characters.len())
+        .collect::<Vec<i32>>();
     let (names, players): (Vec<String>, Vec<Option<String>>) = characters
         .iter()
         .map(|e| {
@@ -150,11 +153,11 @@ pub async fn insert_characters(
     sqlx::query!(
         r#"
         INSERT INTO characters (name, player, campaign, class, level)
-        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], array[$3::int], $4::int[], $5::int[])
+        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], $3::int[], $4::int[], $5::int[])
         "#,
         &names,
         &players as _,
-        campaign_id,
+        &campaign_id,
         &characters
             .iter()
             .map(|c| c.class.0 as i32)

@@ -102,7 +102,7 @@
         if (editingCharacter) {
             await characterStore.updateCharacter(selectedCampaignId, editingCharacter.id, event.detail);
         } else {
-            await characterStore.addCharacter(selectedCampaignId, event.detail);
+            await characterStore.addCharacters(selectedCampaignId, [event.detail]);
         }
         showNewCharacterModal = false;
         editingCharacter = null;

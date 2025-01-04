@@ -20,20 +20,23 @@ function createCharacterStore() {
                 throw error;
             }
         },
-        addCharacter: async (campaignId : number, character: Omit<Character, 'id'>) => {
+        addCharacters: async (campaignId : number, newCharacters: Omit<Character, 'id'>[]) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(character),
+                    body: JSON.stringify(newCharacters),
                 });
-                if (!response.ok) throw new Error('Failed to add character');
-                const newCharacter = await response.json();
-                update(chars => [...chars, newCharacter]);
-                return newCharacter;
+                if (!response.ok) {
+                    console.error('Failed to add characters:', response);
+                    throw new Error('Failed to add characters');
+                }
+                
+                // Refresh characters after adding
+                await characterStore.fetchCharacters(campaignId);
             } catch (error) {
-                console.error('Error adding character:', error);
+                console.error('Error adding characters:', error);
                 throw error;
             }
         },
@@ -46,11 +49,9 @@ function createCharacterStore() {
                     body: JSON.stringify(character),
                 });
                 if (!response.ok) throw new Error('Failed to update character');
-                const updatedCharacter = await response.json();
-                update(chars => chars.map(char => 
-                    char.id === id ? updatedCharacter : char
-                ));
-                return updatedCharacter;
+                
+                // Refresh characters after updating
+                await characterStore.fetchCharacters(campaignId);
             } catch (error) {
                 console.error('Error updating character:', error);
                 throw error;

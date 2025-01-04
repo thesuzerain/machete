@@ -16,8 +16,10 @@
     export let onSelect: (entityId: number) => void;
     export let placeholder = "Search...";
     export let initialIds: number[] = [];
+    export let showSelected : number | null = null;
 
     let entities: Map<number, LibraryEntity> = new Map();
+
     let searchTerm = '';
     let loading = true;
     let error: string | null = null;
@@ -38,6 +40,13 @@
         hazard: hazardStore,
         item: itemStore,
         class: classStore
+    };
+
+    const storeEntities = {
+        creature: $creatureStore.entities,
+        hazard: $hazardStore.entities,
+        item: $itemStore.entities,
+        class: $classStore.entities
     };
 
     async function fetchEntities(params: Record<string, string>) {
@@ -133,12 +142,24 @@
 </script>
 
 <div class="entity-selector">
-    <input
+
+    {#if showSelected && storeEntities[entityType].get(+showSelected)}
+        <input
         type="text"
-        {placeholder}
+        placeholder={storeEntities[entityType].get(+showSelected)?.name}
         bind:value={searchTerm}
         on:focus={() => showDropdown = true}
-    />
+        class="selected-input"
+        />
+    {:else}
+        <input
+        type="text"
+        placeholder={placeholder}
+        bind:value={searchTerm}
+        on:focus={() => showDropdown = true}
+        class="unselected-input"
+        />
+    {/if}
     
     {#if showDropdown && searchTerm.length > 0}
         <div class="dropdown" on:scroll={handleScroll}>
@@ -222,11 +243,23 @@
         font-style: italic;
     }
 
-    .level {
+    .detail {
         color: #666;
         font-size: 0.875rem;
-    }    .detail {
-        color: #666;
-        font-size: 0.875rem;
+    }
+
+    .selected-input {
+        color: #000;
+        font-size: 600000;
+    }
+
+    .selected-input::placeholder {
+        color: #000;
+        font-weight: bolder;
+    }
+
+    .unselected-input {
+        color: #000;
+        font-size: 600000;
     }
 </style> 

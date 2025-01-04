@@ -4,16 +4,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_extra::{
-    extract::cookie::{Cookie, CookieJar},
-    headers::{authorization::Bearer, Authorization},
-    TypedHeader,
-};
-use lazy_static::lazy_static;
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use rand::Rng;
 use reqwest::StatusCode;
 use serde::Deserialize;
-use sqlx::{PgPool, Pool};
+use sqlx::Pool;
 use time::Duration;
 
 use crate::{
@@ -25,11 +20,6 @@ use crate::{
 };
 
 pub const SESSION_COOKIE_NAME: &str = "session_id";
-
-lazy_static! {
-    pub static ref ADMIN_API_KEY: String =
-        std::env::var("ADMIN_API_KEY").expect("`ADMIN_API_KEY` must be set");
-};
 
 #[derive(Deserialize, Debug)]
 pub struct CreateUser {
@@ -63,19 +53,21 @@ pub async fn extract_user_from_cookies(
     Err(crate::ServerError::Unauthorized)
 }
 
-pub async fn extract_admin_from_cookies(
+
+pub async fn extract_admin_from_headers(
     jar: &CookieJar,
-    bearer: Option<TypedHeader<Authorization<Bearer>>>,
+    headers: &axum::http::HeaderMap,
     exec: &sqlx::PgPool,
 ) -> crate::Result<()> {
-    // Check for api key as bearer token
-    if let Some(bearer) = bearer {
-        if bearer.token() == *ADMIN_API_KEY {
+    // First, check for passed Machete-Admin header, compare to env var
+    // A non-logged in solution.
+    // TODO: Re-add bearer tokens for user-specific API keys
+    if let Some(auth_header) = headers.get("Machete-Admin") {
+        if *auth_header == *dotenvy::var("ADMIN_API_KEY").unwrap() {
             return Ok(());
         }
     }
 
-    // If no api key, check for user and return if admin
     let user = extract_user_from_cookies(jar, exec).await?;
     if user.is_admin {
         Ok(())

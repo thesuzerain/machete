@@ -3,20 +3,21 @@
     import { fade } from 'svelte/transition';
     import { campaignStore } from '$lib/stores/campaigns';
     import { characterStore } from '$lib/stores/characters';
-    import type { Campaign, Log } from '$lib/types/types';
+    import type { Campaign, InsertEvent, Log } from '$lib/types/types';
     import CampaignModal from '$lib/components/CampaignModal.svelte';
     import CampaignCharactersTab from '$lib/components/CampaignCharactersTab.svelte';
     import CampaignLogsTab from '$lib/components/CampaignLogsTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
+    import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
 
     let selectedCampaignId: number | null = null;
     let loading = true;
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'characters' | 'logs' = 'characters';
+    let activeTab: 'characters' | 'logs' | 'import' = 'characters';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
@@ -175,6 +176,12 @@
         >
             Logs
         </button>
+        <button 
+            class="tab-button {activeTab === 'import' ? 'active' : ''}"
+            on:click={() => activeTab = 'import'}
+        >
+            Import
+        </button>
     </div>
 
         {#if activeTab === 'characters'}
@@ -182,13 +189,21 @@
                 {selectedCampaignId}
                 bind:error
             />
-        {:else}
+        {:else if activeTab === 'logs'}
             <CampaignLogsTab
                 {selectedCampaignId}
                 {campaignLogs}
                 {characters}
                 {fetchLogs}
                 bind:error
+            />
+        {:else}
+            <CampaignImportTab
+                {selectedCampaignId}
+                {characters}
+                {campaignLogs}
+                bind:error
+                {fetchLogs}
             />
         {/if}
     {/if}
@@ -259,151 +274,6 @@
         color: #1e293b;
     }
 
-    .characters-section {
-        background: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        padding: 1.5rem;
-    }
-
-    .characters-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .character-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-
-    .character-row {
-        background: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-    }
-
-    .character-main {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1.5rem;
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .character-identity {
-        display: flex;
-        flex-direction: row;
-        gap: 1rem;
-    }
-
-    .character-identity h3 {
-        margin: 0;
-        font-size: 1.25rem;
-        color: #1e293b;
-    }
-
-    .character-subtitle {
-        color: #64748b;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-
-    .character-content {
-        padding: 1.5rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .content-section {
-        padding: 1rem;
-        background: #f8fafc;
-        border-radius: 0.375rem;
-    }
-
-    .content-section h4 {
-        margin: 0 0 1rem 0;
-        color: #475569;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .xp-display {
-        background: #e2e8f0;
-        border-radius: 9999px;
-        height: 1.5rem;
-        overflow: hidden;
-        position: relative;
-    }
-
-    .xp-bar {
-        background: #3b82f6;
-        height: 100%;
-        width: var(--progress);
-        transition: width 0.3s ease;
-    }
-
-    .xp-text {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 1rem;
-    }
-
-    .stat-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-
-    .stat-label {
-        font-size: 0.75rem;
-        color: #64748b;
-        margin-bottom: 0.25rem;
-    }
-
-    .stat-value {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1e293b;
-    }
-
-    .activity-placeholder {
-        height: 100px;
-        background: #e2e8f0;
-        border-radius: 0.375rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #64748b;
-        font-size: 0.875rem;
-    }
-
-    .add-character-btn {
-        background: #22c55e;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-    }
-
     .new-campaign-btn {
         background: #3b82f6;
         color: white;
@@ -447,144 +317,5 @@
     .tab-button.active {
         color: #3b82f6;
         border-bottom-color: #3b82f6;
-    }
-
-    .logs-section {
-        background: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        padding: 1.5rem;
-    }
-
-    .logs-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .logs-preview {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .add-log-btn {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-    }
-
-    .logs-controls {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 0.375rem;
-    }
-
-    .filter-sort {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-    }
-
-    .filter-input {
-        padding: 0.5rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-        min-width: 200px;
-    }
-
-    .sort-controls {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-
-    .sort-direction {
-        padding: 0.25rem 0.5rem;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-    .new-log-btn {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        max-width: 800px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .form-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .form-actions button {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-    }
-
-    .form-actions button[type="submit"] {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .form-actions button[type="button"] {
-        background: #e5e7eb;
-        color: #374151;
-    }
-
-    .enemy-entry, .treasure-entry {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        margin-bottom: 0.5rem;
-        padding: 0.5rem;
-        background: #f9fafb;
-        border-radius: 0.375rem;
-    }
-
-    .enemy-entry input[type="number"],
-    .treasure-entry input[type="number"] {
-        width: 100px;
-    }
-
-    .item-name {
-        min-width: 150px;
-        font-weight: 500;
     }
 </style> 
