@@ -53,7 +53,6 @@ pub async fn extract_user_from_cookies(
     Err(crate::ServerError::Unauthorized)
 }
 
-
 pub async fn extract_admin_from_headers(
     jar: &CookieJar,
     headers: &axum::http::HeaderMap,

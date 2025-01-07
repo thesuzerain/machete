@@ -1,13 +1,17 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { Character, Log } from '$lib/types/types';
+    import type { Character, Log, WIPInsertLog, WIPLogEnemy, WIPLogTreasure } from '$lib/types/types';
     import { API_URL } from '$lib/config';
     import { characterStore } from '$lib/stores/characters';
-    import { creatureStore, itemStore } from '$lib/stores/libraryStore';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import LibraryEntityName from '$lib/components/LibraryEntityName.svelte';
     import { onMount } from 'svelte';
     import { id } from 'date-fns/locale';
     import LibrarySelector from './LibrarySelector.svelte';
+    import LogCreationModal from './LogCreationModal.svelte';
+    import { generateEventsFromData } from '$lib/utils/logs';
+    import { arraysEqual } from '$lib/utils';
+    import type { amount } from '@metaplex-foundation/js';
 
     export let selectedCampaignId: number;
     export let characters: Character[];
@@ -18,16 +22,23 @@
     // Add library data
     $: enemies = $creatureStore;
     $: items = $itemStore;
+    $: hazards = $hazardStore;
 
 
     // Add mappings for enemies and items
     let enemyMappings: Record<string, number> = {};
     let itemMappings: Record<string, number> = {};
+    let trapMappings: Record<string, number> = {};
 
     // Mappings of whether these are real things or new things
     // TODO: Also include custom things: allows us to differntiate between 'real', 'custom' and 'fake' things
     let enemyIncludes: Record<string, boolean> = {};
     let itemIncludes: Record<string, boolean> = {};
+    let trapIncludes: Record<string, boolean> = {};
+
+    // WIP logs- converted from importData format
+    let participatingCharacterIds: number[] = [];
+    let wipLogs : WIPInsertLog[] = [];
 
     // Initialize stores if needed
     onMount(async () => {
@@ -69,6 +80,30 @@
     // Track log mappings
     let logMappings: Record<string, number | null> = {};
 
+    let editingLogName: string | null = null;
+    let logCreationModal : LogCreationModal;
+
+    function mergeLogs(sourceLogName: string, targetLogName: string) {
+        if (!importData) return;
+
+        const sourceLog = wipLogs.find(l => l.name === sourceLogName);
+        const targetLog = wipLogs.find(l => l.name === targetLogName);
+        
+        if (!sourceLog || !targetLog) return;
+
+        // Merge enemies
+        targetLog.enemies = [...new Set([...targetLog.enemies, ...sourceLog.enemies])];
+                
+        // Add experience
+        targetLog.extra_experience += sourceLog.extra_experience;
+        
+        // Merge rewards
+        targetLog.treasures = [...targetLog.treasures, ...sourceLog.treasures];
+
+        // Remove the source log
+        importData.logs = importData.logs.filter(l => l.name !== sourceLogName);
+    }
+
     async function tryParseJson() {
         try {
             importData = JSON.parse(jsonInput);
@@ -87,6 +122,14 @@
                     targetId: `new_${name}`,  // Default to creating new
                     isNew: true
                 };
+
+                // Check if a character with the same exact name already exists in the campaign, default to mapping to that
+                const existingChar = characters.find(c => c.name === name);
+                console.log("Found existing character", existingChar);
+                if (existingChar) {
+                    characterMappings[name].targetId = existingChar.id;
+                    characterMappings[name].isNew = false;
+                }
             });
             console.log("here3");
 
@@ -114,6 +157,22 @@
             }
             console.log("here5");
 
+            const uniqueTrapNames = new Set(
+                importData.logs.flatMap(log => log.traps)
+            );
+
+            for (const name of uniqueTrapNames) {
+                // Search for the trap in the library
+                // TODO: As said above, should do one fetch instead of n times
+                await hazardStore.fetchEntities({ name: name });
+
+                // Check if a trap was found matching the name exactly
+                const match = Array.from(hazards.entities.values()).find(h => h.name === name);
+                trapMappings[name] = match?.id || 0; // 0 means "needs mapping"
+                trapIncludes[name] = true;
+            }
+
+
             // Initialize item mappings - try to match names exactly first
             const uniqueItemNames = new Set(
                 importData.logs.flatMap(log => 
@@ -130,8 +189,7 @@
                 itemMappings[name] = match?.id || 0; // 0 means "needs mapping"
                 itemIncludes[name] = true;
             }
-            console.log("her72");
-
+           
             step = 'characters';
         } catch (e) {
             error = 'Invalid JSON format: ' + e;
@@ -197,76 +255,96 @@
             .filter(([name]) => enemyIncludes[name])
             .map(([name]) => name);
         
+        const ummappedTraps = Object.entries(trapMappings)
+            .filter(([_, id]) => id === 0)
+            .filter(([name]) => trapIncludes[name])
+            .map(([name]) => name);
+
         const unmappedItems = Object.entries(itemMappings)
             .filter(([_, id]) => id === 0)
             .filter(([name]) => itemIncludes[name])
             .map(([name]) => name);
 
-        if (unmappedEnemies.length > 0 || unmappedItems.length > 0) {
-            error = 'Please map all enemies and items before continuing';
+        if (unmappedEnemies.length > 0 || unmappedItems.length > 0 || ummappedTraps.length > 0) {
+            console.log(unmappedEnemies);
+            console.log(unmappedItems);
+            console.log(ummappedTraps);
+            error = 'Please map all enemies, traps, and items before continuing';
             return;
         }
+
+        // For a fast import, assume supplied characters are for every log
+        participatingCharacterIds = characters.filter(c => characterMappings[c.name])
+            .map(c => c.id);
+
+            // Now that mappings are confirmed, we can create logs.
+        // Only include ones we have mappings for
+
+        console.log("About to start playing game");
+        for (const log of importData.logs) {
+            console.log("About to start playing game1");
+
+            let calculated_enemies : WIPLogEnemy[] = log.enemies.filter(e => enemyIncludes[e]).map(e => {
+                console.log("About to start playing game1.5");
+                let level = enemies.entities.get(enemyMappings[e])?.level || 1;
+                console.log("About to start playing game1.6");
+                let enemy : WIPLogEnemy = {
+                    id: enemyMappings[e],
+                    count: 1, // TODO: Support importing of multiple enemies
+                    level: level,  // TODO: strong/weak
+                    type: 'enemy'
+                };
+                return enemy;
+            });
+
+            let calculated_traps = log.traps.filter(t => trapIncludes[t]).map(t => {
+                let level = hazards.entities.get(trapMappings[t])?.level || 1;
+                let trap : WIPLogEnemy = {
+                    id: trapMappings[t],
+                    level: level,  // TODO: strong/weak
+                    count: 1, // TODO: Support importing of multiple traps
+                    type: 'hazard'
+                };
+                return trap;
+            });
+
+            let calculated_items = log.rewards.filter(r => typeof r === 'string' && itemIncludes[r]).map(r => {
+                let item : WIPLogTreasure = {
+                    itemId: itemMappings[r],
+                    amount: 1, // TODO: Support importing of multiple items
+                    type: 'item'
+                };
+                return item;
+            });
+
+            // TODO: Gold
+
+            const wipLog: WIPInsertLog = {
+                name: log.name,
+                description: '', // TODO: Add description
+                // session: log.session, // TODO: Sessions
+                characterIds: participatingCharacterIds,
+                enemies: calculated_enemies.concat(calculated_traps),
+                extra_experience: 0, // TODO: Should this be calculated? can't just be experience_gained
+                treasures: calculated_items,
+                current_manual_events: generateEventsFromData(participatingCharacterIds, characters, calculated_enemies.concat(calculated_traps), calculated_items),
+            };
+
+            wipLogs.push(wipLog);
+        }
+
 
         step = 'events';
     }
 
     async function handleEventConfirmation() {
         if (!importData) return;
-        
 
         try {
-            for (const log of importData.logs) {
+            for (const log of wipLogs) {
                 const targetLogId = logMappings[log.name];
                 
                 console.log(log);
-
-                // For a fast import, assume supplied characters are for every log
-                const participatingCharacterIds = characters.filter(c => characterMappings[c.name])
-                    .map(c => c.id);
-
-                const events = [];
-                
-                // Add enemy events
-                for (const enemy of log.enemies) {
-                    events.push({
-                        characters: participatingCharacterIds,
-                        event_type: 'EnemyDefeated',
-                        description: `Defeated ${enemy}`,
-                        data: { id: enemyMappings[enemy] }
-                    });
-                }
-
-                // Add trap events
-                for (const trap of log.traps) {
-                    events.push({
-                        characters: participatingCharacterIds,
-                        event_type: 'HazardDefeated',
-                        description: `Overcame ${trap}`,
-                        data: { name: trap }
-                    });
-                }
-
-                // Add experience event
-                events.push({
-                    characters: participatingCharacterIds,
-                    event_type: 'ExperienceGain',
-                    description: `Gained ${log.experience_gained} experience`,
-                    data: { experience: log.experience_gained }
-                });
-
-                // Add reward events
-                for (const reward of log.rewards) {
-                    events.push({
-                        characters: participatingCharacterIds,
-                        event_type: typeof reward === 'number' ? 'CurrencyGain' : 'ItemGain',
-                        description: typeof reward === 'number' 
-                            ? `Gained ${reward} gold` 
-                            : `Gained item: ${reward}`,
-                        data: typeof reward === 'number' 
-                            ? { currency: { gold: reward } }
-                            : { id: itemMappings[reward] }
-                    });
-                }
 
                 if (targetLogId) {
                     // Add events to existing log
@@ -276,7 +354,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             event_group: targetLogId,
-                            events
+                            events: log.current_manual_events
                         })
                     });
                 } else {
@@ -287,8 +365,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             name: log.name,
-                            description: `Session ${log.session}`,
-                            events
+                            // TODO: Re-add, and also, logs should be able to have sessions
+                            // description: `Session ${log.session}`,
+                            events: log.current_manual_events,
                         })
                     });
 
@@ -303,9 +382,30 @@
             characterMappings = {};
             logMappings = {};
             enemyMappings = {};
+            trapMappings = {};
             itemMappings = {};
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create events';
+        }
+    }
+
+    async function removeAllUnconfirmedMappings() {
+        for (const name in enemyMappings) {
+            if (enemyMappings[name] === 0) {
+                enemyIncludes[name] = false;
+            }
+        }
+
+        for (const name in trapMappings) {
+            if (trapMappings[name] === 0) {
+                trapIncludes[name] = false;
+            }
+        }
+
+        for (const name in itemMappings) {
+            if (itemMappings[name] === 0) {
+                itemIncludes[name] = false;
+            }
         }
     }
 </script>
@@ -391,7 +491,10 @@
         </div>
     {:else if step === 'entities'}
         <div class="entity-confirmation">
-            <h3>Map Enemies and Items</h3>
+            <h3>Map Enemies, Traps and Items</h3>
+            <button class="confirm-btn" on:click={removeAllUnconfirmedMappings}>
+                Remove all unconfirmed mappings
+            </button>
             
             {#if Object.keys(enemyMappings).length > 0}
                 <div class="entity-section">
@@ -419,19 +522,47 @@
                 </div>
             {/if}
 
+            {#if Object.keys(trapMappings).length > 0}
+                <div class="entity-section">
+                    <h4>Traps</h4>
+                    {#each Object.entries(trapMappings) as [name, id]}
+                        <div class="entity-mapping">
+                            <strong>{name}</strong>
+                            <div class="entity-mapping-options">
+                                {#if trapIncludes[name]}
+                                <LibrarySelector
+                                    entityType="hazard"
+                                    onSelect={id => trapMappings[name] = id}
+                                    showSelected={trapMappings[name]}
+                                    placeholder="Search for a hazard..."
+                                    initialIds={[]}
+                                />
+                                {/if}
+                                <button on:click={() => trapIncludes[name] = !trapIncludes[name]} class="confirm-btn">
+                                    {trapIncludes[name] ? 'Included' : 'Not included'}
+                                </button>
+
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+
             {#if Object.keys(itemMappings).length > 0}
                 <div class="entity-section">
                     <h4>Items</h4>
                     {#each Object.entries(itemMappings) as [name, id]}
                         <div class="entity-mapping">
                             <strong>{name}</strong>
+                            {itemIncludes[name]}
+                            {itemMappings[name]}
                             <div class="entity-mapping-options">
                                 {#if itemIncludes[name]}
                                 <LibrarySelector
                                     entityType="item"
                                     onSelect={id => itemMappings[name] = id}
                                     showSelected={itemMappings[name]}
-                                    placeholder="Search for a item..."
+                                    placeholder="Search for an item..."
                                     initialIds={[]}
                                 />
                             {/if}
@@ -450,46 +581,76 @@
         </div>
     {:else if step === 'events'}
         <div class="events-confirmation">
-            <h3>Confirm Logs</h3>
-            <p>Review and map logs to existing ones (mapping will merge events):</p>
+            <h3>Review Logs</h3>
+            <p>Review logs and merge if needed. Logs with no data will not be created.</p>
 
-            {#each importData?.logs || [] as log}
-                <div class="log-preview">
+            {#each wipLogs || [] as log}
+                <div class={log.current_manual_events.length > 0 ? 'log-preview' : 'log-preview-skipped'}>
                     <div class="log-header">
-                        <h4>{log.name} (Session {log.session})</h4>
-                        <select bind:value={logMappings[log.name]}>
-                            <option value={null}>Create New Log</option>
-                            {#each campaignLogs as existingLog}
-                                <option value={existingLog.id}>{existingLog.name}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    
-                    <div class="event-group">
-                        <strong>Participating Characters:</strong>
-                        <ul>
-                            {#each log.characters as charName}
-                                <li>
-                                    {charName} → 
-                                    {#if characterMappings[charName]?.isNew}
-                                        New Character
-                                    {:else}
-                                        {characters.find(c => c.id === characterMappings[charName]?.targetId)?.name || 'Unknown'}
+                        <h4>{log.name} (Session 0)</h4>
+                        <div class="log-actions">
+                            <select>
+                                <option value="">Select log to merge with...</option>
+                                {#each importData?.logs || [] as otherLog}
+                                    {#if otherLog.name !== log.name}
+                                        <option value={otherLog.name}>{otherLog.name}</option>
                                     {/if}
-                                </li>
-                            {/each}
-                        </ul>
+                                {/each}
+                            </select>
+                            <button 
+                                class="merge-btn" 
+                                on:click={(e) => {
+                                    const select = e.currentTarget.previousElementSibling as HTMLSelectElement;
+                                    if (select.value) {
+                                        mergeLogs(log.name, select.value);
+                                        select.value = '';
+                                    }
+                                }}
+                            >
+                                Merge
+                            </button>
+                            <button 
+                                class="edit-btn"
+                                on:click={() => {
+                                    editingLogName = log.name
+                                    console.log('editing log name', editingLogName, log.name, wipLogs);
+                                    const foundLog = wipLogs.find(l => l.name === log.name);
+                                    console.log('found log', foundLog);
+                                    console.log("log creation modal", logCreationModal);
+                                    logCreationModal.setInitialData(foundLog || null);
+                                    console.log('editing past');
+                                    }}
+                            >
+                                Edit
+                            </button>
+                        </div>
                     </div>
+
+                    {#if log.current_manual_events.length <= 0}
+                            <p>(No events, will be skipped)</p>
+                    {/if}
+                    
+                     {#if !arraysEqual(log.characterIds, participatingCharacterIds)}
+                        <div class="event-group">
+                            <strong>Participating Characters:</strong>
+                            <ul>
+                                {#each log.characterIds as charId}
+                                    <li>
+                                        {characters.find(c => c.id === charId)?.name || 'Unknown'}
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
+                    {/if}
 
                     {#if log.enemies.length > 0}
                         <div class="event-group">
-                            <strong>Enemies:</strong>
+                            <strong>Enemies / Hazards:</strong>
                             <ul>
                                 {#each log.enemies as enemy}
                                     <li>
-                                        {enemy} → 
                                         <LibraryEntityName 
-                                            entity={enemies.find(e => e.id === enemyMappings[enemy])} 
+                                            entityType='creature' entityId={enemy.id}
                                         />
                                     </li>
                                 {/each}
@@ -497,40 +658,29 @@
                         </div>
                     {/if}
 
-                    {#if log.traps.length > 0}
-                        <div class="event-group">
-                            <strong>Traps:</strong>
-                            <ul>
-                                {#each log.traps as trap}
-                                    <li>{trap}</li>
-                                {/each}
-                            </ul>
-                        </div>
-                    {/if}
-
-                    <div class="event-group">
+                    <!-- <div class="event-group">
                         <strong>Experience:</strong> {log.experience_gained}
-                    </div>
+                    </div>-->
 
-                    {#if log.rewards.length > 0}
+                    {#if log.treasures.length > 0}
                         <div class="event-group">
                             <strong>Rewards:</strong>
                             <ul>
-                                {#each log.rewards as reward}
+                                {#each log.treasures as reward}
+                                <!-- TODO: Silver, etc -->
                                     <li>
-                                        {#if typeof reward === 'number'}
-                                            {reward} gold
-                                        {:else}
-                                            {reward} → 
+                                        {#if reward.type === 'currency'}
+                                            {reward.amount} gold
+                                        {:else if reward.itemId}
                                             <LibraryEntityName 
-                                                entity={items.find(i => i.id === itemMappings[reward])} 
+                                                entityType='item' entityId={reward.itemId} 
                                             />
                                         {/if}
                                     </li>
                                 {/each}
                             </ul>
                         </div>
-                    {/if}
+                    {/if} 
                 </div>
             {/each}
 
@@ -540,6 +690,21 @@
         </div>
     {/if}
 </div>
+        <!-- TODO: wipLogs.find should use an id for duplicate reasons  -->
+    <LogCreationModal
+        show={editingLogName !== null}
+        bind:error
+        bind:this={logCreationModal}
+        {selectedCampaignId}
+        {characters}
+        initialData={wipLogs.find(l => l.name === editingLogName) || null}
+        on:close={() => editingLogName = null}
+        updateOnlyCallback={(log) => {
+            const index = wipLogs.findIndex(l => l.name === editingLogName);
+            wipLogs[index] = log;
+            editingLogName = null;
+        }}
+/>
 
 <style>
     .import-section {
@@ -588,6 +753,13 @@
 
     .log-preview {
         background: #f5f5f5;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .log-preview-skipped {
+        background: #bcbcbc;
         padding: 1rem;
         border-radius: 0.25rem;
         margin-bottom: 1rem;
@@ -676,5 +848,37 @@
 
     .entity-mapping-options :global(.unselected-input) { 
         background-color: #f4b4b4;
+    }
+
+    .log-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .merge-btn, .edit-btn {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+
+    .merge-btn {
+        background: #4f46e5;
+        color: white;
+    }
+
+    .merge-btn:hover {
+        background: #4338ca;
+    }
+
+    .edit-btn {
+        background: #10b981;
+        color: white;
+    }
+
+    .edit-btn:hover {
+        background: #059669;
     }
 </style> 

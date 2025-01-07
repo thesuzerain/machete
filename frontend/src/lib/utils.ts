@@ -9,3 +9,7 @@ export function debounce<T extends (...args: any[]) => any>(
         timeout = setTimeout(() => func(...args), wait);
     };
 } 
+
+export function arraysEqual<T>(a: T[], b: T[]): boolean {
+    return a.length === b.length && a.every((val, index) => val === b[index]);
+}

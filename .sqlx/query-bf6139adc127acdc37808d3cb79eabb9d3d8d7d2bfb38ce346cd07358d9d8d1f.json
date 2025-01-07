@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM events\n        WHERE character = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf6139adc127acdc37808d3cb79eabb9d3d8d7d2bfb38ce346cd07358d9d8d1f"
+}
