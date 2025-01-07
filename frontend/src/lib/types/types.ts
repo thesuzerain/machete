@@ -57,10 +57,33 @@ export interface Log {
 }
 
 export interface InsertLog {
-    campaign: number;
-    template_id: string;
+    name: string;
     description: string;
     events: InsertEvent[];
+}
+
+export interface WIPInsertLog {
+    name: string;
+    description: string;
+    extra_experience: number;
+    characterIds: number[];
+    enemies: WIPLogEnemy[];
+    treasures: WIPLogTreasure[];
+    current_manual_events: InsertEvent[];
+}
+
+// TODO: Revisit these- only for log creation
+export interface WIPLogEnemy {   
+    id: number;
+    count: number;
+    level?: number;
+    type: 'enemy' | 'hazard';
+}
+
+export interface WIPLogTreasure {
+    type: 'currency' | 'item';
+    amount?: number; // TODO: Standardize this
+    itemId?: number; // TODO: Standardize this
 }
 
 export interface LibraryClass {

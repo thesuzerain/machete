@@ -80,7 +80,6 @@ fn check_env() {
     dotenvy::var("ADMIN_API_KEY").expect("ADMIN_API_KEY must be set");
 }
 
-
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"

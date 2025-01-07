@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Character, InsertEvent, LibraryEntity, Log } from '$lib/types/types';
+    import type { Character, InsertEvent, InsertLog, LibraryEntity, Log, WIPInsertLog, WIPLogEnemy, WIPLogTreasure } from '$lib/types/types';
     import LibrarySelector from './LibrarySelector.svelte';
     import { API_URL } from '$lib/config';
     import { getExperienceFromLevel } from '$lib/utils/encounter';
@@ -7,30 +7,20 @@
     import LibraryEntityName from './LibraryEntityName.svelte';
     import { formatCurrency } from '$lib/types/library';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+    import { generateEventsFromData } from '$lib/utils/logs';
+
 
     export let show = false;
     export let selectedCampaignId: number;
     export let characters: Character[];
     export let fetchLogs: () => Promise<void>;
-
-    // TODO: extract to a shared file
-    interface LogEnemy {   
-        id: number;
-        count: number;
-        level?: number;
-        type: 'enemy' | 'hazard';
-    }
-
-    interface LogTreasure {
-        type: 'currency' | 'item';
-        amount?: number;
-        itemId?: number;
-    }
+    export let initialData : WIPInsertLog | null;
+    export let updateOnlyCallback: ((log: WIPInsertLog) => void) | null; // TODO: probably better practice to use runes or on:xxx dispatch
 
     let error: string | null = null;
     let selectedCharacterIds: number[] = [];
-    let enemies: LogEnemy[] = [];
-    let treasures: LogTreasure[] = [];
+    let enemies: WIPLogEnemy[] = [];
+    let treasures: WIPLogTreasure[] = [];
 
     // Subscribe to the stores
     let libraryEnemies: Map<number, LibraryEntity>;
@@ -46,54 +36,26 @@
     let showEventDetails = false;
     let manualEvents: InsertEvent[] = [];
 
+    let name = '';
+    let description = '';
+
+    // Load initial data if provided
+    export function setInitialData(i : WIPInsertLog | null) {
+        console.log("setting initial data", i);
+        if (!i) return;
+        name = i.name;
+        description = i.description;
+        enemies = i.enemies;
+        treasures = i.treasures;
+        manualEvents = i.current_manual_events;
+    }
+    setInitialData(initialData);
+
     let logs: Log[] = [];
 
     // Helper to generate all events based on current form state
     function generateEvents(characterIds: number[]): InsertEvent[] {
-        const events: InsertEvent[] = [];
-        
-        // Generate defeat and experience events for each enemy/hazard
-        for (const enemy of enemies) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: enemy.type === 'enemy' ? 'EnemyDefeated' : 'HazardDefeated',
-                    description: `Defeated ${enemy.count} ${enemy.type}`,
-                    data: {
-                        id: enemy.id,
-                        count: enemy.count
-                    }
-                });
-
-                // Add experience event
-                events.push({
-                    character: characterId,
-                    event_type: 'ExperienceGain',
-                    description: `Gained experience from ${enemy.type}`,
-                    data: {
-                        experience: getExperienceFromLevel(enemy.level || 0, characters.find(c => c.id === characterId)?.level || 0)
-                    }
-                });
-            }
-        }
-
-        // Generate treasure events
-        for (const treasure of treasures) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: treasure.type === 'currency' ? 'CurrencyGain' : 'ItemGain',
-                    description: treasure.type === 'currency' 
-                        ? `Gained ${treasure.amount} currency`
-                        : `Gained item`,
-                    data: treasure.type === 'currency' 
-                        ? { currency: { gold: treasure.amount } }
-                        : { id: treasure.itemId }
-                });
-            }
-        }
-
-        return events;
+        return generateEventsFromData(characterIds, characters, enemies, treasures);
     }
 
     function removeEnemy(index: number) {
@@ -116,13 +78,30 @@
         const form = event.target as HTMLFormElement;
         const formData = new FormData(form);
         
-        const newLog = {
-            name: formData.get('name') as string,
-            description: formData.get('description') as string,
+        const newLog : InsertLog = {
+            name: name,
+            description: description,
             events: eventsToCreate
         };
 
-        try {
+        if (updateOnlyCallback) {
+            // Skipping post if we have an alternative callback
+            const characterIds = selectedCharacterIds.length > 0 
+                ? selectedCharacterIds.map(id => id)
+                : characters.map(c => c.id);
+            let wipLog : WIPInsertLog = {
+                name: newLog.name,
+                description: newLog.description,
+                characterIds: characterIds,
+                current_manual_events: newLog.events,
+                extra_experience: 0, // TODO
+                enemies: enemies,
+                treasures: treasures
+            };
+            updateOnlyCallback(wipLog);
+
+        } else {
+            try {
             const response = await fetch(`${API_URL}/campaign/${selectedCampaignId}/logs`, {
                 method: 'POST',
                 credentials: 'include',
@@ -141,6 +120,8 @@
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create log';
         }
+
+        }
     }
 
     // On every update to the form, generate the events to be created
@@ -152,8 +133,6 @@
 
         eventsToCreate = generateEvents(characterIds);
     }
-
-
 </script>
 
 {#if show}
@@ -165,11 +144,12 @@
                     <div class="form-card">
                         <h3>Log Details</h3>
                         <label for="name">Log Name</label>
-                        <input type="text" id="name" name="name" required />
+                        <input type="text" id="name" name="name" bind:value={name} required />
                             <label for="description">Description</label>
                             <textarea
                                 name="description"
                                 id="description"
+                                bind:value={description}
                                 required
                                 placeholder="Describe what happened..."
                             ></textarea>
@@ -340,7 +320,7 @@
                     {/if}
                 </div>
         
-                <button type="submit">Create Log Entry</button>
+                <button type="submit">{updateOnlyCallback ? "Update" : "Create"} Log Entry</button>
             </form>
         </div>
     </div>

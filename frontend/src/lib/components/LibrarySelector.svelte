@@ -42,7 +42,7 @@
         class: classStore
     };
 
-    const storeEntities = {
+    $: storeEntities = {
         creature: $creatureStore.entities,
         hazard: $hazardStore.entities,
         item: $itemStore.entities,
@@ -57,6 +57,9 @@
         const data = await response.json();
         
         data.forEach((entity: LibraryEntity) => {
+            if (entity.id == 6230) {
+                console.log("eatthbinding", entity);
+            }
             entities.set(entity.id, entity);
         });
         entities = entities;
@@ -142,7 +145,6 @@
 </script>
 
 <div class="entity-selector">
-
     {#if showSelected && storeEntities[entityType].get(+showSelected)}
         <input
         type="text"

@@ -177,6 +177,18 @@ pub async fn delete_character(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     character_id: InternalId,
 ) -> crate::Result<()> {
+    // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
+
+    sqlx::query!(
+        r#"
+        DELETE FROM events
+        WHERE character = $1
+        "#,
+        character_id.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
     sqlx::query!(
         r#"
         DELETE FROM characters
