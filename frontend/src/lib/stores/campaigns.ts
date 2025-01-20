@@ -4,7 +4,7 @@ import { API_URL } from '$lib/config';
 import { auth } from './auth';
 
 function createCampaignStore() {
-    const { subscribe, set, update } = writable<Campaign[]>([]);
+    const { subscribe, set, update } = writable<Map<number,Campaign>>(new Map());
 
     return {
         subscribe,
@@ -14,14 +14,19 @@ function createCampaignStore() {
                     credentials: 'include',
                 });
                 if (!response.ok) throw new Error('Failed to fetch campaigns');
-                const campaigns = await response.json();
-                set(campaigns);
+                const campaigns : Campaign[] = await response.json();
+
+                const campaignMap = new Map();
+                campaigns.forEach(campaign => {
+                    campaignMap.set(campaign.id, campaign);
+                });
+                set(campaignMap);
             } catch (e) {
                 console.error('Error fetching campaigns:', e);
-                set([]);
+                set(new Map());
             }
         },
-        reset: () => set([]),
+        reset: () => set(new Map()),
         addCampaign: async (campaign: Campaign) => {
             try {
                 const response = await fetch(`${API_URL}/campaign`, {

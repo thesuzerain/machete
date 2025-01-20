@@ -1,13 +1,15 @@
 use crate::models::campaign::CampaignPartial;
 use crate::models::ids::InternalId;
+use crate::ServerError;
 
 #[derive(serde::Deserialize)]
 pub struct InsertCampaign {
     pub name: String,
+    pub description: Option<String>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
-pub async fn get_campaign(
+pub async fn get_campaigns_owner(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     owner: InternalId,
 ) -> crate::Result<Vec<CampaignPartial>> {
@@ -15,7 +17,8 @@ pub async fn get_campaign(
         r#"
         SELECT 
             ca.id,
-            ca.name
+            ca.name,
+            description
         FROM campaigns ca
         WHERE 
             ca.owner = $1
@@ -31,6 +34,7 @@ pub async fn get_campaign(
             Ok(CampaignPartial {
                 id: InternalId(row.id as u64),
                 name: row.name,
+                description: row.description,
             })
         })
         .collect::<Result<Vec<CampaignPartial>, sqlx::Error>>()?;
@@ -63,22 +67,25 @@ pub async fn get_owned_campaign_id(
 
 pub async fn insert_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    name: &str,
+    insert: &InsertCampaign,
     owner: InternalId,
-) -> crate::Result<()> {
-    sqlx::query!(
+) -> crate::Result<InternalId> {
+    let id = sqlx::query!(
         r#"
-        INSERT INTO campaigns (name, owner)
-        VALUES ($1, $2)
+        INSERT INTO campaigns (name, owner, description)
+        VALUES ($1, $2, $3)
+        RETURNING id
         "#,
-        name,
+        &insert.name,
         owner.0 as i32,
+        insert.description.as_ref(),
     )
-    .execute(exec)
-    .await?;
+    .fetch_all(exec)
+    .await?.into_iter().next().ok_or(ServerError::InternalError("Failed to insert campaign".to_string()))?.id;
 
-    Ok(())
+    Ok(InternalId(id as u64))
 }
+
 
 pub async fn delete_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,

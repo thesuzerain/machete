@@ -1,23 +1,23 @@
 use crate::{
-    auth::extract_admin_from_headers,
-    models::library::{
+    auth::extract_admin_from_headers, database::{creatures::{CreatureFilters, CreatureSearch}, hazards::HazardSearch, items::ItemSearch, spells::SpellSearch, DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT}, models::library::{
         classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
         spell::LibrarySpell,
-    },
+    }
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use axum_extra::extract::Query;
 use axum_extra::extract::CookieJar;
 use sqlx::{PgPool, Pool};
 
 use crate::{
     database::{
-        self, classes::ClassFilters, creatures::CreatureFilters, hazards::HazardFilters,
+        self, classes::ClassFilters, hazards::HazardFilters,
         items::ItemFilters, spells::SpellFilters,
     },
     ServerError,
@@ -26,15 +26,19 @@ use crate::{
 pub fn router() -> Router<Pool<sqlx::Postgres>> {
     Router::new()
         .route("/creatures", get(get_creatures))
+        .route("/creatures/search", get(get_creatures_search))
         .route("/creatures/:id", get(get_creature_id))
         .route("/creatures", post(insert_creatures))
         .route("/items", get(get_items))
+        .route("/items/search", get(get_items_search))
         .route("/items/:id", get(get_item_id))
         .route("/items", post(insert_items))
         .route("/spells", get(get_spells))
+        .route("/spells/search", get(get_spells_search))
         .route("/spells/:id", get(get_spell_id))
         .route("/spells", post(insert_spells))
         .route("/hazards", get(get_hazards))
+        .route("/hazards/search", get(get_hazards_search))
         .route("/hazards/:id", get(get_hazard_id))
         .route("/hazards", post(insert_hazards))
         .route("/classes", get(get_classes))
@@ -45,7 +49,29 @@ async fn get_creatures(
     Query(payload): Query<CreatureFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
+
     let creatures = database::creatures::get_creatures(&pool, &payload).await?;
+    Ok(Json(creatures))
+}
+
+async fn get_creatures_search(
+    Query(payload): Query<CreatureSearch>,
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
+
+    let creatures = database::creatures::get_creatures_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?;
     Ok(Json(creatures))
 }
 
@@ -76,7 +102,27 @@ async fn get_items(
     Query(payload): Query<ItemFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
     let items = database::items::get_items(&pool, &payload).await?;
+    Ok(Json(items))
+}
+
+async fn get_items_search(
+    Query(payload): Query<ItemSearch>,
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
+    let items = database::items::get_items_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?;
     Ok(Json(items))
 }
 
@@ -107,7 +153,27 @@ async fn get_spells(
     Query(payload): Query<SpellFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    };
     let spells = database::spells::get_spells(&pool, &payload).await?;
+    Ok(Json(spells))
+}
+
+async fn get_spells_search(
+    Query(payload): Query<SpellSearch>,
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    };
+    let spells = database::spells::get_spells_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?;
     Ok(Json(spells))
 }
 
@@ -138,7 +204,27 @@ async fn get_hazards(
     Query(payload): Query<HazardFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
     let hazards = database::hazards::get_hazards(&pool, &payload).await?;
+    Ok(Json(hazards))
+}
+
+async fn get_hazards_search(
+    Query(payload): Query<HazardSearch>,
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
+    let hazards = database::hazards::get_hazards_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?;
     Ok(Json(hazards))
 }
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::models::ids::InternalId;
 use crate::models::library::{
     item::{Currency, LibraryItem},
@@ -5,11 +7,12 @@ use crate::models::library::{
 };
 
 use crate::models::query::CommaSeparatedVec;
+use crate::ServerError;
 use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct ItemFilters {
     pub ids: Option<CommaSeparatedVec>,
     pub min_level: Option<i8>,
@@ -35,17 +38,43 @@ impl ItemFilters {
     }
 }
 
-// TODO: May be prudent to make a separate models system for the database.
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct ItemSearch {
+    pub query: Vec<String>,
+    pub min_similarity: Option<f32>, // 0.0 to 1.0
+
+    #[serde(flatten)]
+    pub filters: ItemFilters,
+}
+
 pub async fn get_items(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    condition: &ItemFilters,
+) -> crate::Result<Vec<LibraryItem>> {    
+    get_items_search(exec, &ItemSearch {
+        query: vec!["".to_string()], // Empty search query
+        min_similarity: None,
+        filters: condition.clone(),
+    }, DEFAULT_MAX_LIMIT).await?.into_iter().next().map(|(_, v)| v).ok_or_else(|| ServerError::NotFound)
+}
+
+// TODO: May be prudent to make a separate models system for the database.
+pub async fn get_items_search(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
-    condition: &ItemFilters,
-) -> crate::Result<Vec<LibraryItem>> {
-    let limit = condition.limit.unwrap_or(DEFAULT_MAX_LIMIT);
+    search: &ItemSearch,
+    default_limit: u64,
+) -> crate::Result<HashMap<String, Vec<LibraryItem>>> {
+    let condition = &search.filters;
+
+    // TODO: check on number of queries
+    let limit = condition.limit.unwrap_or(default_limit);
     let page = condition.page.unwrap_or(0);
     let offset = page * limit;
+
+    let min_similarity = search.min_similarity.unwrap_or(0.0);
 
     let ids = condition.ids.clone().map(|t| {
         t.into_inner()
@@ -53,37 +82,46 @@ pub async fn get_items(
             .map(|id| id as i32)
             .collect::<Vec<i32>>()
     });
+
     // TODO: data type 'as'
     let query = sqlx::query!(
         r#"
-        SELECT 
-            lo.id,
-            lo.name,
-            lo.game_system,
-            lo.url,
-            lo.description,
-            li.rarity,
-            li.level,
-            li.price,
-            ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
-        FROM library_objects lo
-        INNER JOIN library_items li ON lo.id = li.id
-        LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-        LEFT JOIN tags t ON lot.tag_id = t.id
+        SELECT
+            c.*, query as "query!"
+        FROM UNNEST($10::text[]) query
+        CROSS JOIN LATERAL (
+            SELECT 
+                SUM(SIMILARITY(lo.name, query)) AS similarity,
+                lo.id,
+                lo.name,
+                lo.game_system,
+                lo.url,
+                lo.description,
+                li.rarity,
+                li.level,
+                li.price,
+                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
+            FROM library_objects lo
+            INNER JOIN library_items li ON lo.id = li.id
+            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
+            LEFT JOIN tags t ON lot.tag_id = t.id
 
-        WHERE
-            ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
-            AND ($2::int IS NULL OR rarity = $2)
-            AND ($3::int IS NULL OR game_system = $3)
-            AND ($4::int IS NULL OR level >= $4)
-            AND ($5::int IS NULL OR level <= $5)
-            AND ($6::int IS NULL OR price >= $6)
-            AND ($7::int IS NULL OR price <= $7)
-            AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
-            AND ($9::int[] IS NULL OR lo.id = ANY($9))
-        
-        GROUP BY lo.id, li.id ORDER BY lo.name
-        LIMIT $10 OFFSET $11
+            WHERE
+                ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
+                AND ($2::int IS NULL OR rarity = $2)
+                AND ($3::int IS NULL OR game_system = $3)
+                AND ($4::int IS NULL OR level >= $4)
+                AND ($5::int IS NULL OR level <= $5)
+                AND ($6::int IS NULL OR price >= $6)
+                AND ($7::int IS NULL OR price <= $7)
+                AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
+                AND ($9::int[] IS NULL OR lo.id = ANY($9))
+                AND SIMILARITY(lo.name, query) >= $11
+            
+            GROUP BY lo.id, li.id ORDER BY lo.name
+            LIMIT $12 OFFSET $13
+        ) c
+        ORDER BY similarity DESC
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -94,6 +132,8 @@ pub async fn get_items(
         condition.max_price.map(|p| p as i32),
         condition.tags.first(), // TODO: This is incorrect, only returning one tag.
         &ids as _,
+        &search.query,
+        min_similarity,
         limit as i64,
         offset as i64,
     )
@@ -102,10 +142,11 @@ pub async fn get_items(
 
     let items = query
         .into_iter()
-        .map(|row| {
+        .fold(HashMap::new(), |map, row| {
             // TODO: conversions still here shouldnt be needed
             // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
-            Ok(LibraryItem {
+            let query = row.query;
+            let item = LibraryItem {
                 id: InternalId(row.id as u64),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
@@ -115,9 +156,11 @@ pub async fn get_items(
                 tags: row.tags.unwrap_or_default(),
                 url: row.url,
                 description: row.description.unwrap_or_default(),
-            })
-        })
-        .collect::<Result<Vec<LibraryItem>, sqlx::Error>>()?;
+            };
+            let mut map = map;
+            map.entry(query).or_insert_with(Vec::new).push(item);
+            map
+        });
     Ok(items)
 }
 

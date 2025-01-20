@@ -45,7 +45,7 @@ async fn get_campaigns(
     jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let campaigns = database::campaigns::get_campaign(&pool, user.id).await?;
+    let campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     Ok(Json(campaigns))
 }
 
@@ -55,8 +55,13 @@ async fn insert_campaign(
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    database::campaigns::insert_campaign(&pool, &campaign.name, user.id).await?;
-    Ok(StatusCode::NO_CONTENT)
+    let campaign_id = database::campaigns::insert_campaign(&pool,&campaign, user.id).await?;
+    let owned_campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
+    let campaign = owned_campaigns
+        .into_iter()
+        .find(|c| c.id == campaign_id)
+        .ok_or(ServerError::NotFound)?;
+    Ok(Json(campaign))
 }
 
 async fn get_characters(

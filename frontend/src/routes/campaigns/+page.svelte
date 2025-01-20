@@ -58,8 +58,9 @@
                 classStore.fetchEntities({}),
             ]);
 
-            if (campaigns.length > 0) {
-                selectedCampaignId = campaigns[0].id;
+            if (campaigns.size > 0) {
+                // TODO: Way to set most recent campaign as default. Currently just selects first campaign in mapo
+                selectedCampaignId = campaigns.keys().next()?.value || null;
             }
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to load campaigns';
@@ -132,8 +133,8 @@
     <div class="campaign-selector">
         <select bind:value={selectedCampaignId}>
             <option value={null}>Select a campaign...</option>
-            {#each campaigns as campaign}
-                <option value={campaign.id}>{campaign.name}</option>
+            {#each campaigns as [id, campaign]}
+                <option value={id}>{campaign.name}</option>
             {/each}
         </select>
         <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
@@ -212,10 +213,13 @@
 <CampaignModal
     bind:show={showNewCampaignModal}
     bind:editingCampaign
-    on:saved={async () => {
-        await campaignStore.fetchCampaigns();
+    on:saved={(e : CustomEvent<number>) => {
         showNewCampaignModal = false;
         editingCampaign = null;
+        
+        if (e.detail) {
+            selectedCampaignId = e.detail;
+        }
     }}
     on:close={() => {
         showNewCampaignModal = false;

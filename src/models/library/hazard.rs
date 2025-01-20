@@ -16,7 +16,7 @@ pub struct LibraryHazard {
     pub description: String,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub enum HazardType {
     #[default]
     Trap,

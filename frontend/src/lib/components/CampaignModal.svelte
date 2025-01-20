@@ -52,6 +52,12 @@
             // Get campaigns
             await campaignStore.fetchCampaigns();
             
+            // Get id 
+            const data = await response.json();
+
+            // TODO: Switch active modal to use new campaign
+            dispatch('saved', data.id);
+
             closeModal();
         } catch (e) {
             console.error('Error saving campaign:', e);

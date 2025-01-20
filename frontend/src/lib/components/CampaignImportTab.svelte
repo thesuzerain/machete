@@ -109,13 +109,11 @@
             importData = JSON.parse(jsonInput);
 
             console.log(importData);
-            console.log("here1");
 
             // Initialize character mappings
             const uniqueCharNames = new Set<string>();
             importData.characters.forEach(char => uniqueCharNames.add(char.name));
             
-            console.log("here2");
             // Create initial mappings for each unique character
             uniqueCharNames.forEach(name => {
                 characterMappings[name] = {
@@ -125,69 +123,69 @@
 
                 // Check if a character with the same exact name already exists in the campaign, default to mapping to that
                 const existingChar = characters.find(c => c.name === name);
-                console.log("Found existing character", existingChar);
                 if (existingChar) {
                     characterMappings[name].targetId = existingChar.id;
                     characterMappings[name].isNew = false;
                 }
             });
-            console.log("here3");
 
             // Initialize log mappings
             importData.logs.forEach(log => {
                 logMappings[log.name] = null;  // Default to creating new
             });
 
-            // Initialize enemy mappings - try to match names exactly first
+            // Initialize enemy mappings
             const uniqueEnemyNames = new Set(
                 importData.logs.flatMap(log => log.enemies)
             );
-            console.log("here4");
 
             // TODO: Should do a better actual database check. Should start by  checking cached, then maybe with a fuzzy search, and/or a bulk search?
+            const creatureMatches = await creatureStore.searchBestEntities(Array.from(uniqueEnemyNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueEnemyNames) {
-                // Search for the enemy in the library
-                // TODO: As said above, should do one fetch instead of n times
-                await creatureStore.fetchEntities({ name: name });
-
-                // Check if an enemy was found matching the name exactly
-                const match = Array.from(enemies.entities.values()).find(e => e.name === name); 
-                enemyMappings[name] = match?.id || 0; // 0 means "needs mapping"
-                enemyIncludes[name] = true;
+                let match = creatureMatches.get(name);
+                if (match) {
+                    enemyMappings[name] = match[0].id;
+                    enemyIncludes[name] = true;
+                } else {
+                    enemyMappings[name] = 0;
+                    enemyIncludes[name] = false;
+                }
             }
-            console.log("here5");
 
+            // Initialize trap mappings
             const uniqueTrapNames = new Set(
                 importData.logs.flatMap(log => log.traps)
             );
 
+            const hazardMatches = await hazardStore.searchBestEntities(Array.from(uniqueTrapNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueTrapNames) {
-                // Search for the trap in the library
-                // TODO: As said above, should do one fetch instead of n times
-                await hazardStore.fetchEntities({ name: name });
-
-                // Check if a trap was found matching the name exactly
-                const match = Array.from(hazards.entities.values()).find(h => h.name === name);
-                trapMappings[name] = match?.id || 0; // 0 means "needs mapping"
-                trapIncludes[name] = true;
+                let match = hazardMatches.get(name);
+                if (match) {
+                    trapMappings[name] = match[0].id;
+                    trapIncludes[name] = true;
+                } else {
+                    trapMappings[name] = 0;
+                    trapIncludes[name] = false;
+                }
             }
 
-
-            // Initialize item mappings - try to match names exactly first
+            // Initialize item mappings
             const uniqueItemNames = new Set(
                 importData.logs.flatMap(log => 
                     log.rewards.filter((r): r is string => typeof r === 'string')
                 )
             );
-            console.log("here6");
 
+            const itemMatches = await itemStore.searchBestEntities(Array.from(uniqueItemNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueItemNames) {
-                // TODO: As said above, should do one fetch instead of n times
-                await itemStore.fetchEntities({ name: name });
-
-                const match = Array.from(items.entities.values()).find(i => i.name === name);
-                itemMappings[name] = match?.id || 0; // 0 means "needs mapping"
-                itemIncludes[name] = true;
+                let match = itemMatches.get(name);
+                if (match) {
+                    itemMappings[name] = match[0].id;
+                    itemIncludes[name] = true;
+                } else {
+                    itemMappings[name] = 0;
+                    itemIncludes[name] = false;
+                }
             }
            
             step = 'characters';
@@ -204,9 +202,6 @@
             // TODO: Ensure no infinite loops of one mapping to another
             // TODO: Guessing default option for identical names to existing ones
             // TODO: Add a skip option for characters that don't map to anything and shouldn't be considered
-            
-            console.log(characterMappings);
-
             for (const char of importData?.characters || []) {
                 const mapping = characterMappings[char.name];
                 if (!mapping) continue;
@@ -217,8 +212,6 @@
                 }
                 charactersByTarget.get(targetId)?.push(char);
             }
-
-            console.log(charactersByTarget);
 
             // Create new characters where needed
             const submittableChars = [...charactersByTarget]
@@ -237,11 +230,9 @@
                     };
                 });
             
-            console.log(submittableChars);
 
             await characterStore.addCharacters(selectedCampaignId, submittableChars);
             
-            console.log("Done, moving to entities");
             step = 'entities';
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create characters';
@@ -272,6 +263,7 @@
             error = 'Please map all enemies, traps, and items before continuing';
             return;
         }
+        console.log("resre1233213123a");
 
         // For a fast import, assume supplied characters are for every log
         participatingCharacterIds = characters.filter(c => characterMappings[c.name])
@@ -379,6 +371,8 @@
             step = 'input';
             jsonInput = '';
             importData = null;
+            console.log("fffff");
+
             characterMappings = {};
             logMappings = {};
             enemyMappings = {};
@@ -460,10 +454,10 @@
                         <p>{char.description}</p>
                     </div>
                     <select 
-                        bind:value={characterMappings[char.name].targetId}
-                        on:change={() => {
-                            characterMappings[char.name].isNew = 
-                                typeof characterMappings[char.name].targetId === 'string';
+                        value={characterMappings[char.name].targetId}
+                        on:change={e => {
+                            characterMappings[char.name].targetId = e.target.value;
+                            characterMappings[char.name].isNew = e.target.value.startsWith('new_');
                         }}
                     >
                         <option value={`new_${char.name}`}>Create New Character</option>
@@ -787,6 +781,21 @@
         background: #2563eb;
     }
 
+    .character-mapping {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .character-mapping select {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.475rem;
+    }
+
+
     .log-header {
         display: flex;
         justify-content: space-between;
@@ -861,7 +870,7 @@
         border-radius: 0.25rem;
         border: none;
         cursor: pointer;
-        font-size: 0.875rem;
+        font-size: 0.475rem;
     }
 
     .merge-btn {

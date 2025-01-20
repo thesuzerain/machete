@@ -14,6 +14,7 @@ pub mod spells;
 pub mod tags;
 
 pub const DEFAULT_MAX_LIMIT: u64 = 100;
+pub const DEFAULT_MAX_GROUP_LIMIT: u64 = 5;
 
 pub async fn connect() -> Result<PgPool, sqlx::Error> {
     let database_url = dotenvy::var("DATABASE_URL").expect("`DATABASE_URL` not in .env");

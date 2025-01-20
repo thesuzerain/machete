@@ -29,6 +29,7 @@ impl Default for Campaign {
 pub struct CampaignPartial {
     pub id: InternalId,
     pub name: String,
+    pub description: Option<String>,
 }
 
 // Add this struct for campaign metadata

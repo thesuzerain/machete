@@ -24,6 +24,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
 
     const { subscribe, set, update } = writable(initialState);
 
+    // TODO: Explicit type for params
     async function fetchEntities(params: Record<string, string>) {
         const endpoint = routePart[entityType];
         const queryString = new URLSearchParams(params).toString();
@@ -52,6 +53,42 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
             const errorMessage = e instanceof Error ? e.message : `Failed to load ${entityType}s`;
             update(state => ({ ...state, loading: false, error: errorMessage }));
             return false;
+        }
+    }
+
+    // TODO: Explicit type for params
+    async function searchBestEntities(queries : Array<string>, minSimilarity: number, params: Record<string, string>) {
+        const endpoint = routePart[entityType];
+        const queryString = new URLSearchParams(params).toString();
+        const queriesString = queries.length > 0 ? '&query=' + queries.join('&query=') : '';
+        update(state => ({ ...state, loading: true, error: null }));
+        
+        try {
+            const response = await fetch(`${API_URL}/library/${endpoint}/search?${queryString}${queriesString}&min_similarity=${minSimilarity}`);
+            if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
+            const data : Map<string, Array<LibraryEntity>> = new Map(Object.entries(await response.json()));
+            
+            update(state => {
+
+                const newEntities = new Map(state.entities);
+                for (const [key, value] of data.entries()) {
+                    value.forEach((entity: LibraryEntity) => {
+                        newEntities.set(entity.id, entity);
+                    });
+                }
+                return {
+                    entities: newEntities,
+                    loading: false,
+                    error: null
+                };
+            });
+
+            // Return the structure, which is a map of queries to arrays of entities
+            return data;
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : `Failed to load ${entityType}s`;
+            update(state => ({ ...state, loading: false, error: errorMessage }));
+            return null;
         }
     }
 
@@ -96,6 +133,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
     return {
         subscribe,
         fetchEntities,
+        searchBestEntities,
         getEntity,
         insertEntity,
         reset

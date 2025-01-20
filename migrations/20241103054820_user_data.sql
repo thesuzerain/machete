@@ -22,7 +22,8 @@ CREATE TABLE library_hazards (
 CREATE TABLE campaigns (
     id SERIAL PRIMARY KEY,
     owner BIGINT REFERENCES users NOT NULL,
-    name VARCHAR(60) NOT NULL
+    name VARCHAR(60) NOT NULL,
+    description TEXT
 );
 
 CREATE TABLE characters (
