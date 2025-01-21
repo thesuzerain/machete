@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::models::query::CommaSeparatedVec;
 use super::DEFAULT_MAX_LIMIT;
 
+// TODO: Consider (for this and others) moving the limit/page to both a separate struct AND 'search'. 
+// They both use both fields the same way internally, but they mean slightly different things in the returned data, and we 
+// sometimes need to apply limits midway through the pipeline.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct CreatureFilters {
     pub ids: Option<CommaSeparatedVec>,
@@ -53,7 +56,10 @@ pub async fn get_creatures(
         query: vec!["".to_string()], // Empty search query
         min_similarity: None,
         filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next().map(|(_, v)| v).ok_or_else(|| ServerError::NotFound)
+    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
+    .map(|(_, v)| 
+    v.into_iter().map(|(_, v)| v).collect()
+).ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -64,7 +70,7 @@ pub async fn get_creatures_search(
     // https://github.com/launchbadge/sqlx/issues/291
     search: &CreatureSearch,
     default_limit: u64
-) -> crate::Result<HashMap<String, Vec<LibraryCreature>>> {
+) -> crate::Result<HashMap<String, Vec<(f32,LibraryCreature)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -154,7 +160,7 @@ pub async fn get_creatures_search(
                 description: row.description.unwrap_or_default(),
             };
 
-            map.entry(query).or_insert_with(Vec::new).push(creature);
+            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(),creature));
             map
         });
     Ok(creatures)

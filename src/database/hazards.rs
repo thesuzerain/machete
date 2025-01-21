@@ -55,7 +55,10 @@ pub async fn get_hazards(
         query: vec!["".to_string()], // Empty search query
         min_similarity: None,
         filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next().map(|(_, v)| v).ok_or_else(|| ServerError::NotFound)
+    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
+    .map(|(_, v)| 
+    v.into_iter().map(|(_, v)| v).collect()
+).ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -66,7 +69,7 @@ pub async fn get_hazards_search(
     // https://github.com/launchbadge/sqlx/issues/291
     search: &HazardSearch,
     default_limit: u64,
-) -> crate::Result<HashMap<String, Vec<LibraryHazard>>> {
+) -> crate::Result<HashMap<String, Vec<(f32,LibraryHazard)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -148,7 +151,7 @@ pub async fn get_hazards_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
             };
-            map.entry(query).or_insert_with(Vec::new).push(hazard);
+            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(), hazard));
             map
         });
     Ok(hazards)

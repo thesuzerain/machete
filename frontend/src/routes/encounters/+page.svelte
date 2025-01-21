@@ -4,6 +4,7 @@
     import { onMount } from 'svelte';
     import type { Character } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
+    import EncounterCreator from "$lib/components/EncounterCreator.svelte";
     import { id } from 'date-fns/locale';
     import { 
         getExperienceFromLevel, 
@@ -28,9 +29,12 @@
   import { API_URL } from '$lib/config';
   import { encounterStore } from '$lib/stores/encounters';
   import { campaignStore } from '$lib/stores/campaigns';
+  import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+  import { characterStore } from '$lib/stores/characters';
 
 library.add(faLink)
 
+  // TODO: Exportable
     interface LibraryEntity {
         id: number;
         name: string;
@@ -38,157 +42,72 @@ library.add(faLink)
         price?: Currency;  // Optional for items (cost)
     }
 
-    interface PartyConfig {
-        playerCount: number;
-        partyLevel: number;
-    }
-
-    let libraryEnemies: Map<number, LibraryEntity> = new Map();
-    let libraryHazards: Map<number, LibraryEntity> = new Map();
-    let libraryItems: Map<number, LibraryEntity> = new Map();
-
     const campaignId = parseInt($page.params.id);
-    let encounters: Encounter[] = [];
-    let campaignCharacters: Character[] = [];
-    let loading = true;
-    let error: string | null = null;
-
-    // Form states
-    let editingEncounter: Encounter | null = null;
-    let completingEncounter: Encounter | null = null;
-    let selectedCharacterIds: number[] = [];
-
+    let loading = $state(true);
+    let error: string | null = $state(null);
     
-    // Add new state for auto-saving
-    let saveTimeout: NodeJS.Timeout;
-    const AUTOSAVE_DELAY = 2000; // 2 seconds
 
-    // Modify the newEncounter state to track the current draft
-    let draftEncounter: CreateEncounter = {
-        name: '',
-        description: '',
-        enemies: [],
-        hazards: [],
-        treasure_items: [],
-        treasure_currency: { gold: 0 },
-        party_level: 1,
-        party_size: 4
-    };
+    // Variables for encounter display
+    let encountersListOpen = $state(true);
+    let encounterOpenStates: { [key: number]: boolean } = $state({});
+    let encounterFilter = $state('');
+    let encounterSort: 'name' | 'level' | 'xp' = $state('name');
+    let sortDirection: 'asc' | 'desc' = $state('asc');
 
-    let campaignPartyConfig: PartyConfig = {
-        party_level: 1,
-        party_size: 4
-    };
-
-    // Add these variables near the top of the script section, with the other state variables
-    let enemiesSectionOpen = true;
-    let hazardsSectionOpen = true;
-    let treasureSectionOpen = true;
-
-    // Add these to your script section near the top with other state variables
-    let encountersListOpen = true;
-    let encounterOpenStates: { [key: number]: boolean } = {};
-    let encounterFilter = '';
-    let encounterSort: 'name' | 'level' | 'xp' = 'name';
-    let sortDirection: 'asc' | 'desc' = 'asc';
+    // Form values for editing/completing encounters
+    let editingEncounter: Encounter | null = $state(null);
+    let completingEncounter: Encounter | null = $state(null);
+    let selectedCharacterIds: number[] = $state([]);
 
     // Add a new state variable for selected campaign
-    let selectedCampaign: string | null = null;
-    let campaigns: { id: string, name: string, playerCount: number, partyLevel: number }[] = [];
+    let selectedCompletionCampaign: number | null = $state(null);
+    let campaignCharacters = $derived((selectedCompletionCampaign ? $characterStore.get(selectedCompletionCampaign) : []) || []);
 
-    // Add this state variable near the top with other state variables
-    let selectedCompletionCampaign: string | null = null;
 
-    // Subscribe to the store
-    $: encounters = $encounterStore;
-
-    // Subscribe to the campaign store
-    $: campaigns = $campaignStore;
+    // Subscribe to the stores
+    let encounters = $derived($encounterStore);
+    let campaigns = $derived( $campaignStore);
+    let libraryEnemies = $derived($creatureStore);
+    let libraryHazards = $derived($hazardStore);
+    let libraryItems = $derived($itemStore);
 
     // Fetch campaigns data
     async function fetchCampaigns() {
         await campaignStore.fetchCampaigns();
     }
 
-    // Fetch characters for the selected campaign
-    async function fetchCampaignCharacters(campaignId: string) {
-        try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
-                credentials: 'include',
-            });
-            if (!response.ok) throw new Error('Failed to fetch campaign characters');
-            campaignCharacters = await response.json();
-
-            // Set PartyConfig to the player count and level of the campaign
-            draftEncounter.party_size = campaignCharacters.length;
-            draftEncounter.party_level = campaignCharacters.reduce((max, char) => Math.max(max, char.level), 0);
-            campaignPartyConfig = {
-                party_size: campaignCharacters.length,
-                party_level: draftEncounter.party_level
-            };
-        } catch (e) {
-            console.error(e);
-            error = e instanceof Error ? e.message : 'Failed to fetch campaign characters';
-        }
-    }
-
-    // Watch for changes in selectedCampaign
-    $: if (selectedCampaign) {
-        const campaign = campaigns.find(c => c.id === selectedCampaign);
-        if (campaign) {
-            fetchCampaignCharacters(selectedCampaign); // Fetch characters whenever a new campaign is selected
-        }
-    }
-
-    // Reset selectedCampaign to 'None' if player count or level is manually changed
-    $: if (draftEncounter.party_size !== draftEncounter.party_size ||
-           draftEncounter.party_level !== campaignPartyConfig.party_level) {
-        selectedCampaign = null;
-    }
-
     async function loadLibraryData() {
         try {
+            // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
                 encounters.flatMap(e => e.enemies)
-                    .concat(draftEncounter.enemies)
             );
             
             if (enemyIds.size > 0) {
-                const enemiesResponse = await fetch(`${API_URL}/library/creatures?ids=${Array.from(enemyIds).join(',')}`, {
-                    credentials: 'include',
-                });
-                if (!enemiesResponse.ok) throw new Error('Failed to fetch creatures');
-                const enemies: LibraryEntity[] = await enemiesResponse.json();
-                libraryEnemies = new Map(enemies.map(e => [e.id, e]));
+                await creatureStore.fetchEntities({
+                    ids: Array.from(enemyIds).join(',')
+                })
             }
 
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
                 encounters.flatMap(e => e.hazards)
-                    .concat(draftEncounter.hazards)
             );
             if (hazardIds.size > 0) {
-                const hazardsResponse = await fetch(`${API_URL}/library/hazards?ids=${Array.from(hazardIds).join(',')}`, {
-                    credentials: 'include',
+                await hazardStore.fetchEntities({
+                    ids: Array.from(hazardIds).join(',')
                 });
-                if (!hazardsResponse.ok) throw new Error('Failed to fetch hazards');
-                const hazards: LibraryEntity[] = await hazardsResponse.json();
-                libraryHazards = new Map(hazards.map(h => [h.id, h]));
             }
 
             // Load any items that are in current encounters
             const itemIds = new Set(
                 encounters.flatMap(e => e.treasure_items)
-                    .concat(draftEncounter.treasure_items)
             );
             if (itemIds.size > 0) {
-                const itemsResponse = await fetch(`${API_URL}/library/items?ids=${Array.from(itemIds).join(',')}`, {
-                    credentials: 'include',
-                });
-                if (!itemsResponse.ok) throw new Error('Failed to fetch items');
-                const items: LibraryEntity[] = await itemsResponse.json();
-                libraryItems = new Map(items.map(i => [i.id, i]));
+                await itemStore.fetchEntities({
+                    ids: Array.from(itemIds).join(',')
+                }); 
             }
         } catch (e) {
             console.error(e);
@@ -200,13 +119,6 @@ library.add(faLink)
         requireAuth();
 
         try {
-            // First check for any in-progress encounter
-            const inProgress = await encounterStore.getDraft();
-            if (inProgress) {
-                draftEncounter = inProgress;
-            }
-
-            // Then load other encounters and campaigns
             await Promise.all([
                 fetchEncounters(),
                 fetchCampaigns(),
@@ -219,78 +131,38 @@ library.add(faLink)
         }
     });
 
-    // Auto-save function
-    async function autoSave() {
-        if (saveTimeout) clearTimeout(saveTimeout);
-        
-        saveTimeout = setTimeout(async () => {
-            try {
-                await encounterStore.updateDraft({
-                    ...draftEncounter,
-                    status: 'InProgress'
-                });
-            } catch (e) {
-                error = e instanceof Error ? e.message : 'Failed to save draft';
+    function getEnemyDetails(id: number) {
+        return libraryEnemies.entities.get(id);
+    }
+
+    function getHazardDetails(id: number) {
+        return libraryHazards.entities.get(id);
+    }
+
+    function getItemDetails(id: number) {
+        return libraryItems.entities.get(id);
+    }
+
+
+    async function fetchEncounters() {
+        await encounterStore.fetchEncounters();
+    }
+
+    function getEncounterXP(encounter: Encounter): number {
+        let total = 0;
+        encounter.enemies.forEach(enemyId => {
+            const enemy = getEnemyDetails(enemyId);
+            if (enemy?.level) {
+                total += getExperienceFromLevel(encounter.party_level, enemy.level);
             }
-        }, AUTOSAVE_DELAY);
-    }
-
-    // Modify the createEncounter function
-    async function createEncounter(event: SubmitEvent) {
-        event.preventDefault();
-        
-        try {
-            const response = await fetch(`${API_URL}/encounters`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify([{
-                    ...draftEncounter,
-                }]),
-            });
-
-            if (!response.ok) throw new Error('Failed to create encounter');
-            
-            // Reset draft
-            draftEncounter = {
-                name: '',
-                description: '',
-                enemies: [],
-                hazards: [],
-                treasure_items: [],
-                treasure_currency: { gold: 0 }
-            };
-            
-            // Clear any existing draft
-            await fetch(`${API_URL}/encounters/draft`, {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-
-            await fetchEncounters();
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to create encounter';
-        }
-    }
-
-    async function updateEncounter(encounter: Encounter) {
-        try {
-            const response = await fetch(`${API_URL}/encounters/${encounter.id}`, {
-                method: 'PUT',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({encounter}),
-            });
-
-            if (!response.ok) throw new Error('Failed to update encounter');
-            
-            await fetchEncounters();
-            editingEncounter = null;
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to update encounter';
-        }
+        });
+        encounter.hazards.forEach(hazardId => {
+            const hazard = getHazardDetails(hazardId);
+            if (hazard?.level) {
+                total += getExperienceFromLevel(encounter.party_level, hazard.level);
+            }
+        });
+        return total;
     }
 
     async function completeEncounter(encounter: Encounter | null) {
@@ -316,7 +188,7 @@ library.add(faLink)
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character: charId,
                                 event_type: 'EnemyDefeated',
-                                description: `Defeated ${libraryEnemies.get(enemyId)?.name}`,
+                                description: `Defeated ${libraryEnemies.entities.get(enemyId)?.name}`,
                                 data: {
                                     id: enemyId,
                                 }
@@ -327,9 +199,9 @@ library.add(faLink)
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(draftEncounter.party_level, libraryEnemies.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.get(enemyId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.entities.get(enemyId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(draftEncounter.party_level, libraryEnemies.get(enemyId)?.level || 0)
+                                    experience: getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(enemyId)?.level || 0)
                                 }
                             })).flat()
                         ),
@@ -338,7 +210,7 @@ library.add(faLink)
                             selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
                                 character: charId,
                                 event_type: 'HazardDefeated',
-                                description: `Overcame ${libraryHazards.get(hazardId)?.name}`,
+                                description: `Overcame ${libraryHazards.entities.get(hazardId)?.name}`,
                                 data: {
                                     id: hazardId,
                                 }
@@ -349,9 +221,9 @@ library.add(faLink)
                             selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
                                 character: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(draftEncounter.party_level, libraryHazards.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.get(hazardId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryHazards.entities.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.entities.get(hazardId)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(draftEncounter.party_level, libraryHazards.get(hazardId)?.level || 0)
+                                    experience: getExperienceFromLevel(encounter.party_level, libraryHazards.entities.get(hazardId)?.level || 0)
                                 }
                             })).flat()
                         ),
@@ -369,7 +241,7 @@ library.add(faLink)
                             selectedCharacterIds.map(charId => ({
                                 character: charId,
                                 event_type: 'ItemGain',
-                                description: `Found ${libraryItems.get(itemId)?.name}`,
+                                description: `Found ${libraryItems.entities.get(itemId)?.name}`,
                                 data: {
                                     id: itemId
                                 }
@@ -402,368 +274,33 @@ library.add(faLink)
         }
     }
 
-    function getEnemyDetails(id: number) {
-        return libraryEnemies.get(id);
-    }
-
-    function getHazardDetails(id: number) {
-        return libraryHazards.get(id);
-    }
-
-    function getItemDetails(id: number) {
-        return libraryItems.get(id);
-    }
-
-    function getTotalTreasure() {
-        let total = draftEncounter.treasure_currency.gold || 0;
-        draftEncounter.treasure_items.forEach(itemId => {
-            const item = getItemDetails(itemId);
-            if (item && item.price?.gold) {
-                total += item.price.gold;
-            }
-        });
-        return total;
-    }
-
-    async function fetchEncounters() {
-        await encounterStore.fetchEncounters();
-    }
-
-    function getEnemiesXP(): number {
-        return draftEncounter.enemies.reduce((total, enemyId) => {
-            const enemy = getEnemyDetails(enemyId);
-            if (enemy?.level) {
-                return total + getExperienceFromLevel(draftEncounter.party_level, enemy.level);
-            }
-            return total;
-        }, 0);
-    }
-
-    function getHazardsXP(): number {
-        return draftEncounter.hazards.reduce((total, hazardId) => {
-            const hazard = getHazardDetails(hazardId);
-            if (hazard?.level) {
-                return total + getExperienceFromLevel(draftEncounter.party_level, hazard.level);
-            }
-            return total;
-        }, 0);
-    }
-
-    // Add reactive statement for difficulty calculation
-    $: encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
-    $: if (libraryEnemies || libraryHazards || libraryItems || draftEncounter.enemies || draftEncounter.hazards || draftEncounter.treasure_items) {
-        encounterDifficulty = getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
-    }
-
-    // Add reactive statements for auto-saving
-    $: {
-        if (draftEncounter.name || 
-            draftEncounter.description || 
-            draftEncounter.enemies.length || 
-            draftEncounter.hazards.length || 
-            draftEncounter.treasure_items.length || 
-            draftEncounter.treasure_currency.gold) {
-            autoSave();
-        }
-    }
-
-    // Add these helper functions
-    function getEncounterXP(encounter: Encounter): number {
-        let total = 0;
-        encounter.enemies.forEach(enemyId => {
-            const enemy = getEnemyDetails(enemyId);
-            if (enemy?.level) {
-                total += getExperienceFromLevel(draftEncounter.party_level, enemy.level);
-            }
-        });
-        encounter.hazards.forEach(hazardId => {
-            const hazard = getHazardDetails(hazardId);
-            if (hazard?.level) {
-                total += getExperienceFromLevel(draftEncounter.party_level, hazard.level);
-            }
-        });
-        return total;
-    }
 
     // Add this reactive statement to sort and filter encounters
-    $: filteredAndSortedEncounters = encounters
+    let filteredAndSortedEncounters = $derived(encounters
         .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
         .sort((a, b) => {
             const direction = sortDirection === 'asc' ? 1 : -1;
             switch (encounterSort) {
                 case 'name':
                     return direction * a.name.localeCompare(b.name);
+                // TODO: Other sorts require not draftEncounter but encounter-specific data
                 case 'level':
-                    return direction * (draftEncounter.party_level - draftEncounter.party_level);
+                    return direction * (a.party_level - b.party_level);
                 case 'xp':
                     return direction * (getEncounterXP(a) - getEncounterXP(b));
                 default:
                     return 0;
             }
-        });
-
-    // Add this reactive statement to reset character selection when campaign changes
-    $: if (selectedCompletionCampaign) {
-        selectedCharacterIds = [];
-        fetchCampaignCharacters(selectedCompletionCampaign);
-    }
+        })); 
 </script>
 
 <div class="encounters-page">
     <h1>Campaign Encounters</h1>
-
     {#if error}
         <div class="error">{error}</div>
     {/if}
 
-    <div class="encounter-form">
-        <h2>Create New Encounter</h2>
-        <form on:submit={createEncounter} class="encounter-form">
-            <div class="encounter-form-container">
-            
-            <div class="party-config section">
-                <h3>Encounter Configuration</h3>
-
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input 
-                        type="text" 
-                        id="name" 
-                        class="name-input"
-                        bind:value={draftEncounter.name}
-                        required
-                    />
-                </div>
-    
-                <label for="description">Description</label>
-                <div class="form-group">
-                    <textarea
-                        id="description"
-                        class="description-input"
-                        bind:value={draftEncounter.description}
-                    ></textarea>
-                </div>
-            </div>
-            
-                <div class="party-config section">
-
-                    <h3>Party Configuration</h3>
-                    <div class="party-config-row">
-                        <div>
-                         <label for="playerCount">Number of Players</label>
-                            <input 
-                                type="number" 
-                                id="playerCount"
-                                bind:value={draftEncounter.party_size}
-                                min="1"
-                                max="6"
-                            /></div>
-                            <div>
-                            <label for="partyLevel">Party Level</label>
-                            <input 
-                                type="number" 
-                                id="partyLevel"
-                                bind:value={draftEncounter.party_level}
-                                min="1"
-                                max="20"
-                            /></div>
-
-                    </div>
-                    <div class="campaign-defaults-setter">
-                        <label for="campaign">Select Campaign</label>
-                        <select id="campaign" bind:value={selectedCampaign}>
-                            <option value={null}>None</option>
-                            {#each campaigns as campaign}
-                                <option value={campaign.id}>{campaign.name}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
-                        <div class="xp-total">Total XP: {getEnemiesXP() + getHazardsXP()}</div>
-                        This is a <b>{encounterDifficulty.toLowerCase()}</b> encounter for <b>{draftEncounter.party_size}</b> level <b>{draftEncounter.party_level}</b> players
-                        </div>
-                    </div>
-            
-            </div>
-
-            <div class="form-group">
-
-
-            <div class="section collapsible">
-                <div class="section-header" on:click={() => enemiesSectionOpen = !enemiesSectionOpen}>
-                    <h3>
-                        Enemies ({draftEncounter.enemies.length}) - {getEnemiesXP()} XP
-                        <span class="toggle-icon">{enemiesSectionOpen ? '▼' : '▶'}</span>
-                    </h3>
-                </div>
-                
-                {#if enemiesSectionOpen}
-                    <div class="section-content" transition:fade>
-                        
-                        <div class="list-items">
-                            {#each draftEncounter.enemies as enemyId : number}
-                                {#if getEnemyDetails(enemyId)}
-                                    <div class="list-item">
-                                        <div class="entity-name">{getEnemyDetails(enemyId)?.name}</div>
-                                        <div class="entity-link">
-                                            <a href={getFullUrl(getEnemyDetails(enemyId)?.url)} target="_blank" rel="noopener noreferrer">
-                                                <FontAwesomeIcon icon={['fas', 'link']} />
-                                            </a>
-                                        </div>
-                                        <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getEnemyDetails(enemyId)?.level || 0)}</div>
-                                        <div class="entity-level">Level {getEnemyDetails(enemyId)?.level}</div>
-                                        <button 
-                                            type="button" 
-                                            on:click={() => {
-                                                draftEncounter.enemies = draftEncounter.enemies.filter(id => id !== enemyId);
-                                            }}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                {/if}
-                            {/each}
-                        </div>
-                        <div class="library-selector-container">
-                        <LibrarySelector
-                            entityType="creature"
-                            onSelect={(id) => {
-                                draftEncounter.enemies = [...draftEncounter.enemies, id];
-                            }}
-                            placeholder="Search for enemies..."
-                            initialIds={draftEncounter.enemies}
-                        />
-                        <a 
-                            href="/library?encounter=true&tab=creature"
-                            class="browse-library-button"
-                        >
-                            Browse Library
-                        </a>
-                        </div>
-                    </div>
-                {/if}
-            </div>
-
-            <div class="section collapsible">
-                <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
-                    <h3>
-                        Hazards ({draftEncounter.hazards.length}) - {getHazardsXP()} XP
-                        <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
-                    </h3>
-                </div>
-                
-                {#if hazardsSectionOpen}
-                    <div class="section-content" transition:fade>
-                        <div class="list-items">
-                            {#each draftEncounter.hazards as hazardId}
-                                {#if getHazardDetails(hazardId)}
-                                    <div class="list-item">
-                                        <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
-                                        <div class="entity-link">
-                                            <a href={getFullUrl(getHazardDetails(hazardId)?.url)} target="_blank" rel="noopener noreferrer">
-                                                <FontAwesomeIcon icon={['fas', 'link']} />
-                                            </a>
-                                        </div>
-                                        <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getHazardDetails(hazardId)?.level || 0)}</div>
-                                        <div class="entity-level">Level {getHazardDetails(hazardId)?.level}</div>
-                                        <button 
-                                            type="button" 
-                                            on:click={() => {
-                                                draftEncounter.hazards = draftEncounter.hazards.filter(id => id !== hazardId);
-                                            }}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                {/if}
-                            {/each}
-                        </div>
-                        <div class="library-selector-container">
-                        <LibrarySelector
-                            entityType="hazard"
-                            onSelect={(id) => {
-                                draftEncounter.hazards = [...draftEncounter.hazards, id];
-                            }}
-                            placeholder="Search for hazards..."
-                            initialIds={draftEncounter.hazards}
-                        />
-                        <a 
-                            href="/library?encounter=true&tab=hazard"
-                            class="browse-library-button"
-                        >
-                            Browse Library
-                        </a>
-                        </div>
-                    </div>
-                {/if}
-            </div>
-
-            <div class="section collapsible">
-                <div class="section-header" on:click={() => treasureSectionOpen = !treasureSectionOpen}>
-                    <h3>
-                        Treasure - {getTotalTreasure()} gold
-                        <span class="toggle-icon">{treasureSectionOpen ? '▼' : '▶'}</span>
-                    </h3>
-                </div>
-                
-                {#if treasureSectionOpen}
-                    <div class="section-content" transition:fade>
-                        <div class="form-group">
-                            <label for="currency">Currency</label>
-                            <input 
-                                type="number"
-                                id="currency"
-                                bind:value={draftEncounter.treasure_currency.gold}
-                                min="0"
-                            />
-                        </div>
-
-                        <h4>Items</h4>
-                        <div class="list-items">
-                            {#each draftEncounter.treasure_items as itemId}
-                                {#if getItemDetails(itemId)}
-                                    <div class="list-item">
-                                        <span>{getItemDetails(itemId)?.name}</span> 
-                                        <div class="entity-link">
-                                            <a href={getFullUrl(getItemDetails(itemId)?.url)} target="_blank" rel="noopener noreferrer">
-                                                <FontAwesomeIcon icon={['fas', 'link']} />
-                                            </a>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            on:click={() => {
-                                                draftEncounter.treasure_items = draftEncounter.treasure_items.filter(id => id !== itemId);
-                                            }}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                {/if}
-                            {/each}
-                        </div>
-                        <div class="library-selector-container">
-                        <LibrarySelector
-                            entityType="item"
-                            onSelect={(id) => {
-                                draftEncounter.treasure_items = [...draftEncounter.treasure_items, id];
-                            }}
-                            placeholder="Search for items..."
-                            initialIds={draftEncounter.treasure_items}
-                        />
-                        <a 
-                            href="/library?encounter=true&tab=item"
-                            class="browse-library-button"
-                        >
-                            Browse Library
-                        </a>
-                        </div>
-                    </div>
-                {/if}
-            </div>
-
-            <button type="submit">Create Encounter</button>
-        </form>
-    </div>
+    <EncounterCreator />
 
     {#if loading}
         <div class="loading">Loading encounters...</div>
@@ -812,8 +349,8 @@ library.add(faLink)
                                     <h3>{encounter.name}</h3>
                                     <div class="encounter-meta">
                                         <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
-                                        <span class="xp">XP: {getEncounterXP(encounter)}</span>
-                                        <span class="party">Level {draftEncounter.party_level} ({draftEncounter.party_size} players)</span>
+                                        <!-- <span class="xp">XP: {getEncounterXP(encounter)}</span>
+                                        <span class="party">Level {draftEncounter.party_level} ({draftEncounter.party_size} players)</span> -->
                                     </div>
                                 </div>
                                 <span class="toggle-icon">{encounterOpenStates[encounter.id] ? '▼' : '▶'}</span>
@@ -829,7 +366,7 @@ library.add(faLink)
                                             <ul>
                                                 {#each encounter.enemies as enemyId}
                                                     {#if getEnemyDetails(enemyId)}
-                                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(draftEncounter.party_level, getEnemyDetails(enemyId)?.level || 0)})</li>
+                                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(enemyId)?.level || 0)})</li>
                                                     {/if}
                                                 {/each}
                                             </ul>
@@ -840,7 +377,7 @@ library.add(faLink)
                                             <ul>
                                                 {#each encounter.hazards as hazardId}
                                                     {#if getHazardDetails(hazardId)}
-                                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(draftEncounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
+                                                        <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
                                                     {/if}
                                                 {/each}
                                             </ul>
@@ -883,6 +420,7 @@ library.add(faLink)
             {/if}
         </div>
     {/if}
+    
 </div>
 
 {#if completingEncounter}
@@ -898,15 +436,17 @@ library.add(faLink)
                     required
                 >
                     <option value="">Select a campaign...</option>
-                    {#each campaigns as campaign}
-                        <option value={campaign.id}>{campaign.name}</option>
+                    {#each campaigns as [cid, campaign]}
+                        <option value={cid}>{campaign.name}</option>
                     {/each}
                 </select>
             </div>
 
             {#if selectedCompletionCampaign}
                 <div class="form-group">
-                    <h3>Select Participating Characters</h3>
+                    <div class="form-group-line"><h3>Select Participating Characters</h3> 
+                    <button class="edit-button" on:click={() => selectedCharacterIds = campaignCharacters.map(c => c.id)}>Select All</button>
+                    </div>
                     {#if campaignCharacters.length === 0}
                         <p>No characters found in this campaign.</p>
                     {:else}
@@ -944,13 +484,6 @@ library.add(faLink)
                 </button>
             </div>
         </div>
-    </div>
-{/if}
-
-{#if draftEncounter.name || draftEncounter.description}
-    <div class="draft-indicator" transition:fade>
-        <span class="draft-badge">Draft</span>
-        Last saved automatically
     </div>
 {/if}
 
@@ -1406,6 +939,12 @@ library.add(faLink)
         font-size: 1rem;
     }
 
+    .form-group-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
     .form-group h3 {
         margin-bottom: 0.75rem;
         color: #374151;

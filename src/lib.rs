@@ -1,8 +1,7 @@
+use std::sync::Arc;
+
 use axum::{
-    http::{self, HeaderValue},
-    response::IntoResponse,
-    routing::get,
-    Router,
+    extract::FromRef, http::{self, HeaderValue}, response::IntoResponse, routing::get, Router
 };
 use models::ids::InternalId;
 use reqwest::Method;
@@ -13,8 +12,10 @@ pub mod auth;
 pub mod campaign;
 pub mod database;
 pub mod encounters;
+pub mod intelligent;
 pub mod library;
 pub mod models;
+pub mod nlp;
 
 pub async fn run_server() {
     env_logger::builder()
@@ -25,8 +26,18 @@ pub async fn run_server() {
     // Check for required environment variables and stop if any are missing
     check_env();
 
+    // Connect to database
     let pool = database::connect().await.unwrap();
     log::info!("Connected to database");
+
+    // Load tokenizer
+    // Panics if the tokenizer cannot be loaded
+    let tokenizer = intelligent::load_nlprules_tokenizer();
+
+    let app_state = AppState {
+        pool: pool.clone(),
+        tokenizer: Arc::new(tokenizer),
+    };
 
     // build our application with a route
     let app = Router::new()
@@ -36,7 +47,8 @@ pub async fn run_server() {
         .nest("/library", library::router())
         .nest("/campaign", campaign::router())
         .nest("/encounters", encounters::router())
-        .with_state(pool)
+        .nest("/nlp", nlp::router())
+        .with_state(app_state)
         .layer(
             ServiceBuilder::new().layer(
                 CorsLayer::permissive()
@@ -69,6 +81,24 @@ pub async fn run_server() {
 
     log::info!("Listening on: {}", bind_addr);
     axum::serve(listener, app).await.unwrap();
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: sqlx::PgPool,
+    pub tokenizer: Arc<nlprule::Tokenizer>,
+}
+
+impl FromRef<AppState> for sqlx::PgPool {
+    fn from_ref(state: &AppState) -> sqlx::PgPool {
+        state.pool.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<nlprule::Tokenizer> {
+    fn from_ref(state: &AppState) -> Arc<nlprule::Tokenizer> {
+        state.tokenizer.clone()
+    }
 }
 
 // Check for required environment variables

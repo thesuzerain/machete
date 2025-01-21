@@ -5,10 +5,11 @@
     import EventManager from '$lib/components/EventManager.svelte';
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
+  import { characterStore } from '$lib/stores/characters';
 
     const campaignId = parseInt($page.params.id);
     let campaignEvents: Event[] = [];
-    let campaignCharacters: Character[] = [];
+    $: campaignCharacters = $characterStore.get(campaignId) || [];
     let loading = true;
     let error: string | null = null;
     let selectedEventType: string = 'CurrencyGain';
@@ -62,13 +63,6 @@
         requireAuth();
 
         try {
-            // Fetch characters for character selection
-            const charactersResponse = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
-                credentials: 'include',
-            });
-            if (!charactersResponse.ok) throw new Error('Failed to fetch characters');
-            campaignCharacters = await charactersResponse.json();
-
             // Fetch events
             const eventsResponse = await fetch(`${API_URL}/campaign/${campaignId}/events`, {
                 credentials: 'include',

@@ -10,8 +10,9 @@
 
     let showNewCharacterModal = false;
     let editingCharacter: Character | null = null;
-
-    $: characters = $characterStore;
+    console.log(characterStore);
+    console.log($characterStore);
+    $: characters = $characterStore.get(selectedCampaignId) || [];
     $: classes = $classStore;
 
     async function handleCharacterDelete(id: number) {

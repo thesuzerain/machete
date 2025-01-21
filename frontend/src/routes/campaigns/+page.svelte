@@ -22,7 +22,7 @@
 
     // Subscribe to stores
     $: campaigns = $campaignStore;
-    $: characters = $characterStore;
+    $: characters = $characterStore.get(selectedCampaignId) || [];
 
     async function fetchLogs() {
         if (!selectedCampaignId) return;

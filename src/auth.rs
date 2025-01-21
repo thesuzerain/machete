@@ -16,7 +16,7 @@ use crate::{
     models::{
         auth::{Session, User},
         ids::InternalId,
-    },
+    }, AppState,
 };
 
 pub const SESSION_COOKIE_NAME: &str = "session_id";
@@ -33,7 +33,7 @@ struct LoginRequest {
     password: String,
 }
 
-pub fn router() -> Router<Pool<sqlx::Postgres>> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/signup", post(signup))
         .route("/login", post(login))

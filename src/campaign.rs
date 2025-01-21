@@ -1,4 +1,4 @@
-use crate::{auth::extract_user_from_cookies, models::ids::InternalId};
+use crate::{auth::extract_user_from_cookies, models::ids::InternalId, AppState};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -21,7 +21,7 @@ use crate::{
     ServerError,
 };
 
-pub fn router() -> Router<Pool<sqlx::Postgres>> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_campaigns))
         .route("/", post(insert_campaign))

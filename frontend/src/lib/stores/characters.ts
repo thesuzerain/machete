@@ -3,7 +3,7 @@ import type { Character } from '$lib/types/types';
 import { API_URL } from '$lib/config';
 
 function createCharacterStore() {
-    const { subscribe, set, update } = writable<Character[]>([]);
+    const { subscribe, set, update } = writable<Map<number,Character[]>>(new Map());
 
     return {
         subscribe,
@@ -14,7 +14,11 @@ function createCharacterStore() {
                 });
                 if (!response.ok) throw new Error('Failed to fetch characters');
                 const characters = await response.json();
-                set(characters);
+                
+                update(chars => {
+                    chars.set(campaignId, characters);
+                    return new Map(chars);
+                });
             } catch (error) {
                 console.error('Error fetching characters:', error);
                 throw error;
@@ -64,7 +68,10 @@ function createCharacterStore() {
                     credentials: 'include',
                 });
                 if (!response.ok) throw new Error('Failed to delete character');
-                update(chars => chars.filter(char => char.id !== id));
+                update(chars => {
+                    chars.set(campaignId, chars.get(campaignId)!.filter(c => c.id !== id));
+                    return new Map(chars);
+                });
             } catch (error) {
                 console.error('Error deleting character:', error);
                 throw error;

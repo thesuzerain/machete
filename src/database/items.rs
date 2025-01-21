@@ -55,7 +55,10 @@ pub async fn get_items(
         query: vec!["".to_string()], // Empty search query
         min_similarity: None,
         filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next().map(|(_, v)| v).ok_or_else(|| ServerError::NotFound)
+    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
+    .map(|(_, v)| 
+    v.into_iter().map(|(_, v)| v).collect()
+).ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -66,7 +69,7 @@ pub async fn get_items_search(
     // https://github.com/launchbadge/sqlx/issues/291
     search: &ItemSearch,
     default_limit: u64,
-) -> crate::Result<HashMap<String, Vec<LibraryItem>>> {
+) -> crate::Result<HashMap<String, Vec<(f32,LibraryItem)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -158,7 +161,7 @@ pub async fn get_items_search(
                 description: row.description.unwrap_or_default(),
             };
             let mut map = map;
-            map.entry(query).or_insert_with(Vec::new).push(item);
+            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(), item));
             map
         });
     Ok(items)

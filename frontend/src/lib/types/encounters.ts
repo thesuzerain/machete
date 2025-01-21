@@ -9,6 +9,8 @@ export interface Encounter {
     hazards: number[];
     treasure_items: number[];
     treasure_currency: number;
+    party_level: number;
+    party_size: number;
 }
 
 export interface CreateEncounter {
@@ -18,4 +20,6 @@ export interface CreateEncounter {
     hazards: number[];
     treasure_items: number[];
     treasure_currency: number;
+    party_level: number;
+    party_size: number;
 } 

@@ -10,6 +10,8 @@ function createEncounterStore() {
     return {
         subscribe,
         fetchEncounters: async () => {
+            // TODO: Cache these- don't fetch if we already have them.
+            // More generally, do a better caching solution for most of these. all of them could use it except for library (which is ALWAYS cached, more or less)
             try {
                 const response = await fetch(`${API_URL}/encounters`, {
                     credentials: 'include',

@@ -11,7 +11,7 @@
     import LogCreationModal from './LogCreationModal.svelte';
     import { generateEventsFromData } from '$lib/utils/logs';
     import { arraysEqual } from '$lib/utils';
-    import type { amount } from '@metaplex-foundation/js';
+  import CampaignImportTabAlignmentOption from './CampaignImportTabAlignmentOption.svelte';
 
     export let selectedCampaignId: number;
     export let characters: Character[];
@@ -26,9 +26,9 @@
 
 
     // Add mappings for enemies and items
-    let enemyMappings: Record<string, number> = {};
-    let itemMappings: Record<string, number> = {};
-    let trapMappings: Record<string, number> = {};
+    let enemyMappings: Record<string, Array<number>> = {};
+    let itemMappings: Record<string, Array<number>> = {};
+    let trapMappings: Record<string, Array<number>> = {};
 
     // Mappings of whether these are real things or new things
     // TODO: Also include custom things: allows us to differntiate between 'real', 'custom' and 'fake' things
@@ -144,10 +144,10 @@
             for (const name of uniqueEnemyNames) {
                 let match = creatureMatches.get(name);
                 if (match) {
-                    enemyMappings[name] = match[0].id;
+                    enemyMappings[name][0] = match[0].id;
                     enemyIncludes[name] = true;
                 } else {
-                    enemyMappings[name] = 0;
+                    enemyMappings[name][0] = 0;
                     enemyIncludes[name] = false;
                 }
             }
@@ -161,10 +161,10 @@
             for (const name of uniqueTrapNames) {
                 let match = hazardMatches.get(name);
                 if (match) {
-                    trapMappings[name] = match[0].id;
+                    trapMappings[name][0] = match[0].id;
                     trapIncludes[name] = true;
                 } else {
-                    trapMappings[name] = 0;
+                    trapMappings[name][0] = 0;
                     trapIncludes[name] = false;
                 }
             }
@@ -180,10 +180,10 @@
             for (const name of uniqueItemNames) {
                 let match = itemMatches.get(name);
                 if (match) {
-                    itemMappings[name] = match[0].id;
+                    itemMappings[name][0] = match[0].id;
                     itemIncludes[name] = true;
                 } else {
-                    itemMappings[name] = 0;
+                    itemMappings[name][0] = 0;
                     itemIncludes[name] = false;
                 }
             }
@@ -242,17 +242,17 @@
     async function handleEntityConfirmation() {
         // Validate that all entities are mapped
         const unmappedEnemies = Object.entries(enemyMappings)
-            .filter(([_, id]) => id === 0)
+            .filter(([_, id]) => id[0] === 0)
             .filter(([name]) => enemyIncludes[name])
             .map(([name]) => name);
         
         const ummappedTraps = Object.entries(trapMappings)
-            .filter(([_, id]) => id === 0)
+            .filter(([_, id]) => id[0] === 0)
             .filter(([name]) => trapIncludes[name])
             .map(([name]) => name);
 
         const unmappedItems = Object.entries(itemMappings)
-            .filter(([_, id]) => id === 0)
+            .filter(([_, id]) => id[0] === 0)
             .filter(([name]) => itemIncludes[name])
             .map(([name]) => name);
 
@@ -405,6 +405,15 @@
 </script>
 
 <div class="import-section" transition:fade>
+    <div class="entity-section">
+    <CampaignImportTabAlignmentOption 
+        name="test"
+        alignmentType="enemy"
+        mappings={enemyMappings}
+        includes={enemyIncludes}
+    />
+    </div>
+    
     <div class="import-header">
         <h2>Import Campaign Data</h2>
     </div>
@@ -492,26 +501,16 @@
             
             {#if Object.keys(enemyMappings).length > 0}
                 <div class="entity-section">
+                    {enemyMappings}
+                    {enemyIncludes}
                     <h4>Enemies</h4>
                     {#each Object.entries(enemyMappings) as [name, id]}
-                        <div class="entity-mapping">
-                            <strong>{name}</strong>
-                            <div class="entity-mapping-options">
-                                {#if enemyIncludes[name]}
-                                <LibrarySelector
-                                    entityType="creature"
-                                    onSelect={id => enemyMappings[name] = id}
-                                    showSelected={enemyMappings[name]}
-                                    placeholder="Search for a enemy..."
-                                    initialIds={[]}
-                                />
-                                {/if}
-                                <button on:click={() => enemyIncludes[name] = !enemyIncludes[name]} class="confirm-btn">
-                                    {enemyIncludes[name] ? 'Included' : 'Not included'}
-                                </button>
-
-                            </div>
-                        </div>
+                        <CampaignImportTabAlignmentOption 
+                        name={name}
+                        mappings={enemyMappings}
+                        includes={enemyIncludes}
+                        alignmentType="enemy"
+                        />
                     {/each}
                 </div>
             {/if}
@@ -520,24 +519,12 @@
                 <div class="entity-section">
                     <h4>Traps</h4>
                     {#each Object.entries(trapMappings) as [name, id]}
-                        <div class="entity-mapping">
-                            <strong>{name}</strong>
-                            <div class="entity-mapping-options">
-                                {#if trapIncludes[name]}
-                                <LibrarySelector
-                                    entityType="hazard"
-                                    onSelect={id => trapMappings[name] = id}
-                                    showSelected={trapMappings[name]}
-                                    placeholder="Search for a hazard..."
-                                    initialIds={[]}
-                                />
-                                {/if}
-                                <button on:click={() => trapIncludes[name] = !trapIncludes[name]} class="confirm-btn">
-                                    {trapIncludes[name] ? 'Included' : 'Not included'}
-                                </button>
-
-                            </div>
-                        </div>
+                        <CampaignImportTabAlignmentOption 
+                        name={name}
+                        mappings={trapMappings}
+                        includes={trapIncludes}
+                        alignmentType="hazard"
+                        />
                     {/each}
                 </div>
             {/if}
@@ -546,25 +533,12 @@
                 <div class="entity-section">
                     <h4>Items</h4>
                     {#each Object.entries(itemMappings) as [name, id]}
-                        <div class="entity-mapping">
-                            <strong>{name}</strong>
-                            {itemIncludes[name]}
-                            {itemMappings[name]}
-                            <div class="entity-mapping-options">
-                                {#if itemIncludes[name]}
-                                <LibrarySelector
-                                    entityType="item"
-                                    onSelect={id => itemMappings[name] = id}
-                                    showSelected={itemMappings[name]}
-                                    placeholder="Search for an item..."
-                                    initialIds={[]}
-                                />
-                            {/if}
-                            <button on:click={() => itemIncludes[name] = !itemIncludes[name]} class="confirm-btn">
-                                {itemIncludes[name] ? 'Included' : 'Not included'}
-                            </button>
-                            </div>
-                        </div>
+                        <CampaignImportTabAlignmentOption 
+                            name={name}
+                            mappings={itemMappings}
+                            includes={itemIncludes}
+                            alignmentType="item"
+                            />
                     {/each}
                 </div>
             {/if}
@@ -818,46 +792,7 @@
         border-radius: 0.25rem;
     }
 
-    .entity-mapping {
-        display: grid;
-        grid-template-columns: 0.5fr 0.5fr;
 
-        padding: 0.5rem;
-        margin: 0.5rem 0;
-        background: white;
-        border-radius: 0.25rem;
-    }
-
-    .entity-mapping-options {
-        display: flex;
-        justify-content: right;
-        gap: 1rem;
-    }
-
-    .entity-mapping button {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.25rem;
-        border: none;
-        cursor: pointer;
-    }
-
-    .entity-mapping button:hover {
-        background: #2563eb;
-    }
-
-    .entity-mapping strong {
-        flex: 1;
-    }
-
-    .entity-mapping-options :global(.selected-input) { 
-        background-color: #f0f9eb;
-    }
-
-    .entity-mapping-options :global(.unselected-input) { 
-        background-color: #f4b4b4;
-    }
 
     .log-actions {
         display: flex;
