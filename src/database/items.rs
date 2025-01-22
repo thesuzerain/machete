@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::models::ids::InternalId;
 use crate::models::library::{
-    item::{Currency, LibraryItem},
+    item::LibraryItem,
     GameSystem, Rarity,
 };
 
@@ -33,6 +33,13 @@ impl ItemFilters {
     pub fn from_id(id: u32) -> Self {
         Self {
             ids: Some(CommaSeparatedVec(vec![id])),
+            ..Default::default()
+        }
+    }
+
+    pub fn from_ids(ids: &[u32]) -> Self {
+        Self {
+            ids: Some(CommaSeparatedVec(ids.to_vec())),
             ..Default::default()
         }
     }
@@ -143,9 +150,12 @@ pub async fn get_items_search(
     .fetch_all(exec)
     .await?;
 
+    // create initial hm with empty vecs for each query
+    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
+
     let items = query
         .into_iter()
-        .fold(HashMap::new(), |map, row| {
+        .fold(hm, |map, row| {
             // TODO: conversions still here shouldnt be needed
             // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
             let query = row.query;
@@ -155,7 +165,7 @@ pub async fn get_items_search(
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
                 level: row.level.unwrap_or_default() as i8,
-                price: Currency::from_base_unit(row.price.unwrap_or_default() as u32),
+                price: row.price.unwrap_or_default(),
                 tags: row.tags.unwrap_or_default(),
                 url: row.url,
                 description: row.description.unwrap_or_default(),
@@ -210,7 +220,7 @@ pub async fn insert_items(
     sqlx::query!(
         r#"
         INSERT INTO library_items (id, rarity, level, price)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[])
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::double precision[])
     "#,
         &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
         &items
@@ -220,8 +230,8 @@ pub async fn insert_items(
         &items.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
         &items
             .iter()
-            .map(|c| c.price.as_base_unit() as i32)
-            .collect::<Vec<i32>>(),
+            .map(|c| c.price as f64)
+            .collect::<Vec<f64>>(),
     )
     .execute(exec)
     .await?;

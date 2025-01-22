@@ -36,6 +36,13 @@ impl CreatureFilters {
             ..Default::default()
         }
     }
+
+    pub fn from_ids(ids: &[u32]) -> Self {
+        CreatureFilters {
+            ids: Some(CommaSeparatedVec(ids.to_vec())),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
@@ -139,13 +146,16 @@ pub async fn get_creatures_search(
         min_similarity,
         limit as i64,
         offset as i64,
-    );   
+    ); 
+
+    // create initial hm with empty vecs for each query
+    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
 
     let creatures = query
         .fetch_all(exec)
         .await?
         .into_iter()
-        .fold(HashMap::new(),|mut map, row| {
+        .fold(hm,|mut map, row| {
             let query = row.query;
             let creature = LibraryCreature {
                 id: InternalId(row.id as u64),
@@ -163,6 +173,7 @@ pub async fn get_creatures_search(
             map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(),creature));
             map
         });
+
     Ok(creatures)
 }
 
@@ -233,3 +244,4 @@ pub async fn insert_creatures(
 
     Ok(())
 }
+

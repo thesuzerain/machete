@@ -1,25 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use crate::{auth::extract_user_from_cookies, database::{creatures::{CreatureFilters, CreatureSearch}, hazards::{HazardFilters, HazardSearch}, items::{ItemFilters, ItemSearch}, spells::{SpellFilters, SpellSearch}, DEFAULT_MAX_GROUP_LIMIT}, intelligent::noun_phrases, models::{ids::InternalId, library::{creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem, spell::LibrarySpell}}, AppState};
+use crate::{database::{creatures::{CreatureFilters, CreatureSearch}, hazards::{HazardFilters, HazardSearch}, items::{ItemFilters, ItemSearch}, spells::{SpellFilters, SpellSearch}, DEFAULT_MAX_GROUP_LIMIT}, intelligent::noun_phrases, models::library::{creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem, spell::LibrarySpell}, AppState};
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
+    extract::State,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::post,
     Json, Router,
 };
-
-use axum_extra::extract::CookieJar;
-use itertools::Itertools;
 use nlprule::Tokenizer;
-use serde_json::json;
-use sqlx::{PgPool, Pool};
-
+use sqlx::PgPool;
 use crate::{
-    database::{
-        self,
-        encounters::{EncounterFilters, InsertEncounter, ModifyEncounter},
-    },
+    database,
     ServerError,
 };
 

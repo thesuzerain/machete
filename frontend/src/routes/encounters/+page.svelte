@@ -8,12 +8,13 @@
     import { id } from 'date-fns/locale';
     import { 
         getExperienceFromLevel, 
-        getSeverityFromExperience, 
+        getSeverityFromRawExperience, 
         getRewardForLevelSeverity,
-        EncounterDifficulty 
+        EncounterDifficulty, 
+        getSeverityFromFinalExperience
+
     } from '$lib/utils/encounter';
     import type { Encounter, CreateEncounter, EncounterStatus } from '$lib/types/encounters';
-    import type { Currency } from '$lib/types/library';
     import { getFullUrl } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -34,15 +35,6 @@
 
 library.add(faLink)
 
-  // TODO: Exportable
-    interface LibraryEntity {
-        id: number;
-        name: string;
-        level?: number;  // Optional for creatures/hazards
-        price?: Currency;  // Optional for items (cost)
-    }
-
-    const campaignId = parseInt($page.params.id);
     let loading = $state(true);
     let error: string | null = $state(null);
     
@@ -86,7 +78,7 @@ library.add(faLink)
             
             if (enemyIds.size > 0) {
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).join(',')
+                    ids: Array.from(enemyIds).map((x) => x.id).join(',')
                 })
             }
 
@@ -122,8 +114,8 @@ library.add(faLink)
             await Promise.all([
                 fetchEncounters(),
                 fetchCampaigns(),
-                loadLibraryData()
             ]);
+            await loadLibraryData();
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -148,23 +140,6 @@ library.add(faLink)
         await encounterStore.fetchEncounters();
     }
 
-    function getEncounterXP(encounter: Encounter): number {
-        let total = 0;
-        encounter.enemies.forEach(enemyId => {
-            const enemy = getEnemyDetails(enemyId);
-            if (enemy?.level) {
-                total += getExperienceFromLevel(encounter.party_level, enemy.level);
-            }
-        });
-        encounter.hazards.forEach(hazardId => {
-            const hazard = getHazardDetails(hazardId);
-            if (hazard?.level) {
-                total += getExperienceFromLevel(encounter.party_level, hazard.level);
-            }
-        });
-        return total;
-    }
-
     async function completeEncounter(encounter: Encounter | null) {
         if (!encounter || !selectedCompletionCampaign) return;
 
@@ -184,24 +159,25 @@ library.add(faLink)
                     description: encounter.description,
                     events: [
                         // Enemy defeated events
-                        ...encounter.enemies.flatMap(enemyId => 
+                        ...encounter.enemies.flatMap(encounterEnemy => 
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character: charId,
                                 event_type: 'EnemyDefeated',
-                                description: `Defeated ${libraryEnemies.entities.get(enemyId)?.name}`,
+                                description: `Defeated ${libraryEnemies.entities.get(encounterEnemy.id)?.name}`,
                                 data: {
-                                    id: enemyId,
+                                    id: encounterEnemy.id,
+                                    level_adjustment: encounterEnemy.level_adjustment
                                 }
                             })).flat()
                         ),
                         // Enemy experience events
-                        ...encounter.enemies.flatMap(enemyId => 
+                        ...encounter.enemies.flatMap(encounterEnemy => 
                             selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
                                 character: charId,
                                 event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(enemyId)?.level || 0)} experience from defeating ${libraryEnemies.entities.get(enemyId)?.name}`,
+                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(encounterEnemy.id)?.level || 0)} experience from defeating ${libraryEnemies.entities.get(encounterEnemy.id)?.name}`,
                                 data: {
-                                    experience: getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(enemyId)?.level || 0)
+                                    experience: getExperienceFromLevel(encounter.party_level, (libraryEnemies.entities.get(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)
                                 }
                             })).flat()
                         ),
@@ -231,7 +207,7 @@ library.add(faLink)
                         ...selectedCharacterIds.map(charId => ({
                             character: charId,
                             event_type: 'CurrencyGain',
-                            description: `Gained ${encounter.treasure_currency.gold} currency from ${encounter.name}`,
+                            description: `Gained ${encounter.treasure_currency} currency from ${encounter.name}`,
                             data: {
                                 currency: encounter.treasure_currency
                             }
@@ -287,11 +263,35 @@ library.add(faLink)
                 case 'level':
                     return direction * (a.party_level - b.party_level);
                 case 'xp':
-                    return direction * (getEncounterXP(a) - getEncounterXP(b));
+                    return direction * (a.total_experience - b.total_experience);
                 default:
                     return 0;
             }
         })); 
+
+    // TODO: modularize, along with css classes
+    function getClassForDifficulty(difficulty: EncounterDifficulty): string {
+        switch (difficulty) {
+            case 'Trivial':
+                return 'difficulty-trivial';
+            case 'Low':
+                return 'difficulty-low';
+            case 'Moderate':
+                return 'difficulty-moderate';
+            case 'Severe':
+                return 'difficulty-severe';
+            case 'Extreme':
+                return 'difficulty-extreme';
+            default:
+                return '';
+        }
+    }
+
+    function getAdjustmentName(adjustment: number): string {
+        if (adjustment === 0) return 'Normal';
+        return adjustment > 0 ? 'Elite' : 'Weak';
+    }
+
 </script>
 
 <div class="encounters-page">
@@ -300,7 +300,7 @@ library.add(faLink)
         <div class="error">{error}</div>
     {/if}
 
-    <EncounterCreator />
+    <EncounterCreator bind:editingEncounter />
 
     {#if loading}
         <div class="loading">Loading encounters...</div>
@@ -349,8 +349,8 @@ library.add(faLink)
                                     <h3>{encounter.name}</h3>
                                     <div class="encounter-meta">
                                         <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
-                                        <!-- <span class="xp">XP: {getEncounterXP(encounter)}</span>
-                                        <span class="party">Level {draftEncounter.party_level} ({draftEncounter.party_size} players)</span> -->
+                                        <span class="xp">XP: {encounter.total_experience} (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}">{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience).toWellFormed()}</span>)</span>
+                                        <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
                                     </div>
                                 </div>
                                 <span class="toggle-icon">{encounterOpenStates[encounter.id] ? '▼' : '▶'}</span>
@@ -364,9 +364,14 @@ library.add(faLink)
                                         <div class="detail-section">
                                             <h4>Enemies ({encounter.enemies.length})</h4>
                                             <ul>
-                                                {#each encounter.enemies as enemyId}
-                                                    {#if getEnemyDetails(enemyId)}
-                                                        <li>{getEnemyDetails(enemyId)?.name} (XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(enemyId)?.level || 0)})</li>
+                                                {#each encounter.enemies as encounterEnemy : EncounterEnemy}
+                                                    {#if getEnemyDetails(encounterEnemy.id)}
+                                                        <li>{getEnemyDetails(encounterEnemy.id)?.name} 
+                                                            {#if encounterEnemy.level_adjustment !== 0}
+                                                                ({getAdjustmentName(encounterEnemy.level_adjustment)})
+                                                            {/if}
+                                                            (Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment})
+                                                            (XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(encounterEnemy.id)?.level || 0)})</li>
                                                     {/if}
                                                 {/each}
                                             </ul>
@@ -385,7 +390,7 @@ library.add(faLink)
 
                                         <div class="detail-section">
                                             <h4>Treasure</h4>
-                                            <p>Currency: {encounter.treasure_currency.gold}</p>
+                                            <p>Currency: {encounter.treasure_currency}</p>
                                             <ul>
                                                 {#each encounter.treasure_items as itemId}
                                                     {#if getItemDetails(itemId)}
@@ -944,7 +949,7 @@ library.add(faLink)
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .form-group h3 {
         margin-bottom: 0.75rem;
         color: #374151;
@@ -953,5 +958,25 @@ library.add(faLink)
     .form-group p {
         color: #6b7280;
         font-style: italic;
+    }
+
+    .difficulty-trivial {
+        color: #10b981;
+    }
+
+    .difficulty-low {
+        color: #f59e0b;
+    }
+
+    .difficulty-moderate {
+        color: #f59e0b;
+    }
+
+    .difficulty-severe {
+        color: #ef4444;
+    }
+
+    .difficulty-extreme {
+        color: #ef4444;
     }
 </style> 

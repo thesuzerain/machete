@@ -35,6 +35,13 @@ impl HazardFilters {
             ..Default::default()
         }
     }
+
+    pub fn from_ids(ids: &[u32]) -> Self {
+        HazardFilters {
+            ids: Some(CommaSeparatedVec(ids.to_vec())),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
@@ -135,11 +142,13 @@ pub async fn get_hazards_search(
         offset as i64,
     );
 
+    // create initial hm with empty vecs for each query
+    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
     let hazards = query
         .fetch_all(exec)
         .await?
         .into_iter()
-        .fold(HashMap::new(),|mut map, row| {
+        .fold(hm,|mut map, row| {
             let query = row.query;
             let hazard = LibraryHazard {
                 id: InternalId(row.id as u64),

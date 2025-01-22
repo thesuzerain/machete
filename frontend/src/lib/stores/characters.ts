@@ -14,6 +14,8 @@ function createCharacterStore() {
                 });
                 if (!response.ok) throw new Error('Failed to fetch characters');
                 const characters = await response.json();
+
+                console.log('Fetched characters:', characters);
                 
                 update(chars => {
                     chars.set(campaignId, characters);

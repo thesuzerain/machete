@@ -15,7 +15,6 @@
 
     export let selectedCampaignId: number;
     export let characters: Character[];
-    export let campaignLogs: Log[];
     export let error: string | null;
     export let fetchLogs: () => Promise<void>;
 
@@ -107,8 +106,7 @@
     async function tryParseJson() {
         try {
             importData = JSON.parse(jsonInput);
-
-            console.log(importData);
+            if (!importData) throw new Error('Invalid JSON format');
 
             // Initialize character mappings
             const uniqueCharNames = new Set<string>();
@@ -142,12 +140,13 @@
             // TODO: Should do a better actual database check. Should start by  checking cached, then maybe with a fuzzy search, and/or a bulk search?
             const creatureMatches = await creatureStore.searchBestEntities(Array.from(uniqueEnemyNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueEnemyNames) {
-                let match = creatureMatches.get(name);
-                if (match) {
-                    enemyMappings[name][0] = match[0].id;
+                let match = creatureMatches.get(name) || [];
+                if (match.length > 0) {
+                    // TODO: Revisit logic when addressing diverging mappings
+                    enemyMappings[name] = [match[0].id];
                     enemyIncludes[name] = true;
                 } else {
-                    enemyMappings[name][0] = 0;
+                    enemyMappings[name] = [0];
                     enemyIncludes[name] = false;
                 }
             }
@@ -159,12 +158,13 @@
 
             const hazardMatches = await hazardStore.searchBestEntities(Array.from(uniqueTrapNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueTrapNames) {
-                let match = hazardMatches.get(name);
-                if (match) {
-                    trapMappings[name][0] = match[0].id;
+                let match = hazardMatches.get(name) || [];
+                if (match.length > 0) {
+                    // TODO: Revisit logic when addressing diverging mappings
+                    trapMappings[name] = [match[0].id];
                     trapIncludes[name] = true;
                 } else {
-                    trapMappings[name][0] = 0;
+                    trapMappings[name] = [0];
                     trapIncludes[name] = false;
                 }
             }
@@ -178,12 +178,13 @@
 
             const itemMatches = await itemStore.searchBestEntities(Array.from(uniqueItemNames), 0.4, {}) || new Map<string, { id: number, name: string }[]>();
             for (const name of uniqueItemNames) {
-                let match = itemMatches.get(name);
-                if (match) {
-                    itemMappings[name][0] = match[0].id;
+                let match = itemMatches.get(name) || [];
+                if (match.length > 0) {
+                    // TODO: Revisit logic when addressing diverging mappings
+                    itemMappings[name] = [match[0].id];
                     itemIncludes[name] = true;
                 } else {
-                    itemMappings[name][0] = 0;
+                    itemMappings[name] = [0];
                     itemIncludes[name] = false;
                 }
             }
@@ -240,6 +241,8 @@
     }
 
     async function handleEntityConfirmation() {
+        if (!importData) return;
+
         // Validate that all entities are mapped
         const unmappedEnemies = Object.entries(enemyMappings)
             .filter(([_, id]) => id[0] === 0)
@@ -263,7 +266,6 @@
             error = 'Please map all enemies, traps, and items before continuing';
             return;
         }
-        console.log("resre1233213123a");
 
         // For a fast import, assume supplied characters are for every log
         participatingCharacterIds = characters.filter(c => characterMappings[c.name])
@@ -272,17 +274,13 @@
             // Now that mappings are confirmed, we can create logs.
         // Only include ones we have mappings for
 
-        console.log("About to start playing game");
         for (const log of importData.logs) {
-            console.log("About to start playing game1");
-
             let calculated_enemies : WIPLogEnemy[] = log.enemies.filter(e => enemyIncludes[e]).map(e => {
-                console.log("About to start playing game1.5");
-                let level = enemies.entities.get(enemyMappings[e])?.level || 1;
-                console.log("About to start playing game1.6");
+                // TODO: More than just [0]- should be a list of all possible enemies. (Mappings may diverge- "Animals" may mean "Wolf" and "Bear" together)
+                let level = enemies.entities.get(enemyMappings[e][0])?.level || 1;
                 let enemy : WIPLogEnemy = {
-                    id: enemyMappings[e],
-                    count: 1, // TODO: Support importing of multiple enemies
+                    id: enemyMappings[e][0],
+                    count: 1, // TODO: Support importing of multiple enemies (eg: two wolves)
                     level: level,  // TODO: strong/weak
                     type: 'enemy'
                 };
@@ -290,9 +288,10 @@
             });
 
             let calculated_traps = log.traps.filter(t => trapIncludes[t]).map(t => {
-                let level = hazards.entities.get(trapMappings[t])?.level || 1;
+                // TODO: More than just [0]- should be a list of all possible traps. (Mappings may diverge- "Animals" may mean "Wolf" and "Bear" together)
+                let level = hazards.entities.get(trapMappings[t][0])?.level || 1;
                 let trap : WIPLogEnemy = {
-                    id: trapMappings[t],
+                    id: trapMappings[t][0],
                     level: level,  // TODO: strong/weak
                     count: 1, // TODO: Support importing of multiple traps
                     type: 'hazard'
@@ -301,8 +300,9 @@
             });
 
             let calculated_items = log.rewards.filter(r => typeof r === 'string' && itemIncludes[r]).map(r => {
+                // TODO: More than just [0]- should be a list of all possible items. (Mappings may diverge- "Animals" may mean "Wolf" and "Bear" together)
                 let item : WIPLogTreasure = {
-                    itemId: itemMappings[r],
+                    itemId: itemMappings[r][0],
                     amount: 1, // TODO: Support importing of multiple items
                     type: 'item'
                 };
@@ -371,7 +371,6 @@
             step = 'input';
             jsonInput = '';
             importData = null;
-            console.log("fffff");
 
             characterMappings = {};
             logMappings = {};
@@ -385,19 +384,22 @@
 
     async function removeAllUnconfirmedMappings() {
         for (const name in enemyMappings) {
-            if (enemyMappings[name] === 0) {
+            // TODO: More than just 0 for diverging mappings.
+            if (enemyMappings[name][0] === 0) {
                 enemyIncludes[name] = false;
             }
         }
 
         for (const name in trapMappings) {
-            if (trapMappings[name] === 0) {
+            // TODO: Confirm this works when finishing import.
+            if (trapMappings[name][0] === 0) {
                 trapIncludes[name] = false;
             }
         }
 
         for (const name in itemMappings) {
-            if (itemMappings[name] === 0) {
+            // TODO: Confirm this works when finishing import.
+            if (itemMappings[name][0] === 0) {
                 itemIncludes[name] = false;
             }
         }
@@ -405,15 +407,7 @@
 </script>
 
 <div class="import-section" transition:fade>
-    <div class="entity-section">
-    <CampaignImportTabAlignmentOption 
-        name="test"
-        alignmentType="enemy"
-        mappings={enemyMappings}
-        includes={enemyIncludes}
-    />
-    </div>
-    
+   
     <div class="import-header">
         <h2>Import Campaign Data</h2>
     </div>
@@ -464,9 +458,14 @@
                     </div>
                     <select 
                         value={characterMappings[char.name].targetId}
-                        on:change={e => {
-                            characterMappings[char.name].targetId = e.target.value;
-                            characterMappings[char.name].isNew = e.target.value.startsWith('new_');
+                        on:change={() => {
+                            // isNew if the targetId is a string and starts with 'new_'
+                            let target = characterMappings[char.name].targetId;
+                            if (typeof target === 'string') {
+                                characterMappings[char.name].isNew = target.startsWith('new_');
+                            } else {
+                                characterMappings[char.name].isNew = false;
+                            }
                         }}
                     >
                         <option value={`new_${char.name}`}>Create New Character</option>
@@ -476,7 +475,7 @@
                             {/each}
                         </optgroup>
                         <optgroup label="Importing">
-                            {#each importData.characters as importChar}
+                            {#each importData?.characters || [] as importChar}
                                 {#if importChar.name !== char.name}
                                     <option value={`new_${importChar.name}`}>
                                         {importChar.name} (Importing)
@@ -498,11 +497,8 @@
             <button class="confirm-btn" on:click={removeAllUnconfirmedMappings}>
                 Remove all unconfirmed mappings
             </button>
-            
             {#if Object.keys(enemyMappings).length > 0}
                 <div class="entity-section">
-                    {enemyMappings}
-                    {enemyIncludes}
                     <h4>Enemies</h4>
                     {#each Object.entries(enemyMappings) as [name, id]}
                         <CampaignImportTabAlignmentOption 
@@ -661,8 +657,8 @@
         <!-- TODO: wipLogs.find should use an id for duplicate reasons  -->
     <LogCreationModal
         show={editingLogName !== null}
-        bind:error
         bind:this={logCreationModal}
+        fetchLogs={fetchLogs}
         {selectedCampaignId}
         {characters}
         initialData={wipLogs.find(l => l.name === editingLogName) || null}

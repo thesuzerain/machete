@@ -14,8 +14,8 @@
     export let selectedCampaignId: number;
     export let characters: Character[];
     export let fetchLogs: () => Promise<void>;
-    export let initialData : WIPInsertLog | null;
-    export let updateOnlyCallback: ((log: WIPInsertLog) => void) | null; // TODO: probably better practice to use runes or on:xxx dispatch
+    export let initialData : WIPInsertLog | null = null;
+    export let updateOnlyCallback: ((log: WIPInsertLog) => void) | null = null; // TODO: probably better practice to use runes or on:xxx dispatch
 
     let error: string | null = null;
     let selectedCharacterIds: number[] = [];

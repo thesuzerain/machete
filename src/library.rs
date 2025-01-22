@@ -15,7 +15,7 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use axum_extra::extract::CookieJar;
-use sqlx::{PgPool, Pool};
+use sqlx::PgPool;
 
 use crate::{
     database::{

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+  import type { LibraryEntity } from '$lib/types/types';
     
     export let entityType: 'creature' | 'hazard' | 'item';
     export let entityId: number;
@@ -13,13 +14,13 @@
     const store = stores[entityType];
     
     let unsubscribe: () => void;
-    let entity = null;
+    let entity : LibraryEntity | null = null;
     let loading = false;
-    let error = null;
+    let error : string | null = null;
 
     $: if (entityId) {
         unsubscribe = store.subscribe(state => {
-            entity = state.entities.get(entityId);
+            entity = state.entities.get(entityId) || null;
             loading = state.loading;
             error = state.error;
         });

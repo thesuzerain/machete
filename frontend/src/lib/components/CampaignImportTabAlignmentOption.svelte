@@ -47,22 +47,22 @@
     <strong>{name}</strong>
     <div class="entity-mapping-options">
         {#if includes[name]}
-            {#if mappings[name] && mappings[name].length > 0}
+            {#if mappings[name] && mappings[name].length > 1}
                 {#each mappings[name] as id}
-                    <LibraryEntityName entityType={entityTypeChosen} id={id} />
+                    <LibraryEntityName entityType={entityTypeChosen} entityId={id} />
                 {/each}
-        {:else}
-            {#if open}
-                <LibraryEntityName entityType={entityTypeChosen} id={mappings[name]} />
             {:else}
-                <LibrarySelector
-                entityType={entityTypeChosen}
-                onSelect={id => mappings[name][0] = id}
-                showSelected={mappings[name][0]}
-                placeholder={placeholderString}
-                initialIds={[]}
-            />
-            {/if}
+                {#if open}
+                    <LibraryEntityName entityType={entityTypeChosen} entityId={mappings[name][0]} />
+                {:else}
+                    <LibrarySelector
+                    entityType={entityTypeChosen}
+                    onSelect={id => mappings[name][0] = id}
+                    showSelected={mappings[name][0]}
+                    placeholder={placeholderString}
+                    initialIds={[]}
+                />
+                {/if}
 
             {/if}
         {/if}
@@ -73,13 +73,9 @@
     </div>
 </div>
 {#if open}
-includes {includes[name]}
-map {mappings[name]}
 {#if includes[name]}
         {#if mappings[name] && mappings[name].length > 0}
-        1233
-        {#each mappings[name] as id, i}
-                123
+            {#each mappings[name] as id, i}
                 <LibrarySelector
                     entityType={entityTypeChosen}
                     onSelect={id => mappings[name][i] = id}

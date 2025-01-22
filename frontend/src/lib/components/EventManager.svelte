@@ -17,6 +17,7 @@
 
     async function updateEvent(eventId: number, formData: Record<string, any>) {
         try {
+            console.log("Updating event with ID: ", eventId, " and data: ", formData);
             // Reconstruct nested data structure
             const newData = Object.entries(formData).reduce((acc: any, [key, value]) => {
                 const parts = key.split('.');
@@ -31,6 +32,7 @@
                 return acc;
             }, {});
 
+            console.log("Sending up date with data: ", newData);
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -80,11 +82,7 @@
                 return {
                     type: 'CurrencyGain',
                     fields: {
-                        currency: {
-                            gold: event.data.currency.gold || 0,
-                            silver: event.data.currency.silver || 0,
-                            copper: event.data.currency.copper || 0
-                        }
+                        currency: event.data.currency
                     }
                 };
             case 'ExperienceGain':
@@ -98,7 +96,8 @@
                 return {
                     type: 'EnemyDefeated',
                     fields: {
-                        id: event.data.id
+                        id: event.data.id,
+                        level_adjustment: event.data.level_adjustment || 0
                     }
                 };
             case 'HazardDefeated':
@@ -206,26 +205,9 @@
                                         {#if formData.type === 'CurrencyGain'}
                                             <div class="currency-fields">
                                                 <div class="edit-field">
-                                                    <label>Gold</label>
                                                     <input 
                                                         type="number"
-                                                        bind:value={editingEvent.data.currency.gold}
-                                                        min="0"
-                                                    />
-                                                </div>
-                                                <div class="edit-field">
-                                                    <label>Silver</label>
-                                                    <input 
-                                                        type="number"
-                                                        bind:value={editingEvent.data.currency.silver}
-                                                        min="0"
-                                                    />
-                                                </div>
-                                                <div class="edit-field">
-                                                    <label>Copper</label>
-                                                    <input 
-                                                        type="number"
-                                                        bind:value={editingEvent.data.currency.copper}
+                                                        bind:value={editingEvent.data.currency}
                                                         min="0"
                                                     />
                                                 </div>
@@ -245,19 +227,30 @@
                                                 <label>Enemy</label>
                                                 <LibrarySelector
                                                     entityType="creature"
-                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    onSelect={(id) => {
+                                                        if (editingEvent) editingEvent!.data.id = id
+                                                    }}
                                                     placeholder="Select enemy..."
-                                                    initialIds={[editingEvent.data.id]}
+                                                    initialIds={[editingEvent!.data.id as number]}
                                                 />
+                                                <!-- dropdown of -1, 0, +1, level adjustment-->
+                                                <label>Level Adjustment</label>
+                                                <select 
+                                                    bind:value={editingEvent.data.level_adjustment}
+                                                >
+                                                    <option value={-1}>-1</option>
+                                                    <option value={0}>0</option>
+                                                    <option value={1}>+1</option>
+                                                </select>
                                             </div>
                                         {:else if formData.type === 'HazardDefeated'}
                                             <div class="edit-field">
                                                 <label>Hazard</label>
                                                 <LibrarySelector
                                                     entityType="hazard"
-                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    onSelect={(id) => editingEvent!.data.id = id}
                                                     placeholder="Select hazard..."
-                                                    initialIds={[editingEvent.data.id]}
+                                                    initialIds={[editingEvent.data.id as number]}
                                                 />
                                             </div>
                                         {:else if formData.type === 'ItemGain'}
@@ -265,9 +258,9 @@
                                                 <label>Item</label>
                                                 <LibrarySelector
                                                     entityType="item"
-                                                    onSelect={(id) => editingEvent.data.id = id}
+                                                    onSelect={(id) => editingEvent!.data.id = id}
                                                     placeholder="Select item..."
-                                                    initialIds={[editingEvent.data.id]}
+                                                    initialIds={[editingEvent.data.id  as number]}
                                                 />
                                             </div>
                                         {/if}
@@ -282,23 +275,27 @@
                         {:else}
                             <td>
                                 {#if event.event_type === 'CurrencyGain'}
-                                    {formatCurrency(event.data.currency)}
+                                    {formatCurrency(event.data.currency as number)}
                                 {:else if event.event_type === 'ExperienceGain'}
                                     {event.data.experience} XP
                                 {:else if event.event_type === 'EnemyDefeated'}
                                     <LibraryEntityName 
                                         entityType="creature"
-                                        entityId={event.data.id}
+                                        entityId={event.data.id as number}
                                     />
+                                    {#if event.data.level_adjustment && event.data.level_adjustment as number !== 0}
+                                        <span>({event.data.level_adjustment as number > 0 ? '+' : ''}{event.data.level_adjustment})</span>
+                                    {/if}
+                
                                 {:else if event.event_type === 'HazardDefeated'}
                                     <LibraryEntityName 
                                         entityType="hazard"
-                                        entityId={event.data.id}
+                                        entityId={event.data.id as number}
                                     />
                                 {:else if event.event_type === 'ItemGain'}
                                     <LibraryEntityName 
                                         entityType="item"
-                                        entityId={event.data.id}
+                                        entityId={event.data.id as number}
                                     />
                                 {:else}
                                     {JSON.stringify(event.data)}

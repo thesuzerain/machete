@@ -135,11 +135,13 @@ pub async fn get_spells_search(
         offset as i64,
     );
 
+    // create initial hm with empty vecs for each query
+    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
     let spells = query
         .fetch_all(exec)
         .await?
         .into_iter()
-        .fold(HashMap::new(), |mut map, row| {
+        .fold(hm, |mut map, row| {
             let query = row.query;
             let spell = LibrarySpell {
                 id: InternalId(row.id as u64),

@@ -14,6 +14,18 @@ export function getFullUrl(url : string) {
     return aon + url;
 }
 
+export function getFullUrlWithAdjustment(url : string, adjustment : number) {
+    const aon = "https://2e.aonprd.com";
+    if (adjustment === -1) {
+        return aon + url + '&Weak=true';
+    }
+    if (adjustment === 1) {
+        return aon + url + '&Elite=true';
+    }
+
+    return aon + url;
+}
+
 export interface LibraryClass extends LibraryEntity {
     hit_points: number;
     key_ability: string;
@@ -44,27 +56,26 @@ export interface LibraryHazard extends LibraryEntity {
 
 export interface LibraryItem extends LibraryEntity {
     category: string;
-    price?: Currency;
+    price?: number;
     bulk?: number;
     hands?: number;
 }
 
-export interface Currency {
-    gold?: number;
-    silver?: number;
-    copper?: number;
-}
-
-export function formatCurrency(currency: Currency): string {
+export function formatCurrency(currency: number): string {
     const parts: string[] = [];
-    if (currency.gold) {
-        parts.push(`${currency.gold}g`);
+
+    const gold = Math.floor(currency);
+    const silver = Math.floor((currency - gold) * 10);
+    const copper = Math.round((currency - gold - silver / 10) * 100);
+
+    if (gold > 0) {
+        parts.push(`${gold}g`);
     }
-    if (currency.silver) {
-        parts.push(`${currency.silver}s`);
+    if (silver > 0) {
+        parts.push(`${silver}s`);
     }
-    if (currency.copper) {
-        parts.push(`${currency.copper}c`);
+    if (copper > 0) {
+        parts.push(`${copper}c`);
     }
     if (parts.length === 0) {
         return '0g';

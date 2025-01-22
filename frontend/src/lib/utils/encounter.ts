@@ -34,7 +34,8 @@ export function getExperienceFromLevel(partyLevel: number, creatureLevel: number
     return xpByDifference[clampedDiff] || 40; // Default to level 0 if something goes wrong
 }
 
-export function getSeverityFromExperience(totalXP: number, partySize: number): EncounterDifficulty {
+
+export function getSeverityFromRawExperience(rawTotalXP: number, partySize: number): EncounterDifficulty {
     // XP thresholds based on the party size
     const baseThresholds = {
         trivial: 40,
@@ -52,12 +53,51 @@ export function getSeverityFromExperience(totalXP: number, partySize: number): E
         extreme: 40
     }
 
-    const diffOff = partySize - 4;
-    if (totalXP - playerAdjustmentThresholds.extreme*diffOff >= baseThresholds.extreme) return EncounterDifficulty.Extreme;
-    if (totalXP - playerAdjustmentThresholds.severe*diffOff >= baseThresholds.severe) return EncounterDifficulty.Severe;
-    if (totalXP - playerAdjustmentThresholds.moderate*diffOff >= baseThresholds.moderate) return EncounterDifficulty.Moderate;
-    if (totalXP - playerAdjustmentThresholds.low*diffOff >= baseThresholds.low) return EncounterDifficulty.Low;
+    const diffOff = partySize - 4;    
+    if (rawTotalXP - playerAdjustmentThresholds.extreme*diffOff >= baseThresholds.extreme) return EncounterDifficulty.Extreme;
+    if (rawTotalXP - playerAdjustmentThresholds.severe*diffOff >= baseThresholds.severe) return EncounterDifficulty.Severe;
+    if (rawTotalXP - playerAdjustmentThresholds.moderate*diffOff >= baseThresholds.moderate) return EncounterDifficulty.Moderate;
+    if (rawTotalXP - playerAdjustmentThresholds.low*diffOff >= baseThresholds.low) return EncounterDifficulty.Low;
     return EncounterDifficulty.Trivial;
+}
+
+// This function is used to calculate the severity of an encounter based on the final XP value
+// extraExperience is NOT included in severity calculation, but is included in totalXP, so we have to subtract it
+export function getSeverityFromFinalExperience(totalXP: number, extraExperience : number): EncounterDifficulty {
+    const totalXPWithoutExtra = totalXP - extraExperience;
+    // XP thresholds based on the party size
+    const baseThresholds = {
+        trivial: 40,
+        low: 60,
+        moderate: 80,
+        severe: 120,
+        extreme: 160
+    };
+
+    if (totalXP >= baseThresholds.extreme) return EncounterDifficulty.Extreme;
+    if (totalXP >= baseThresholds.severe) return EncounterDifficulty.Severe;
+    if (totalXP >= baseThresholds.moderate) return EncounterDifficulty.Moderate;
+    if (totalXP >= baseThresholds.low) return EncounterDifficulty.Low;
+    return EncounterDifficulty.Trivial;
+}
+
+export function getAdjustedExperienceFromPartySize(rawTotalXP: number, partySize: number): number {
+    const severity = getSeverityFromRawExperience(rawTotalXP, partySize);
+
+    const playerAdjustmentThresholds = {
+        trivial: 10,
+        low: 20,
+        moderate: 20,
+        severe: 30,
+        extreme: 40
+    }
+
+    const diffOff = partySize - 4;
+    if (severity === EncounterDifficulty.Extreme) return rawTotalXP - playerAdjustmentThresholds.extreme*diffOff;
+    if (severity === EncounterDifficulty.Severe) return rawTotalXP - playerAdjustmentThresholds.severe*diffOff;
+    if (severity === EncounterDifficulty.Moderate) return rawTotalXP - playerAdjustmentThresholds.moderate*diffOff;
+    if (severity === EncounterDifficulty.Low) return rawTotalXP - playerAdjustmentThresholds.low*diffOff;
+    return rawTotalXP;
 }
 
 export function getRewardForLevelSeverity(level: number, severity: EncounterDifficulty): { 
