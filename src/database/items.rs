@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use crate::models::ids::InternalId;
-use crate::models::library::{
-    item::LibraryItem,
-    GameSystem, Rarity,
-};
+use crate::models::library::{item::LibraryItem, GameSystem, Rarity};
 
 use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
@@ -57,15 +54,21 @@ pub struct ItemSearch {
 pub async fn get_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     condition: &ItemFilters,
-) -> crate::Result<Vec<LibraryItem>> {    
-    get_items_search(exec, &ItemSearch {
-        query: vec!["".to_string()], // Empty search query
-        min_similarity: None,
-        filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
-    .map(|(_, v)| 
-    v.into_iter().map(|(_, v)| v).collect()
-).ok_or_else(|| ServerError::NotFound)
+) -> crate::Result<Vec<LibraryItem>> {
+    get_items_search(
+        exec,
+        &ItemSearch {
+            query: vec!["".to_string()], // Empty search query
+            min_similarity: None,
+            filters: condition.clone(),
+        },
+        DEFAULT_MAX_LIMIT,
+    )
+    .await?
+    .into_iter()
+    .next()
+    .map(|(_, v)| v.into_iter().map(|(_, v)| v).collect())
+    .ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -76,7 +79,7 @@ pub async fn get_items_search(
     // https://github.com/launchbadge/sqlx/issues/291
     search: &ItemSearch,
     default_limit: u64,
-) -> crate::Result<HashMap<String, Vec<(f32,LibraryItem)>>> {
+) -> crate::Result<HashMap<String, Vec<(f32, LibraryItem)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -151,29 +154,33 @@ pub async fn get_items_search(
     .await?;
 
     // create initial hm with empty vecs for each query
-    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
+    let hm = search
+        .query
+        .iter()
+        .map(|q| (q.clone(), Vec::new()))
+        .collect::<HashMap<_, _>>();
 
-    let items = query
-        .into_iter()
-        .fold(hm, |map, row| {
-            // TODO: conversions still here shouldnt be needed
-            // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
-            let query = row.query;
-            let item = LibraryItem {
-                id: InternalId(row.id as u64),
-                name: row.name,
-                game_system: GameSystem::from_i64(row.game_system as i64),
-                rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
-                level: row.level.unwrap_or_default() as i8,
-                price: row.price.unwrap_or_default(),
-                tags: row.tags.unwrap_or_default(),
-                url: row.url,
-                description: row.description.unwrap_or_default(),
-            };
-            let mut map = map;
-            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(), item));
-            map
-        });
+    let items = query.into_iter().fold(hm, |map, row| {
+        // TODO: conversions still here shouldnt be needed
+        // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
+        let query = row.query;
+        let item = LibraryItem {
+            id: InternalId(row.id as u64),
+            name: row.name,
+            game_system: GameSystem::from_i64(row.game_system as i64),
+            rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
+            level: row.level.unwrap_or_default() as i8,
+            price: row.price.unwrap_or_default(),
+            tags: row.tags.unwrap_or_default(),
+            url: row.url,
+            description: row.description.unwrap_or_default(),
+        };
+        let mut map = map;
+        map.entry(query)
+            .or_default()
+            .push((row.similarity.unwrap_or_default(), item));
+        map
+    });
     Ok(items)
 }
 
@@ -228,10 +235,7 @@ pub async fn insert_items(
             .map(|c| c.rarity.as_i64() as i32)
             .collect::<Vec<i32>>(),
         &items.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
-        &items
-            .iter()
-            .map(|c| c.price as f64)
-            .collect::<Vec<f64>>(),
+        &items.iter().map(|c| c.price as f64).collect::<Vec<f64>>(),
     )
     .execute(exec)
     .await?;

@@ -55,7 +55,7 @@ async fn insert_campaign(
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let campaign_id = database::campaigns::insert_campaign(&pool,&campaign, user.id).await?;
+    let campaign_id = database::campaigns::insert_campaign(&pool, &campaign, user.id).await?;
     let owned_campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     let campaign = owned_campaigns
         .into_iter()

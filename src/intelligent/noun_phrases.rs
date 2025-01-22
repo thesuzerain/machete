@@ -1,4 +1,7 @@
-use nlprule::{types::{owned::Token, Sentence}, Tokenizer};
+use nlprule::{
+    types::{owned::Token, Sentence},
+    Tokenizer,
+};
 
 #[derive(Debug)]
 pub struct NounPhrase {
@@ -19,10 +22,7 @@ impl NounPhrase {
 /// They may also allow ambiguous nouns to be bundled together. This is currently intentional. TODO: Is this the best option?
 ///     eg: "adult red dragon" -> ["adult red dragon", "adult", "red dragon"]
 /// But  it may have bad results for others.
-pub fn extract_noun_phrases_from_text(
-    tokenizer: &Tokenizer,
-    text: &str,
-) -> Vec<NounPhrase> {
+pub fn extract_noun_phrases_from_text(tokenizer: &Tokenizer, text: &str) -> Vec<NounPhrase> {
     // Tokenize into sentences, then concat them together from the pieces
     let mut all_phrases = vec![];
     for sentence in tokenizer.pipe(text) {
@@ -33,9 +33,9 @@ pub fn extract_noun_phrases_from_text(
 }
 
 /// Concat noun phrases from chunks of individual words with assigned noun-phrase-ness
-fn concat_noun_phrases(sentence : Sentence<'_>) -> Vec<NounPhrase> {
+fn concat_noun_phrases(sentence: Sentence<'_>) -> Vec<NounPhrase> {
     let mut noun_phrases = vec![];
-    let mut temp_noun_phrases: Vec<Vec<Token>>  = vec![];
+    let mut temp_noun_phrases: Vec<Vec<Token>> = vec![];
     let mut ready_to_clear = false;
     for token in sentence {
         let mut added = false;
@@ -43,7 +43,7 @@ fn concat_noun_phrases(sentence : Sentence<'_>) -> Vec<NounPhrase> {
 
         // No chunks- apostophes, random characters.
         // Allow these to pass, so stuff like "men's wives" can be caught
-        if token.chunks().len() == 0 {
+        if token.chunks().is_empty() {
             // Add to temp noun phrase
             for temp_noun_phrase in temp_noun_phrases.iter_mut() {
                 temp_noun_phrase.push(word.clone());
@@ -73,7 +73,7 @@ fn concat_noun_phrases(sentence : Sentence<'_>) -> Vec<NounPhrase> {
                 }
                 added = true;
             }
-            
+
             // End of noun phrase
             // This may not guarantee an end
             if chunk.starts_with("E-NP") {
@@ -92,11 +92,9 @@ fn concat_noun_phrases(sentence : Sentence<'_>) -> Vec<NounPhrase> {
                 ready_to_clear = true;
             }
 
-            if !chunk.contains("-NP") {
-                if ready_to_clear {
-                    temp_noun_phrases.clear();
-                    ready_to_clear = false;
-                }
+            if !chunk.contains("-NP") && ready_to_clear {
+                temp_noun_phrases.clear();
+                ready_to_clear = false;
             }
         }
     }
@@ -104,13 +102,16 @@ fn concat_noun_phrases(sentence : Sentence<'_>) -> Vec<NounPhrase> {
     // Convert vecs of tokens to nounphrases
     let mut noun_phrases_final = vec![];
     for noun_phrase in noun_phrases {
-        if noun_phrase.len() == 0 {
+        if noun_phrase.is_empty() {
             continue;
         }
         let first = noun_phrase.first().unwrap();
         let last = noun_phrase.last().unwrap();
         let np = NounPhrase {
-            words: noun_phrase.iter().map(|x| x.word.text.as_ref_id().as_str().to_string()).collect(),
+            words: noun_phrase
+                .iter()
+                .map(|x| x.word.text.as_ref_id().as_str().to_string())
+                .collect(),
             start: first.span.start().char,
             end: last.span.end().char,
         };

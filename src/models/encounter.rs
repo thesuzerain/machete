@@ -29,7 +29,7 @@ pub struct Encounter {
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterEnemy {
     pub id: InternalId,
-    pub level_adjustment: i16
+    pub level_adjustment: i16,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default)]
@@ -122,29 +122,29 @@ pub fn calculate_total_adjusted_experience(
     party_level: u8,
     party_size: u8,
 ) -> i32 {
-    let mut total_experience : i32 = 0;
+    let mut total_experience: i32 = 0;
     for level in enemy_levels {
         total_experience += calculate_enemy_experience(*level, party_level);
     }
     for level in hazard_levels {
         total_experience += calculate_enemy_experience(*level, party_level);
     }
-    
+
     let diff_off = party_size as i32 - 4;
-    if total_experience - 40 - 10*diff_off >= 160 {
+    if total_experience - 40 - 10 * diff_off >= 160 {
         return total_experience;
     }
-    if total_experience - 30*diff_off >= 120 {
+    if total_experience - 30 * diff_off >= 120 {
         return total_experience;
     }
-    if total_experience - 20*diff_off >= 80 {
+    if total_experience - 20 * diff_off >= 80 {
         return total_experience;
     }
-    if total_experience - 20*diff_off >= 60 {
+    if total_experience - 20 * diff_off >= 60 {
         return total_experience;
     }
-    return total_experience;
-}   
+    total_experience
+}
 
 pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
     let level_diff = level as i32 - party_level as i32;

@@ -1,41 +1,45 @@
 use std::sync::Arc;
 
-use crate::{database::{creatures::{CreatureFilters, CreatureSearch}, hazards::{HazardFilters, HazardSearch}, items::{ItemFilters, ItemSearch}, spells::{SpellFilters, SpellSearch}, DEFAULT_MAX_GROUP_LIMIT}, intelligent::noun_phrases, models::library::{creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem, spell::LibrarySpell}, AppState};
-use axum::{
-    extract::State,
-    response::IntoResponse,
-    routing::post,
-    Json, Router,
+use crate::{database, ServerError};
+use crate::{
+    database::{
+        creatures::{CreatureFilters, CreatureSearch},
+        hazards::{HazardFilters, HazardSearch},
+        items::{ItemFilters, ItemSearch},
+        spells::{SpellFilters, SpellSearch},
+        DEFAULT_MAX_GROUP_LIMIT,
+    },
+    intelligent::noun_phrases,
+    models::library::{
+        creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem, spell::LibrarySpell,
+    },
+    AppState,
 };
+use axum::{extract::State, response::IntoResponse, routing::post, Json, Router};
 use nlprule::Tokenizer;
 use sqlx::PgPool;
-use crate::{
-    database,
-    ServerError,
-};
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/augmented-nlp", post(parse_augmented_noun_phrases))
+    Router::new().route("/augmented-nlp", post(parse_augmented_noun_phrases))
 }
 
-#[derive(serde::Deserialize)]   
+#[derive(serde::Deserialize)]
 pub struct ParseAugmentedNounPhrases {
-    pub text : String,
-    pub min_similarity : Option<f32>,
-    pub creature_filters : Option<CreatureFilters>,
-    pub item_filters :  Option<ItemFilters>,
-    pub spell_filters :  Option<SpellFilters>,
-    pub hazard_filters : Option< HazardFilters>,
+    pub text: String,
+    pub min_similarity: Option<f32>,
+    pub creature_filters: Option<CreatureFilters>,
+    pub item_filters: Option<ItemFilters>,
+    pub spell_filters: Option<SpellFilters>,
+    pub hazard_filters: Option<HazardFilters>,
 }
 
 // TODO: Move things to models
 #[derive(serde::Serialize)]
 pub struct AugmentedNounPhrase {
-    pub text : String,
-    pub span : (usize, usize),
-    pub similarity : f32,
-    pub augment : AugmentedNounPhraseAugment,
+    pub text: String,
+    pub span: (usize, usize),
+    pub similarity: f32,
+    pub augment: AugmentedNounPhraseAugment,
 }
 
 #[derive(serde::Serialize)]
@@ -45,7 +49,7 @@ pub enum AugmentedNounPhraseAugment {
     Spell(LibrarySpell),
     Item(LibraryItem),
     Hazard(LibraryHazard),
-    None
+    None,
 }
 
 async fn parse_augmented_noun_phrases(
@@ -55,7 +59,10 @@ async fn parse_augmented_noun_phrases(
 ) -> Result<impl IntoResponse, ServerError> {
     // Get noun phrases from text
     let noun_phrases = noun_phrases::extract_noun_phrases_from_text(&tokenizer, &data.text);
-    let noun_phrase_strings = noun_phrases.iter().map(|np| np.to_string()).collect::<Vec<String>>();
+    let noun_phrase_strings = noun_phrases
+        .iter()
+        .map(|np| np.to_string())
+        .collect::<Vec<String>>();
 
     let min_similarity = data.min_similarity.unwrap_or(0.4);
 
@@ -84,7 +91,7 @@ async fn parse_augmented_noun_phrases(
 
     // Fetch all the data
     // TODO: these need to return similarities so you can cross compare here
-    let (creatures, hazards, items, spells) = tokio::try_join!{
+    let (creatures, hazards, items, spells) = tokio::try_join! {
         database::creatures::get_creatures_search(&pool, &creature_search, DEFAULT_MAX_GROUP_LIMIT),
         database::hazards::get_hazards_search(&pool, &hazard_search, DEFAULT_MAX_GROUP_LIMIT),
         database::items::get_items_search(&pool, &item_search, DEFAULT_MAX_GROUP_LIMIT),
@@ -143,7 +150,6 @@ async fn parse_augmented_noun_phrases(
     }
 
     // TODO: Handle overlaps
-    
+
     Ok(Json(augmented_noun_phrases))
 }
-

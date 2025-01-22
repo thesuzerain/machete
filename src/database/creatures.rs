@@ -1,16 +1,16 @@
-use std::collections::HashMap;
+use super::DEFAULT_MAX_LIMIT;
 use crate::models::ids::InternalId;
 use crate::models::library::{
     creature::{Alignment, LibraryCreature, Size},
     GameSystem, Rarity,
 };
+use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
 use serde::{Deserialize, Serialize};
-use crate::models::query::CommaSeparatedVec;
-use super::DEFAULT_MAX_LIMIT;
+use std::collections::HashMap;
 
-// TODO: Consider (for this and others) moving the limit/page to both a separate struct AND 'search'. 
-// They both use both fields the same way internally, but they mean slightly different things in the returned data, and we 
+// TODO: Consider (for this and others) moving the limit/page to both a separate struct AND 'search'.
+// They both use both fields the same way internally, but they mean slightly different things in the returned data, and we
 // sometimes need to apply limits midway through the pipeline.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct CreatureFilters {
@@ -58,15 +58,21 @@ pub struct CreatureSearch {
 pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     condition: &CreatureFilters,
-) -> crate::Result<Vec<LibraryCreature>> {    
-    get_creatures_search(exec, &CreatureSearch {
-        query: vec!["".to_string()], // Empty search query
-        min_similarity: None,
-        filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
-    .map(|(_, v)| 
-    v.into_iter().map(|(_, v)| v).collect()
-).ok_or_else(|| ServerError::NotFound)
+) -> crate::Result<Vec<LibraryCreature>> {
+    get_creatures_search(
+        exec,
+        &CreatureSearch {
+            query: vec!["".to_string()], // Empty search query
+            min_similarity: None,
+            filters: condition.clone(),
+        },
+        DEFAULT_MAX_LIMIT,
+    )
+    .await?
+    .into_iter()
+    .next()
+    .map(|(_, v)| v.into_iter().map(|(_, v)| v).collect())
+    .ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -76,8 +82,8 @@ pub async fn get_creatures_search(
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
     search: &CreatureSearch,
-    default_limit: u64
-) -> crate::Result<HashMap<String, Vec<(f32,LibraryCreature)>>> {
+    default_limit: u64,
+) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -146,16 +152,20 @@ pub async fn get_creatures_search(
         min_similarity,
         limit as i64,
         offset as i64,
-    ); 
+    );
 
     // create initial hm with empty vecs for each query
-    let hm = search.query.iter().map(|q| (q.clone(), Vec::new())).collect::<HashMap<_,_>>();
+    let hm = search
+        .query
+        .iter()
+        .map(|q| (q.clone(), Vec::new()))
+        .collect::<HashMap<_, _>>();
 
     let creatures = query
         .fetch_all(exec)
         .await?
         .into_iter()
-        .fold(hm,|mut map, row| {
+        .fold(hm, |mut map, row| {
             let query = row.query;
             let creature = LibraryCreature {
                 id: InternalId(row.id as u64),
@@ -170,7 +180,9 @@ pub async fn get_creatures_search(
                 description: row.description.unwrap_or_default(),
             };
 
-            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(),creature));
+            map.entry(query)
+                .or_default()
+                .push((row.similarity.unwrap_or_default(), creature));
             map
         });
 
@@ -244,4 +256,3 @@ pub async fn insert_creatures(
 
     Ok(())
 }
-

@@ -81,11 +81,16 @@ pub async fn insert_campaign(
         insert.description.as_ref(),
     )
     .fetch_all(exec)
-    .await?.into_iter().next().ok_or(ServerError::InternalError("Failed to insert campaign".to_string()))?.id;
+    .await?
+    .into_iter()
+    .next()
+    .ok_or(ServerError::InternalError(
+        "Failed to insert campaign".to_string(),
+    ))?
+    .id;
 
     Ok(InternalId(id as u64))
 }
-
 
 pub async fn delete_campaign(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,

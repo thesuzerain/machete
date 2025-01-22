@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            c.*, query as \"query!\"\n        FROM UNNEST($10::text[]) query\n        CROSS JOIN LATERAL (\n            SELECT \n                SIMILARITY(lo.name, query) AS similarity,\n                lo.id,\n                lo.name,\n                lo.game_system,\n                lo.url,\n                lo.description,\n                rarity,\n                level,\n                alignment,\n                size,\n                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags\n            FROM library_objects lo\n            INNER JOIN library_creatures lc ON lo.id = lc.id\n            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n            LEFT JOIN tags t ON lot.tag_id = t.id\n\n            WHERE \n                ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')\n                AND ($2::int IS NULL OR rarity = $2)\n                AND ($3::int IS NULL OR game_system = $3)\n                AND ($4::int IS NULL OR level >= $4)\n                AND ($5::int IS NULL OR level <= $5)\n                AND ($6::int IS NULL OR alignment = $6)\n                AND ($7::int IS NULL OR size = $7)\n                AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')\n                AND ($9::int[] IS NULL OR lo.id = ANY($9))\n                AND SIMILARITY(lo.name, query) >= $11\n            GROUP BY lo.id, lc.id ORDER BY similarity DESC\n            LIMIT $12 OFFSET $13\n        ) c\n        ORDER BY similarity DESC\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "similarity",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "game_system",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "rarity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "alignment",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "tags",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "query!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4Array",
+        "TextArray",
+        "Float4",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "5a3b127fef097f5acc03d934bd819f0235f65341babeca5ce5ab168b6e98cadb"
+}
