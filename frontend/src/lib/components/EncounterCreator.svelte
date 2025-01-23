@@ -7,13 +7,14 @@
     import { id } from 'date-fns/locale';
     import { 
         getExperienceFromLevel, 
-        getSeverityFromExperience, 
+        getSeverityFromRawExperience, 
         getRewardForLevelSeverity,
-        EncounterDifficulty 
+        EncounterDifficulty, 
+        getAdjustedExperienceFromPartySize
+
     } from '$lib/utils/encounter';
-    import type { Encounter, CreateEncounter, EncounterStatus } from '$lib/types/encounters';
-    import type { Currency } from '$lib/types/library';
-    import { getFullUrl } from '$lib/types/library';
+    import type { Encounter, CreateEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy } from '$lib/types/encounters';
+    import { getFullUrl, getFullUrlWithAdjustment, type LibraryCreature, type LibraryHazard, type LibraryItem } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
     import {
@@ -31,20 +32,17 @@
   import EncounterCreatorNlp from './EncounterCreatorNlp.svelte';
   import { writable, type Writable } from 'svelte/store';
   import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+  import { characterStore } from '$lib/stores/characters';
 
-    library.add(faLink)
-
-    interface LibraryEntity {
-        id: number;
-        name: string;
-        level?: number;  // Optional for creatures/hazards
-        price?: Currency;  // Optional for items (cost)
+    interface Props {
+        editingEncounter: Encounter | null;
     }
+    let { 
+        editingEncounter = $bindable(),
+     } : Props = $props();
 
-    interface PartyConfig {
-        playerCount: number;
-        partyLevel: number;
-    }
+     library.add(faLink)
+
 
     const campaignId = parseInt($page.params.id);
     let campaignCharacters: Character[] = $state([]);
@@ -60,36 +58,22 @@
     // Modify the newEncounter state to track the current draft
     let draftEncounter: CreateEncounter = $state({
         name: '',
-        description: '',
+        description: 'fresh',
         enemies: [],
+        enemy_level_adjustments: [],
         hazards: [],
         treasure_items: [],
         treasure_currency: 0,
+        extra_experience: 0,
         party_level: 1,
         party_size: 4
-    });
 
-    
-    let campaignPartyConfig: PartyConfig = $state({
-        party_level: 1,
-        party_size: 4
     });
 
     // Add these variables near the top of the script section, with the other state variables
     let enemiesSectionOpen = $state(true);
     let hazardsSectionOpen = $state(true);
     let treasureSectionOpen = $state(true);
-
-    // Add these to your script section near the top with other state variables
-    let encountersListOpen = $state(true);
-    let encounterOpenStates: { [key: number]: boolean } = $state({});
-    let encounterFilter = $state('');
-    let encounterSort: 'name' | 'level' | 'xp' = 'name';
-    let sortDirection: 'asc' | 'desc' = 'asc';
-
-    // Add a new state variable for selected campaign
-    let selectedCampaign: string | null = $state(null);
-    let selectedCompletionCampaign: string | null = $state(null);
 
     // Subscribe to the stores
     let encounters = $derived($encounterStore);
@@ -98,51 +82,13 @@
     let libraryHazards = $derived($hazardStore);
     let libraryItems = $derived($itemStore);
 
+    // Add a new state variable for selected campaign
+    let selectedCampaign: number | null = $state($campaignStore.keys().next()?.value || null);
+    
     // Fetch campaigns data
     async function fetchCampaigns() {
         await campaignStore.fetchCampaigns();
     }
-
-    // Fetch characters for the selected campaign
-    async function fetchCampaignCharacters(campaignId: string) {
-        try {
-            const response = await fetch(`${API_URL}/campaign/${campaignId}/characters`, {
-                credentials: 'include',
-            });
-            if (!response.ok) throw new Error('Failed to fetch campaign characters');
-            campaignCharacters = await response.json();
-
-            // Set PartyConfig to the player count and level of the campaign
-            draftEncounter.party_size = campaignCharacters.length;
-            draftEncounter.party_level = campaignCharacters.reduce((max, char) => Math.max(max, char.level), 0);
-            campaignPartyConfig = {
-                party_size: campaignCharacters.length,
-                party_level: draftEncounter.party_level
-            };
-        } catch (e) {
-            console.error(e);
-            error = e instanceof Error ? e.message : 'Failed to fetch campaign characters';
-        }
-    }
-
-    // Watch for changes in selectedCampaign
-    // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
-    $effect(() => { 
-        if(selectedCampaign) {
-        const campaign = campaigns.find(c => c.id === selectedCampaign);
-        if (campaign) {
-            fetchCampaignCharacters(selectedCampaign); // Fetch characters whenever a new campaign is selected
-        }
-    } });
-
-    // Reset selectedCampaign to 'None' if player count or level is manually changed
-    // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
-    $effect(() => {
-        if (draftEncounter.party_size !== campaignPartyConfig.party_size ||
-            draftEncounter.party_level !== campaignPartyConfig.party_level) {
-            selectedCampaign = null;
-        }
-    });
 
     async function loadLibraryData() {
         try {
@@ -155,7 +101,7 @@
             
             if (enemyIds.size > 0) {
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).join(',')
+                    ids: Array.from(enemyIds).map((x) => x.id).join(',')
                 })
             }
 
@@ -213,9 +159,9 @@
         
         saveTimeout = setTimeout(async () => {
             try {
+                console.log("Auto-saving...");
                 await encounterStore.updateDraft({
                     ...draftEncounter,
-                    status: 'InProgress'
                 });
             } catch (e) {
                 error = e instanceof Error ? e.message : 'Failed to save draft';
@@ -227,6 +173,12 @@
     async function createEncounter(event: SubmitEvent) {
         event.preventDefault();
         
+        let finalized : CreateEncounterFinalized = {
+            ...draftEncounter,
+            total_currency: totalTreasure,
+            total_experience: totalEarnedXP,
+        };
+
         try {
             const response = await fetch(`${API_URL}/encounters`, {
                 method: 'POST',
@@ -235,7 +187,7 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify([{
-                    ...draftEncounter,
+                    ...finalized,
                 }]),
             });
 
@@ -248,7 +200,10 @@
                 enemies: [],
                 hazards: [],
                 treasure_items: [],
-                treasure_currency: { gold: 0 }
+                extra_experience: 0,
+                treasure_currency: 0,
+                party_level: 1,
+                party_size: 4
             };
             
             // Clear any existing draft
@@ -257,7 +212,11 @@
                 credentials: 'include',
             });
 
+            // This creates a new draft on backend
             await fetchEncounters();
+
+            // If a campaign is selected, get player/party count defaults
+            pickDefaultCampaignForParty();
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create encounter';
         }
@@ -282,116 +241,139 @@
     }
 
 
-    function getEnemyDetails(id: number) {
-        return libraryEnemies.entities.get(id);
+    function getEnemyDetails(id: number) : LibraryCreature | null {
+        return libraryEnemies.entities.get(id) || null;
     }
 
-    function getHazardDetails(id: number) {
-        return libraryHazards.entities.get(id);
+    function getHazardDetails(id: number) : LibraryHazard | null {
+        return libraryHazards.entities.get(id) || null;
     }
 
-    function getItemDetails(id: number) {
-        return libraryItems.entities.get(id);
+    function getItemDetails(id: number) : LibraryItem | null {
+        return libraryItems.entities.get(id) || null;
     }
 
-    function getTotalTreasure() {
-        let total = draftEncounter.treasure_currency.gold || 0;
+    let totalTreasure : number = $derived.by(() => {
+        let total = draftEncounter.treasure_currency || 0;
         draftEncounter.treasure_items.forEach(itemId => {
             const item = getItemDetails(itemId);
-            if (item && item.price?.gold) {
-                total += item.price.gold;
+            if (item && item.price) {
+                total += item.price;
             }
         });
         return total;
-    }
+    })
 
     async function fetchEncounters() {
         await encounterStore.fetchEncounters();
     }
 
-    function getEnemiesXP(): number {
-        return draftEncounter.enemies.reduce((total, enemyId) => {
-            const enemy = getEnemyDetails(enemyId);
+    let subtotalXPEnemies : number = $derived(
+        draftEncounter.enemies.reduce((total, encounterEnemy) => {
+            const enemy = getEnemyDetails(encounterEnemy.id);
             if (enemy?.level) {
-                return total + getExperienceFromLevel(draftEncounter.party_level, enemy.level);
+                return total + getExperienceFromLevel(draftEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
             }
             return total;
-        }, 0);
-    }
+        }, 0)
+    );
 
-    function getHazardsXP(): number {
-        return draftEncounter.hazards.reduce((total, hazardId) => {
+    let subtotalXPHazards : number = $derived(
+        draftEncounter.hazards.reduce((total, hazardId) => {
             const hazard = getHazardDetails(hazardId);
             if (hazard?.level) {
                 return total + getExperienceFromLevel(draftEncounter.party_level, hazard.level);
             }
             return total;
-        }, 0);
+        }, 0)
+    );
+
+    async function pickDefaultCampaignForParty() {
+        if (selectedCampaign) {
+            await characterStore.fetchCharacters(selectedCampaign); // Fetch characters for the selected campaign
+            const characters = $characterStore.get(selectedCampaign);
+            if (characters) {                
+                // Set PartyConfig to the player count and level of the campaign
+                draftEncounter.party_size = characters.length;
+                draftEncounter.party_level = characters.reduce((max, char) => Math.max(max, char.level), 1);
+            }
+        }
+    }
+    pickDefaultCampaignForParty();
+
+    // TODO: modularize, along with css classes
+    function getClassForDifficulty(difficulty: EncounterDifficulty): string {
+        switch (difficulty) {
+            case 'Trivial':
+                return 'difficulty-trivial';
+            case 'Low':
+                return 'difficulty-low';
+            case 'Moderate':
+                return 'difficulty-moderate';
+            case 'Severe':
+                return 'difficulty-severe';
+            case 'Extreme':
+                return 'difficulty-extreme';
+            default:
+                return '';
+        }
     }
 
-    // Add reactive statement for difficulty calculation
-    let encounterDifficulty = $derived.by(() => {
-        // TODO: This first part may not be necesary- was used to cause an update but may not be needed anymore
-        if (libraryEnemies || libraryHazards || libraryItems || draftEncounter.enemies || draftEncounter.hazards || draftEncounter.treasure_items) {
-            return getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
+    function toggleEnemyAdjustment(enemyId : number) {
+        let cycleOrder = new Map([
+            [0, 1],
+            [1, -1],
+            [-1, 0]
+        ]);
+        let encounterEnemy = draftEncounter.enemies[enemyId];
+        encounterEnemy.level_adjustment = cycleOrder.get(encounterEnemy.level_adjustment) || 0;
+    }
+
+    function getAdjustmentName(levelAdjustment: number) {
+        switch (levelAdjustment) {
+            case 1:
+                return 'Elite';
+            case -1:
+                return 'Weak';
+            default:
+                return 'Normal';
         }
-        return getSeverityFromExperience(getEnemiesXP() + getHazardsXP(), draftEncounter.party_level);
-    });
+    }
+
+    function getAdjustmentClass(levelAdjustment: number) {
+        switch (levelAdjustment) {
+            case 1:
+                return 'elite-button';
+            case -1:
+                return 'weak-button';
+            default:
+                return 'normal-button';
+        }
+    }
+
+
+    // Add reactive statement for difficulty calculation
+    let encounterDifficulty : EncounterDifficulty = $derived(getSeverityFromRawExperience(subtotalXPEnemies + subtotalXPHazards, draftEncounter.party_size));
+
+    // Sum up the total XP for the encounter, adjusted by party
+    // Does not include extra experience
+    let subtotalXPPartyAdjusted : number = $derived(
+        getAdjustedExperienceFromPartySize(subtotalXPEnemies + subtotalXPHazards, draftEncounter.party_size)
+    );
+    let adjustedXPAmount : number = $derived(subtotalXPPartyAdjusted - (subtotalXPEnemies + subtotalXPHazards));
+    let totalEarnedXP : number = $derived(subtotalXPPartyAdjusted + draftEncounter.extra_experience);
 
     // Add reactive statements for auto-saving
     // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
     $effect(() => {
-        if (draftEncounter.name || 
-            draftEncounter.description || 
-            draftEncounter.enemies.length || 
-            draftEncounter.hazards.length || 
-            draftEncounter.treasure_items.length || 
-            draftEncounter.treasure_currency.gold) {
+        autoSave();
+        if (draftEncounter.name && 
+            draftEncounter.description && 
+            draftEncounter.enemies &&
+            draftEncounter.hazards && 
+            draftEncounter.treasure_items && 
+            draftEncounter.extra_experience) {
             autoSave();
-        }
-    });
-
-    // Add these helper functions
-    function getDraftEncounterXP(encounter: Encounter): number {
-        let total = 0;
-        encounter.enemies.forEach(enemyId => {
-            const enemy = getEnemyDetails(enemyId);
-            if (enemy?.level) {
-                total += getExperienceFromLevel(draftEncounter.party_level, enemy.level);
-            }
-        });
-        encounter.hazards.forEach(hazardId => {
-            const hazard = getHazardDetails(hazardId);
-            if (hazard?.level) {
-                total += getExperienceFromLevel(draftEncounter.party_level, hazard.level);
-            }
-        });
-        return total;
-    }
-
-    // Add this reactive statement to sort and filter encounters
-    let filteredAndSortedEncounters = $derived(encounters
-        .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
-        .sort((a, b) => {
-            const direction = sortDirection === 'asc' ? 1 : -1;
-            switch (encounterSort) {
-                case 'name':
-                    return direction * a.name.localeCompare(b.name);
-                case 'level':
-                    return direction * (draftEncounter.party_level - draftEncounter.party_level);
-                case 'xp':
-                    return direction * (getDraftEncounterXP(a) - getDraftEncounterXP(b));
-                default:
-                    return 0;
-            }
-        }));
-
-    // Add this reactive statement to reset character selection when campaign changes
-    // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
-    $effect(() => {
-        if (selectedCompletionCampaign) {
-            selectedCharacterIds = [];
-            fetchCampaignCharacters(selectedCompletionCampaign);
         }
     });
 </script>
@@ -429,7 +411,7 @@
 
                     <h3>Party Configuration</h3>
                     <div class="party-config-row">
-                        <div>
+                        <div class="party-config-input">
                         <label for="playerCount">Number of Players</label>
                             <input 
                                 type="number" 
@@ -438,7 +420,7 @@
                                 min="1"
                                 max="6"
                             /></div>
-                            <div>
+                            <div class="party-config-input">
                             <label for="partyLevel">Party Level</label>
                             <input 
                                 type="number" 
@@ -451,16 +433,16 @@
                     </div>
                     <div class="campaign-defaults-setter">
                         <label for="campaign">Select Campaign</label>
-                        <select id="campaign" bind:value={selectedCampaign}>
+                        <select id="campaign" bind:value={selectedCampaign} on:change={() => {pickDefaultCampaignForParty()}}>
                             <option value={null}>None</option>
-                            {#each campaigns as campaign}
-                                <option value={campaign.id}>{campaign.name}</option>
+                            {#each campaigns as [id, campaign]}
+                                <option value={id}>{campaign.name}</option>
                             {/each}
                         </select>
                     </div>
                     <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
-                        <div class="xp-total">Total XP: {getEnemiesXP() + getHazardsXP()}</div>
-                        This is a <b>{encounterDifficulty.toLowerCase()}</b> encounter for <b>{draftEncounter.party_size}</b> level <b>{draftEncounter.party_level}</b> players
+                        <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {draftEncounter.extra_experience})</div>
+                        This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{draftEncounter.party_size}</b> level <b>{draftEncounter.party_level}</b> players
                         </div>
                     </div>
             
@@ -476,7 +458,7 @@
         <div class="section collapsible">
             <div class="section-header" on:click={() => enemiesSectionOpen = !enemiesSectionOpen}>
                 <h3>
-                    Enemies ({draftEncounter.enemies.length}) - {getEnemiesXP()} XP
+                    Enemies ({draftEncounter.enemies.length}) - {subtotalXPEnemies} XP
                     <span class="toggle-icon">{enemiesSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
@@ -485,21 +467,29 @@
                 <div class="section-content" transition:fade>
                     
                     <div class="list-items">
-                        {#each draftEncounter.enemies as enemyId : number}
-                            {#if getEnemyDetails(enemyId)}
+                        {#each draftEncounter.enemies as encounterEnemy, i}
+                            {#if getEnemyDetails(encounterEnemy.id)}
                                 <div class="list-item">
-                                    <div class="entity-name">{getEnemyDetails(enemyId)?.name}</div>
+                                    <div class="entity-adjustment">
+                                        <button 
+                                        type="button"
+                                            class="adjustment-button {getAdjustmentClass(encounterEnemy.level_adjustment)}"
+                                        on:click={() => {toggleEnemyAdjustment(i)}}
+                                        >{getAdjustmentName(encounterEnemy.level_adjustment)}</button>
+                                    </div>
+                                    <div class="entity-name">{getEnemyDetails(encounterEnemy.id)?.name}</div>
                                     <div class="entity-link">
-                                        <a href={getFullUrl(getEnemyDetails(enemyId)?.url)} target="_blank" rel="noopener noreferrer">
+                                        <a href={getFullUrlWithAdjustment(getEnemyDetails(encounterEnemy.id)?.url || '', encounterEnemy.level_adjustment)} target="_blank" rel="noopener noreferrer">
                                             <FontAwesomeIcon icon={['fas', 'link']} />
                                         </a>
                                     </div>
-                                    <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getEnemyDetails(enemyId)?.level || 0)}</div>
-                                    <div class="entity-level">Level {getEnemyDetails(enemyId)?.level}</div>
+                                    <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, (getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)}</div>
+                                    <div class="entity-level">Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment}</div>
                                     <button 
                                         type="button" 
+                                        class="remove-button"
                                         on:click={() => {
-                                            draftEncounter.enemies = draftEncounter.enemies.filter(id => id !== enemyId);
+                                            draftEncounter.enemies = draftEncounter.enemies.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -512,10 +502,14 @@
                     <LibrarySelector
                         entityType="creature"
                         onSelect={(id) => {
-                            draftEncounter.enemies = [...draftEncounter.enemies, id];
+                            let newEnemy : EncounterEnemy = {
+                                id: id,
+                                level_adjustment: 0
+                            };
+                            draftEncounter.enemies = [...draftEncounter.enemies, newEnemy];
                         }}
                         placeholder="Search for enemies..."
-                        initialIds={draftEncounter.enemies}
+                        initialIds={draftEncounter.enemies.map(e => e.id)}
                     />
                     <a 
                         href="/library?encounter=true&tab=creature"
@@ -531,7 +525,7 @@
         <div class="section collapsible">
             <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
                 <h3>
-                    Hazards ({draftEncounter.hazards.length}) - {getHazardsXP()} XP
+                    Hazards ({draftEncounter.hazards.length}) - {subtotalXPHazards} XP
                     <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
@@ -544,7 +538,7 @@
                                 <div class="list-item">
                                     <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
                                     <div class="entity-link">
-                                        <a href={getFullUrl(getHazardDetails(hazardId)?.url)} target="_blank" rel="noopener noreferrer">
+                                        <a href={getFullUrl(getHazardDetails(hazardId)?.url || '')} target="_blank" rel="noopener noreferrer">
                                             <FontAwesomeIcon icon={['fas', 'link']} />
                                         </a>
                                     </div>
@@ -585,22 +579,33 @@
         <div class="section collapsible">
             <div class="section-header" on:click={() => treasureSectionOpen = !treasureSectionOpen}>
                 <h3>
-                    Treasure - {getTotalTreasure()} gold
+                    Treasure - {totalTreasure} gold
                     <span class="toggle-icon">{treasureSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
             
             {#if treasureSectionOpen}
                 <div class="section-content" transition:fade>
-                    <div class="form-group">
+                    <div class="form-group-treasure-row">
                         <label for="currency">Currency</label>
                         <input 
                             type="number"
                             id="currency"
-                            bind:value={draftEncounter.treasure_currency.gold}
+                            class="currency-input"
+                            bind:value={draftEncounter.treasure_currency}
                             min="0"
                         />
                     </div>
+                    <div class="form-group-treasure-row">
+                        <label for="currency">Experience</label>
+                        <input 
+                            type="number"
+                            id="currency"
+                            class="currency-input"
+                            bind:value={draftEncounter.extra_experience}
+                        />
+                    </div>
+
 
                     <h4>Items</h4>
                     <div class="list-items">
@@ -609,7 +614,7 @@
                                 <div class="list-item">
                                     <span>{getItemDetails(itemId)?.name}</span> 
                                     <div class="entity-link">
-                                        <a href={getFullUrl(getItemDetails(itemId)?.url)} target="_blank" rel="noopener noreferrer">
+                                        <a href={getFullUrl(getItemDetails(itemId)?.url || '')} target="_blank" rel="noopener noreferrer">
                                             <FontAwesomeIcon icon={['fas', 'link']} />
                                         </a>
                                     </div>
@@ -672,7 +677,7 @@
 
     .list-item {
         display: grid;
-        grid-template-columns: minmax(200px, 1fr) auto auto auto auto;
+        grid-template-columns: auto minmax(200px, 1fr)  auto auto auto auto;
         gap: 1rem;
         padding: 0.5rem 1rem;
         background: #f8f8f8;
@@ -691,17 +696,6 @@
         white-space: nowrap;
         color: #666;
     }
-
-    .list-item button {
-        white-space: nowrap;
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
     .encounters-list {
         display: flex;
         flex-direction: column;
@@ -952,8 +946,11 @@
         font-size: 0.875rem;
     }
 
+    .list-items {
+        margin-bottom: 1rem;
+    }
+
     .remove-button {
-        margin-left: auto;
         background: #ef4444;
         color: white;
         border: none;
@@ -963,23 +960,6 @@
     }
 
     .remove-button:hover {
-        background: #dc2626;
-    }
-
-    .list-items {
-        margin-bottom: 1rem;
-    }
-
-    .list-item button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .list-item button:hover {
         background: #dc2626;
     }
 
@@ -1076,12 +1056,41 @@
     .party-config-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        padding-top: 0.5rem;
+    }
+
+    .party-config-input input {
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .campaign-defaults-setter {
+        padding-top: 0.5rem;
+        display: flex;
+        gap: 1rem;
+    }
+
+    .campaign-defaults-setter select {
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-size: 1rem;
+        flex: 2;
+
+    }
+
+    .difficulty-indicator {
+        padding: 1rem;
     }
 
     .name-input {
         width: 100%;
         font-size: 1.2rem;
         font-family: inherit;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
     }
 
     .description-input {
@@ -1090,24 +1099,72 @@
         /* lock size */
         resize: none;
         font-family: inherit;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
     }
 
-    .modal select {
-        width: 100%;
+    .currency-input {
         padding: 0.5rem;
-        margin-bottom: 1rem;
         border: 1px solid #e5e7eb;
         border-radius: 4px;
         font-size: 1rem;
     }
 
-    .form-group h3 {
-        margin-bottom: 0.75rem;
-        color: #374151;
+    .form-group-treasure-row {
+        display: grid;
+        grid-template-columns: 0.1fr 0.4fr 0.5fr;
+        gap: 1rem;
     }
 
-    .form-group p {
-        color: #6b7280;
-        font-style: italic;
+    .difficulty-trivial {
+        color: #10b981;
     }
+
+    .difficulty-low {
+        color: #f59e0b;
+    }
+
+    .difficulty-moderate {
+        color: #f59e0b;
+    }
+
+    .difficulty-severe {
+        color: #ef4444;
+    }
+
+    .difficulty-extreme {
+        color: #ef4444;
+    }
+
+    /* TODO: Modularize these classes as you modularize the difficulty ones */
+    .adjustment-button {
+        color: white;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    
+    .elite-button {
+        background: #ef4444;
+    }
+    .elite-button:hover {
+        background: #dc2626;
+    }
+    .weak-button {
+        background: #10b981;
+    }
+    .weak-button:hover {
+        background: #059669;
+    }
+
+    .normal-button {
+        background: #999999;
+    }
+    .normal-button:hover {
+        background: #059669;
+    }
+
+    
 </style> 

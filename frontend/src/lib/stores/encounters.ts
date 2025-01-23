@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Encounter, CreateEncounter } from '$lib/types/types';
+import type { Encounter, CreateEncounter } from '$lib/types/encounters';
 import { API_URL } from '$lib/config';
 import { auth } from './auth';
 

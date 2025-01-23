@@ -1,14 +1,14 @@
 import { writable } from 'svelte/store';
 import { API_URL } from '$lib/config';
-import type { LibraryEntity } from '$lib/types/library';
+import { type LibraryHazard, type LibraryCreature, type LibraryEntity, type LibraryItem } from '$lib/types/library';
 
-interface LibraryStoreState {
-    entities: Map<number, LibraryEntity>;
+interface LibraryStoreState<T extends LibraryEntity> {
+    entities: Map<number, T>;
     loading: boolean;
     error: string | null;
 }
 
-function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class') {
+function createLibraryStore<T extends LibraryEntity>(entityType: 'creature' | 'hazard' | 'item' | 'class') {
     const routePart = {
         'creature': 'creatures',
         'hazard': 'hazards',
@@ -16,7 +16,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         'class': 'classes'
     };
 
-    const initialState: LibraryStoreState = {
+    const initialState: LibraryStoreState<T> = {
         entities: new Map(),
         loading: false,
         error: null
@@ -38,7 +38,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
             
             update(state => {
                 const newEntities = new Map(state.entities);
-                data.forEach((entity: LibraryEntity) => {
+                data.forEach((entity: T) => {
                     newEntities.set(entity.id, entity);
                 });
                 return {
@@ -66,13 +66,13 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         try {
             const response = await fetch(`${API_URL}/library/${endpoint}/search?${queryString}${queriesString}&min_similarity=${minSimilarity}`);
             if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
-            const data : Map<string, Array<LibraryEntity>> = new Map(Object.entries(await response.json()));
+            const data : Map<string, Array<T>> = new Map(Object.entries(await response.json()));
             
             update(state => {
 
                 const newEntities = new Map(state.entities);
                 for (const [key, value] of data.entries()) {
-                    value.forEach((entity: LibraryEntity) => {
+                    value.forEach((entity: T) => {
                         newEntities.set(entity.id, entity);
                     });
                 }
@@ -116,7 +116,7 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
         }
     }
 
-    async function insertEntity(entity: LibraryEntity) {
+    async function insertEntity(entity: T) {
         update(state => ({ 
             ...state, 
             entities: new Map([...state.entities, [entity.id, entity]]),
@@ -140,7 +140,9 @@ function createLibraryStore(entityType: 'creature' | 'hazard' | 'item' | 'class'
     };
 }
 
-export const creatureStore = createLibraryStore('creature');
-export const hazardStore = createLibraryStore('hazard');
-export const itemStore = createLibraryStore('item');
+export const creatureStore = createLibraryStore<LibraryCreature>('creature');
+export const hazardStore = createLibraryStore<LibraryHazard>('hazard');
+export const itemStore = createLibraryStore<LibraryItem>('item');
+
+// TODO: LibraryClass extends LibraryEntity
 export const classStore = createLibraryStore('class'); 

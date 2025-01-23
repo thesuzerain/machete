@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
-use super::{ids::InternalId, library::item::Currency};
+use super::ids::InternalId;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct EventLog {
@@ -48,9 +48,7 @@ impl Default for Event {
             log: None,
             timestamp: Utc::now(),
             character: None,
-            event_type: EventType::CurrencyGain {
-                currency: Currency::default(),
-            },
+            event_type: EventType::CurrencyGain { currency: 0.0 },
         }
     }
 }
@@ -59,12 +57,24 @@ impl Default for Event {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "event_type", content = "data")]
 pub enum EventType {
-    CurrencyGain { currency: Currency },
-    ExperienceGain { experience: u64 },
+    CurrencyGain {
+        currency: f64,
+    },
+    ExperienceGain {
+        experience: u64,
+    },
     // TODO: EnemyDefeated, HazardDefeated, ItemGain, etc should be by ID.
-    EnemyDefeated { id: InternalId },
-    HazardDefeated { id: InternalId },
-    ItemGain { id: InternalId },
+    EnemyDefeated {
+        id: InternalId,
+        #[serde(default)]
+        level_adjustment: i16,
+    },
+    HazardDefeated {
+        id: InternalId,
+    },
+    ItemGain {
+        id: InternalId,
+    },
     // TODO: Some kind of custom event type.
 }
 
@@ -77,7 +87,19 @@ impl Display for EventType {
             EventType::ExperienceGain { experience } => {
                 write!(f, "Experience Gain: {}", experience)
             }
-            EventType::EnemyDefeated { id } => write!(f, "Enemy Defeated: {}", id),
+            EventType::EnemyDefeated {
+                id,
+                level_adjustment,
+            } => match level_adjustment {
+                0 => write!(f, "Enemy Defeated: {}", id),
+                1 => write!(f, "Elite Enemy Defeated: {}", id),
+                -1 => write!(f, "Weak Enemy Defeated: {}", id),
+                _ => write!(
+                    f,
+                    "Enemy Defeated: {} (Level Adjustment: {})",
+                    id, level_adjustment
+                ),
+            },
             EventType::HazardDefeated { id } => write!(f, "Hazard Defeated: {}", id),
             EventType::ItemGain { id } => write!(f, "Item Gain: {}", id),
         }

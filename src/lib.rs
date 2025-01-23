@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::FromRef, http::{self, HeaderValue}, response::IntoResponse, routing::get, Router
+    extract::FromRef,
+    http::{self, HeaderValue},
+    response::IntoResponse,
+    routing::get,
+    Router,
 };
 use models::ids::InternalId;
 use reqwest::Method;

@@ -8,7 +8,7 @@ use axum::{
 };
 
 use axum_extra::extract::CookieJar;
-use sqlx::{PgPool, Pool};
+use sqlx::PgPool;
 
 use crate::{
     database::{
@@ -55,7 +55,7 @@ async fn insert_campaign(
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let campaign_id = database::campaigns::insert_campaign(&pool,&campaign, user.id).await?;
+    let campaign_id = database::campaigns::insert_campaign(&pool, &campaign, user.id).await?;
     let owned_campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     let campaign = owned_campaigns
         .into_iter()
@@ -186,7 +186,7 @@ async fn edit_log(
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     // Check if user has access to the logs
-    if !database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
+    if database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
         .await?
         .is_empty()
     {
@@ -205,7 +205,7 @@ async fn delete_log(
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     // Check if user has access to the logs
-    if !database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
+    if database::logs::get_owned_logs_ids(&pool, &[log_id], user.id)
         .await?
         .is_empty()
     {
@@ -274,10 +274,12 @@ async fn edit_event(
     Path((_, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
+    log::info!("Edit event: {:?}", event);
     let user = extract_user_from_cookies(&jar, &pool).await?;
+    log::info!("user: {:?}", user);
 
     // Check if user has access to the event
-    if !database::events::get_owned_events_ids(&pool, &[event_id], user.id)
+    if database::events::get_owned_events_ids(&pool, &[event_id], user.id)
         .await?
         .is_empty()
     {
@@ -296,7 +298,7 @@ async fn delete_event(
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     // Check if user has access to the event
-    if !database::events::get_owned_events_ids(&pool, &[event_id], user.id)
+    if database::events::get_owned_events_ids(&pool, &[event_id], user.id)
         .await?
         .is_empty()
     {

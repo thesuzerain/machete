@@ -35,6 +35,13 @@ impl HazardFilters {
             ..Default::default()
         }
     }
+
+    pub fn from_ids(ids: &[u32]) -> Self {
+        HazardFilters {
+            ids: Some(CommaSeparatedVec(ids.to_vec())),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
@@ -50,15 +57,21 @@ pub struct HazardSearch {
 pub async fn get_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     condition: &HazardFilters,
-) -> crate::Result<Vec<LibraryHazard>> {    
-    get_hazards_search(exec, &HazardSearch {
-        query: vec!["".to_string()], // Empty search query
-        min_similarity: None,
-        filters: condition.clone(),
-    }, DEFAULT_MAX_LIMIT).await?.into_iter().next()
-    .map(|(_, v)| 
-    v.into_iter().map(|(_, v)| v).collect()
-).ok_or_else(|| ServerError::NotFound)
+) -> crate::Result<Vec<LibraryHazard>> {
+    get_hazards_search(
+        exec,
+        &HazardSearch {
+            query: vec!["".to_string()], // Empty search query
+            min_similarity: None,
+            filters: condition.clone(),
+        },
+        DEFAULT_MAX_LIMIT,
+    )
+    .await?
+    .into_iter()
+    .next()
+    .map(|(_, v)| v.into_iter().map(|(_, v)| v).collect())
+    .ok_or_else(|| ServerError::NotFound)
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -69,7 +82,7 @@ pub async fn get_hazards_search(
     // https://github.com/launchbadge/sqlx/issues/291
     search: &HazardSearch,
     default_limit: u64,
-) -> crate::Result<HashMap<String, Vec<(f32,LibraryHazard)>>> {
+) -> crate::Result<HashMap<String, Vec<(f32, LibraryHazard)>>> {
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -135,11 +148,17 @@ pub async fn get_hazards_search(
         offset as i64,
     );
 
+    // create initial hm with empty vecs for each query
+    let hm = search
+        .query
+        .iter()
+        .map(|q| (q.clone(), Vec::new()))
+        .collect::<HashMap<_, _>>();
     let hazards = query
         .fetch_all(exec)
         .await?
         .into_iter()
-        .fold(HashMap::new(),|mut map, row| {
+        .fold(hm, |mut map, row| {
             let query = row.query;
             let hazard = LibraryHazard {
                 id: InternalId(row.id as u64),
@@ -151,7 +170,9 @@ pub async fn get_hazards_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
             };
-            map.entry(query).or_insert_with(Vec::new).push((row.similarity.unwrap_or_default(), hazard));
+            map.entry(query)
+                .or_default()
+                .push((row.similarity.unwrap_or_default(), hazard));
             map
         });
     Ok(hazards)

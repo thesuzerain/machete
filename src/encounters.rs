@@ -8,7 +8,7 @@ use axum::{
 };
 
 use axum_extra::extract::CookieJar;
-use sqlx::{PgPool, Pool};
+use sqlx::PgPool;
 
 use crate::{
     database::{
@@ -46,7 +46,6 @@ async fn insert_encounter(
     Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-
     database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -22,7 +22,7 @@
 
     // Subscribe to stores
     $: campaigns = $campaignStore;
-    $: characters = $characterStore.get(selectedCampaignId) || [];
+    $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
 
     async function fetchLogs() {
         if (!selectedCampaignId) return;
@@ -68,61 +68,6 @@
             loading = false;
         }
     });
-
-    // Add logs-related helper functions
-    function generateEvents(characterIds: number[]): InsertEvent[] {
-        const events: InsertEvent[] = [];
-        
-        for (const enemy of enemies) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: enemy.type === 'enemy' ? 'EnemyDefeated' : 'HazardDefeated',
-                    description: `Defeated ${enemy.count} ${enemy.type}`,
-                    data: {
-                        id: enemy.id,
-                        count: enemy.count
-                    }
-                });
-
-                events.push({
-                    character: characterId,
-                    event_type: 'ExperienceGain',
-                    description: `Gained experience from ${enemy.type}`,
-                    data: {
-                        experience: getExperienceFromLevel(enemy.level || 0, characters.find(c => c.id === characterId)?.level || 0)
-                    }
-                });
-            }
-        }
-
-        for (const treasure of treasures) {
-            for (const characterId of characterIds) {
-                events.push({
-                    character: characterId,
-                    event_type: treasure.type === 'currency' ? 'CurrencyGain' : 'ItemGain',
-                    description: treasure.type === 'currency' 
-                        ? `Gained ${treasure.amount} currency`
-                        : `Gained item`,
-                    data: treasure.type === 'currency' 
-                        ? { currency: { gold: treasure.amount } }
-                        : { id: treasure.itemId }
-                });
-            }
-        }
-
-        return events;
-    }
-
-    async function handleCharacterDelete(id: number) {
-        try {
-            if (selectedCampaignId) {
-                await characterStore.deleteCharacter(selectedCampaignId, id);
-            }
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to delete character';
-        }
-    }
 </script>
 
 <div class="campaigns-page">
@@ -202,7 +147,6 @@
             <CampaignImportTab
                 {selectedCampaignId}
                 {characters}
-                {campaignLogs}
                 bind:error
                 {fetchLogs}
             />

@@ -1,10 +1,19 @@
 use std::collections::HashMap;
 
 use crate::{
-    auth::extract_admin_from_headers, database::{creatures::{CreatureFilters, CreatureSearch}, hazards::HazardSearch, items::ItemSearch, spells::SpellSearch, DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT}, models::library::{
+    auth::extract_admin_from_headers,
+    database::{
+        creatures::{CreatureFilters, CreatureSearch},
+        hazards::HazardSearch,
+        items::ItemSearch,
+        spells::SpellSearch,
+        DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
+    },
+    models::library::{
         classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
         spell::LibrarySpell,
-    }, AppState
+    },
+    AppState,
 };
 use axum::{
     extract::{Path, State},
@@ -13,14 +22,14 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_extra::extract::Query;
 use axum_extra::extract::CookieJar;
-use sqlx::{PgPool, Pool};
+use axum_extra::extract::Query;
+use sqlx::PgPool;
 
 use crate::{
     database::{
-        self, classes::ClassFilters, hazards::HazardFilters,
-        items::ItemFilters, spells::SpellFilters,
+        self, classes::ClassFilters, hazards::HazardFilters, items::ItemFilters,
+        spells::SpellFilters,
     },
     ServerError,
 };
@@ -73,8 +82,12 @@ async fn get_creatures_search(
         )));
     }
 
-    let creatures : HashMap<String, Vec<LibraryCreature>> = database::creatures::get_creatures_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?
-    .into_iter().map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect())).collect();
+    let creatures: HashMap<String, Vec<LibraryCreature>> =
+        database::creatures::get_creatures_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+            .await?
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
+            .collect();
     Ok(Json(creatures))
 }
 
@@ -125,8 +138,12 @@ async fn get_items_search(
             DEFAULT_MAX_LIMIT
         )));
     }
-    let items: HashMap<String, Vec<LibraryItem>> = database::items::get_items_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?
-    .into_iter().map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect())).collect();
+    let items: HashMap<String, Vec<LibraryItem>> =
+        database::items::get_items_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+            .await?
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
+            .collect();
     Ok(Json(items))
 }
 
@@ -177,8 +194,12 @@ async fn get_spells_search(
             DEFAULT_MAX_LIMIT
         )));
     };
-    let spells: HashMap<String, Vec<LibrarySpell>> = database::spells::get_spells_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?
-    .into_iter().map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect())).collect();
+    let spells: HashMap<String, Vec<LibrarySpell>> =
+        database::spells::get_spells_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+            .await?
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
+            .collect();
     Ok(Json(spells))
 }
 
@@ -229,8 +250,12 @@ async fn get_hazards_search(
             DEFAULT_MAX_LIMIT
         )));
     }
-    let hazards: HashMap<String, Vec<LibraryHazard>> = database::hazards::get_hazards_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT).await?
-    .into_iter().map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect())).collect();
+    let hazards: HashMap<String, Vec<LibraryHazard>> =
+        database::hazards::get_hazards_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+            .await?
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
+            .collect();
     Ok(Json(hazards))
 }
 

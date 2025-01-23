@@ -3,8 +3,9 @@
     import { API_URL } from '$lib/config';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
   import type { LibraryCreature, LibraryHazard, LibraryItem, LibrarySpell } from '$lib/types/library';
+  import type { EncounterEnemy } from '$lib/types/encounters';
     interface Props {
-        enemies: number[];
+        enemies: EncounterEnemy[];
         hazards: number[];
         treasures: number[];
     }
@@ -61,7 +62,11 @@
                 console.log('creature', entity);
                 creatureStore.insertEntity(entity.augment as LibraryCreature);
                 console.log("inserted");
-                enemies = [...enemies, entity.augment.id];
+                let newEnemy : EncounterEnemy = {
+                    id: entity.augment.id,
+                    level_adjustment: 0,
+                }
+                enemies = [...enemies, newEnemy];
                 console.log("pushed, ", enemies);
             } else if (entity.augment.type.toLowerCase() === 'hazard') {
                 console.log('hazard', entity);
@@ -106,8 +111,7 @@
             id="description"
             bind:value={description}
             on:keyup={handleDescriptionChange}
-            required
-            placeholder="Describe what happened..."
+            placeholder="Describe the encounter using simple natural language..."
         ></textarea>
     </div>
 </div>

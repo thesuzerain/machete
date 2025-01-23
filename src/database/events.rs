@@ -85,6 +85,8 @@ pub async fn get_owned_events_ids(
     event_ids: &[InternalId],
     owner: InternalId,
 ) -> crate::Result<Vec<InternalId>> {
+    log::info!("event_ids: {:?}", event_ids);
+    log::info!("owner: {:?}", owner);
     let query = sqlx::query!(
         r#"
         SELECT 
@@ -106,6 +108,8 @@ pub async fn get_owned_events_ids(
     .into_iter()
     .map(|row| InternalId(row.id as u64))
     .collect();
+
+    log::info!("query: {:?}", query);
 
     Ok(query)
 }
@@ -210,6 +214,8 @@ pub async fn edit_event(
         .map(|et| serde_json::to_value(&et))
         .transpose()?;
 
+    log::info!("editing event: {:?}", event_id);
+
     sqlx::query!(
         r#"
         UPDATE events
@@ -229,6 +235,8 @@ pub async fn edit_event(
     )
     .execute(exec)
     .await?;
+
+    log::info!("edited event: {:?}", event_id);
 
     Ok(())
 }

@@ -16,7 +16,8 @@ use crate::{
     models::{
         auth::{Session, User},
         ids::InternalId,
-    }, AppState,
+    },
+    AppState,
 };
 
 pub const SESSION_COOKIE_NAME: &str = "session_id";
