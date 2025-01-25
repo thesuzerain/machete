@@ -1,9 +1,11 @@
-use crate::{auth::extract_user_from_cookies, models::ids::InternalId, AppState};
+use std::collections::HashMap;
+
+use crate::{auth::extract_user_from_cookies, database::sessions::{InsertSession, ModifySession}, models::ids::InternalId, AppState};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Json, Router,
 };
 
@@ -38,6 +40,10 @@ pub fn router() -> Router<AppState> {
         .route("/:id/logs", post(insert_log))
         .route("/:id/logs/:id", put(edit_log))
         .route("/:id/logs/:id", delete(delete_log))
+        .route("/:id/sessions", get(get_sessions))
+        .route("/:id/sessions", post(insert_sessions))
+        .route("/:id/sessions", patch(edit_sessions))
+        .route("/:id/sessions/:id", delete(delete_session))
 }
 
 async fn get_campaigns(
@@ -324,3 +330,77 @@ async fn delete_events(
     database::events::delete_events(&pool, user.id, &ids).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+
+async fn get_sessions(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let sessions = database::sessions::get_sessions(&pool, user.id, id).await?;
+    Ok(Json(sessions))
+}
+
+#[axum_macros::debug_handler]
+async fn insert_sessions(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+    Json(session): Json<Vec<InsertSession>>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::sessions::insert_sessions(&pool, id, &session).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn edit_sessions(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Json(session): Json<HashMap<InternalId, ModifySession>>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the session
+    let session_ids = session.keys().cloned().collect::<Vec<_>>();
+    if database::sessions::get_owned_session_ids(&pool, &session_ids, user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::sessions::update_sessions(&pool,  &session).await?;
+    Ok(StatusCode::NO_CONTENT)
+}   
+
+async fn delete_session(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path((_, session_id)): Path<(InternalId, InternalId)>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the session
+    if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::sessions::delete_session(&pool, session_id)
+        .await
+        .unwrap();
+    Ok(StatusCode::NO_CONTENT)
+}   
