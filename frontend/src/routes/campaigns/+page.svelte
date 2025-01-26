@@ -11,18 +11,23 @@
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
     import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
+    import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
 
     let selectedCampaignId: number | null = null;
     let loading = true;
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'characters' | 'logs' | 'import' = 'characters';
+    let activeTab: 'summary' | 'characters' | 'logs' | 'import' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
     $: campaigns = $campaignStore;
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
+    $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
+
+    console.log(campaignSessions);
 
     async function fetchLogs() {
         if (!selectedCampaignId) return;
@@ -42,6 +47,7 @@
     $: if (selectedCampaignId) {
         Promise.all([
             characterStore.fetchCharacters(selectedCampaignId),
+            campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
             fetchLogs(),
         ]).catch(e => {
             error = e instanceof Error ? e.message : 'An error occurred';
@@ -111,11 +117,18 @@
 
     <div class="tabs">
         <button 
-            class="tab-button {activeTab === 'characters' ? 'active' : ''}"
-            on:click={() => activeTab = 'characters'}
+            class="tab-button {activeTab === 'summary' ? 'active' : ''}"
+            on:click={() => activeTab = 'summary'}
         >
-            Characters
+            Summary
         </button>
+        <button 
+        class="tab-button {activeTab === 'characters' ? 'active' : ''}"
+        on:click={() => activeTab = 'characters'}
+    >
+        Characters
+    </button>
+
         <button 
             class="tab-button {activeTab === 'logs' ? 'active' : ''}"
             on:click={() => activeTab = 'logs'}
@@ -130,10 +143,15 @@
         </button>
     </div>
 
-        {#if activeTab === 'characters'}
-            <CampaignCharactersTab
+        {#if activeTab === 'summary'}
+            <CampaignSummaryTab
                 {selectedCampaignId}
                 bind:error
+            />
+        {:else if activeTab === 'characters'}
+            <CampaignCharactersTab
+                        {selectedCampaignId}
+                        bind:error
             />
         {:else if activeTab === 'logs'}
             <CampaignLogsTab

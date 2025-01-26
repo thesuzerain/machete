@@ -364,11 +364,13 @@ async fn insert_sessions(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// TODO: Is PATCH the most reasonable way to do this? (w.r.t a hashmap for a bulk update)
 async fn edit_sessions(
     State(pool): State<PgPool>,
     jar: CookieJar,
     Json(session): Json<HashMap<InternalId, ModifySession>>,
 ) -> Result<impl IntoResponse, ServerError> {
+    log::info!("Edit session: {:?}", session);
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     // Check if user has access to the session

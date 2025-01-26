@@ -1,6 +1,6 @@
 use super::{characters::Character, events::EventLog, ids::InternalId};
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 // TODO: It may be prudent here to remove Clone, to prevent accidental duplication of what may be large data structures.
@@ -41,5 +41,6 @@ pub struct CampaignSession {
     pub session_order: u32,
     pub name: String,
     pub description: Option<String>,
-    pub play_date: Option<NaiveDate>,
+    pub play_date: DateTime<Utc>,
+    pub encounter_ids: Vec<InternalId>,
 }

@@ -1,26 +1,26 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter};
 
 use crate::models::campaign::CampaignSession;
 use crate::models::ids::InternalId;
-
-use chrono::{Date, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
 
 #[derive(serde::Deserialize)]
 pub struct InsertSession {
     pub session_order: u32,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub play_date: Option<NaiveDate>,
+    pub encounter_ids: Vec<InternalId>,
+    pub play_date: Option<DateTime<Utc>>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct ModifySession {
     pub session_order: Option<u32>,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub play_date: Option<NaiveDate>,
+    pub encounter_ids: Option<Vec<InternalId>>,
+    pub play_date: Option<DateTime<Utc>>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -37,12 +37,16 @@ pub async fn get_sessions(
             s.session_order,
             s.name,
             s.description,
-            s.play_date
+            s.play_date,
+            ARRAY_AGG(se.encounter_id) filter (where se.encounter_id is not null) as encounter_ids
         FROM campaign_sessions s
-        LEFT JOIN campaigns ca ON s.campaign_id = s.id
+        LEFT JOIN campaigns ca ON s.campaign_id = ca.id
+        LEFT JOIN campaign_sessions_encounters se ON s.id = se.session_id
         WHERE 
             ca.id = $1
             AND ca.owner = $2
+        GROUP BY s.id
+        ORDER BY s.session_order ASC
     "#,
         campaign_id.0 as i32,
         owner.0 as i32,
@@ -58,7 +62,8 @@ pub async fn get_sessions(
                 name: row.name,
                 description: row.description,
                 session_order: row.session_order as u32,
-                play_date: row.play_date.map(|d| d.into()),
+                play_date: row.play_date.into(),
+                encounter_ids: row.encounter_ids.unwrap_or_default().iter().map(|e| InternalId(*e as u64)).collect(),
             })
         })
         .collect::<Result<Vec<CampaignSession>, sqlx::Error>>()?;
@@ -88,8 +93,31 @@ pub async fn update_sessions(
             session.description.clone(),
             session.play_date,
         );
-
         query.execute(exec).await?;
+
+        if let Some(encounter_ids) = &session.encounter_ids {
+            sqlx::query!(
+                r#"
+                DELETE FROM campaign_sessions_encounters
+                WHERE session_id = $1
+                "#,
+                session_id.0 as i32,
+            )
+            .execute(exec)
+            .await?;
+
+            let encounter_ids = encounter_ids.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
+            sqlx::query!(
+                r#"
+                INSERT INTO campaign_sessions_encounters (session_id, encounter_id)
+                SELECT * FROM UNNEST ($1::int[], $2::int[])
+                "#,
+                &iter::once(session_id.0 as i32).cycle().take(encounter_ids.len()).collect::<Vec<i32>>(),
+                &encounter_ids as _,
+            )
+            .execute(exec)
+            .await?;
+        }
     }
     Ok(())
 }
@@ -108,27 +136,43 @@ pub async fn insert_sessions(
         .cycle()
         .take(sessions.len())
         .collect::<Vec<i32>>();
-    let (session_orders, names, descriptions, play_dates): (Vec<i32>, Vec<Option<String>>, Vec<Option<String>>, Vec<NaiveDate>) = sessions
+    let (session_orders, names, descriptions, play_dates): (Vec<i32>, Vec<Option<String>>, Vec<Option<String>>, Vec<DateTime<Utc>>) = sessions
         .iter()
         .map(|e| {
             // TODO: remove clones
-            let date_or_now = e.play_date.unwrap_or_else(|| Utc::now().naive_utc().date());
+            let date_or_now = e.play_date.unwrap_or_else(|| Utc::now());
             (e.session_order as i32, e.name.clone(), e.description.clone(), date_or_now)
         })
         .multiunzip();
 
     sqlx::query!(
         r#"
-        INSERT INTO campaign_sessions (session_order, name, description, play_date)
-        SELECT * FROM UNNEST ($1::int[], $2::varchar[], $3::varchar[], $4::timestamptz[])
+        INSERT INTO campaign_sessions (session_order, name, description, play_date, campaign_id)
+        SELECT * FROM UNNEST ($1::int[], $2::varchar[], $3::varchar[], $4::timestamptz[], $5::int[])
         "#,
-        &session_orders,
-        &names.as_ref(),
-        &descriptions.as_ref(),
-        &play_dates
+        &session_orders as _,
+        &names.as_ref() as &[Option<String>],
+        &descriptions.as_ref() as &[Option<String>],
+        &play_dates as _,
+        &campaign_id as _,
     )
     .execute(exec)
     .await?;
+
+    // tODO: No nested unnest- want to be able to do this in one query
+    for (i, session) in sessions.iter().enumerate() {
+        let encounter_ids = session.encounter_ids.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
+        sqlx::query!(
+            r#"
+            INSERT INTO campaign_sessions_encounters (session_id, encounter_id)
+            SELECT * FROM UNNEST ($1::int[], $2::int[])
+            "#,
+            &iter::once(i as i32).cycle().take(encounter_ids.len()).collect::<Vec<i32>>(),
+            &encounter_ids as _,
+        )
+        .execute(exec)
+        .await?;
+    }
 
     Ok(())
 }
@@ -137,8 +181,17 @@ pub async fn delete_session(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     session_id: InternalId,
 ) -> crate::Result<()> {
-    // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_sessions_encounters
+        WHERE session_id = $1
+        "#,
+        session_id.0 as i32,
+    )
+    .execute(exec)
+    .await?;
 
+    // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
     sqlx::query!(
         r#"
         DELETE FROM campaign_sessions
@@ -162,7 +215,7 @@ pub async fn get_owned_session_ids(
         SELECT 
             s.id AS "id!"
         FROM campaign_sessions s
-        LEFT JOIN campaigns ca ON s.campaign = ca.id
+        LEFT JOIN campaigns ca ON s.campaign_id = ca.id
         WHERE 
             s.id = ANY($1::int[])
             AND ca.owner = $2

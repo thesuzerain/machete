@@ -89,6 +89,17 @@ pub async fn insert_campaign(
     ))?
     .id;
 
+    // New campaign- also, create a single session zero for it.
+    sqlx::query!(
+        r#"
+        INSERT INTO campaign_sessions (session_order, name, play_date, campaign_id)
+        VALUES (10000, 'Campaign start', NOW(), $1)
+        "#,
+        id as i32,
+    )
+    .execute(exec)
+    .await?;
+
     Ok(InternalId(id as u64))
 }
 

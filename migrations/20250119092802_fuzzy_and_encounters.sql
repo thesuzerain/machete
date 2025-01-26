@@ -14,7 +14,14 @@ CREATE TABLE campaign_sessions (
     campaign_id INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    play_date DATE
+    play_date timestamptz NOT NULL
+);
+
+CREATE TABLE campaign_sessions_encounters (
+    session_id INTEGER NOT NULL REFERENCES campaign_sessions(id),
+    encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+    encounter_order INTEGER NOT NULL,
+    PRIMARY KEY (session_id, encounter_id)
 );
 
 ALTER TABLE event_groups ADD COLUMN session_id INTEGER NOT NULL DEFAULT 0 REFERENCES campaign_sessions(id);
