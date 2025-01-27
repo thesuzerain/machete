@@ -14,6 +14,8 @@ export interface Encounter {
     party_level: number;
     party_size: number;
     extra_experience: number;
+
+    // Derived fields
     total_experience: number;
     total_currency: number;
 }

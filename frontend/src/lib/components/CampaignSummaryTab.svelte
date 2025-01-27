@@ -3,7 +3,7 @@
     import type { Character, CampaignSession } from '$lib/types/types';
     import CharacterModal from '$lib/components/CharacterModal.svelte';
     import { characterStore } from '$lib/stores/characters';
-    import { classStore } from '$lib/stores/libraryStore';
+    import { classStore, itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import { encounterStore } from '$lib/stores/encounters';
     import { goto } from '$app/navigation';
@@ -22,10 +22,11 @@
     let tempName = '';
     let tempDescription = '';
 
+    $: items = $itemStore;
     $: campaignSessions = ($campaignSessionStore.get(selectedCampaignId)) || [];
     $: selectedSession = campaignSessions.find(s => s.id === selectedSessionId);
     $: sessionEncounters = selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : [];
-    
+
     // Calculate total rewards for the session
     $: totalSessionRewards = sessionEncounters.reduce((acc, enc) => {
         const gold = Math.floor(enc.treasure_currency);
@@ -123,6 +124,7 @@
     }
 
 
+
 </script>
 
 <div class="characters-section" transition:fade>
@@ -215,7 +217,14 @@
         <div class="misc-section">
             <h3>Reward Assignments</h3>
             <div class="item-division">
-                TODO
+                <h4>Items</h4>
+                <div class="item-list">
+                    {#each sessionEncounterItems as item}
+                        <div class="item-card">
+                            <p>{item.name}</p>
+                        </div>
+                    {/each}
+                </div>
             </div>
 
             <div class="gold-division">

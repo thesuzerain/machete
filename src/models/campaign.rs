@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{characters::Character, events::EventLog, ids::InternalId};
 
 use chrono::{DateTime, Utc};
@@ -43,4 +45,7 @@ pub struct CampaignSession {
     pub description: Option<String>,
     pub play_date: DateTime<Utc>,
     pub encounter_ids: Vec<InternalId>,
+
+    pub compiled_item_rewards: HashMap<InternalId, Vec<InternalId>>,
+    pub compiled_gold_rewards: HashMap<InternalId, i32>,
 }

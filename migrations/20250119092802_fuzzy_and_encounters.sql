@@ -14,7 +14,10 @@ CREATE TABLE campaign_sessions (
     campaign_id INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    play_date timestamptz NOT NULL
+    play_date timestamptz NOT NULL,
+
+    compiled_item_rewards JSONB NOT NULL DEFAULT '{}',
+    compiled_gold_rewards JSONB NOT NULL DEFAULT '{}',
 );
 
 ALTER TABLE encounters ADD COLUMN session_id INTEGER 0 REFERENCES campaign_sessions(id);

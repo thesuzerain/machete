@@ -12,7 +12,12 @@ export interface CampaignSession {
     name: string;
     description?: string;
     encounter_ids: number[];
-    play_date: Date
+    play_date: Date;
+
+    // For encounter mappings. encounter_id -> item_id -> character_id
+    item_character_mapping: Record<number, Record<number, number>>;
+    // For encounter mappings. character_id -> gold
+    gold_character_mapping: Record<number, number>;
 }
 
 export interface Character {
