@@ -31,8 +31,6 @@
     let currentMatches : AugmentedNoun[] = $state([]);
 
     async function handleDescriptionChange() {
-        console.log(description);
-
         const response = await fetch(`${API_URL}/nlp/augmented-nlp`, {
             method: 'POST',
             headers: {
@@ -51,38 +49,27 @@
         currentMatches = currentMatches.filter(match => match.augment.type.toLowerCase() !== 'spell');
         currentMatches = currentMatches.filter(match => match.augment.type.toLowerCase() !== 'none');
 
-        console.log(data);
-
         enemies = [];
         treasures = [];
 
         for (const entity of data) {
-            console.log("entity", entity);
             if (entity.augment.type.toLowerCase() === 'creature') {
-                console.log('creature', entity);
                 creatureStore.insertEntity(entity.augment as LibraryCreature);
-                console.log("inserted");
                 let newEnemy : EncounterEnemy = {
                     id: entity.augment.id,
                     level_adjustment: 0,
                 }
                 enemies = [...enemies, newEnemy];
-                console.log("pushed, ", enemies);
             } else if (entity.augment.type.toLowerCase() === 'hazard') {
-                console.log('hazard', entity);
                 hazardStore.insertEntity(entity.augment as LibraryHazard);
                 hazards.push(entity.augment.id);
             } else if (entity.augment.type.toLowerCase() === 'item') {
-                console.log('item', entity);
                 itemStore.insertEntity(entity.augment as LibraryItem);
                 treasures.push(entity.augment.id);
             }
         }
 
         enemies = enemies;
-
-        console.log("Updated enemies", enemies);
-
         html = applyHighlights(description, currentMatches);
     }
 
@@ -92,7 +79,6 @@
         for (const match of matches) {
             text = text.replace(match.text, '<mark>' + match.text + '</mark>');
         }
-        console.log(text);
         return text;
         }
 

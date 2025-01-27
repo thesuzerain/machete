@@ -9,6 +9,7 @@ use super::events::{self, InsertEvent};
 pub struct InsertLog {
     pub name: String,
     pub timestamp: Option<chrono::DateTime<chrono::Utc>>,
+    pub session_id: Option<InternalId>,
     pub description: Option<String>,
     pub events: Vec<InsertEvent>,
 }

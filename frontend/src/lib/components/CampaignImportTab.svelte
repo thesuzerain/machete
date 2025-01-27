@@ -336,8 +336,6 @@
             for (const log of wipLogs) {
                 const targetLogId = logMappings[log.name];
                 
-                console.log(log);
-
                 if (targetLogId) {
                     // Add events to existing log
                     await fetch(`${API_URL}/campaign/${selectedCampaignId}/events`, {

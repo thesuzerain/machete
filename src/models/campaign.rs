@@ -1,5 +1,6 @@
 use super::{characters::Character, events::EventLog, ids::InternalId};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 // TODO: It may be prudent here to remove Clone, to prevent accidental duplication of what may be large data structures.
@@ -11,6 +12,7 @@ pub struct Campaign {
     pub name: String,
     pub party: Vec<Character>,
     pub log: EventLog,
+    pub sessions: Vec<CampaignSession>,
 }
 
 impl Default for Campaign {
@@ -20,6 +22,7 @@ impl Default for Campaign {
             name: "New Campaign".to_string(),
             party: vec![],
             log: EventLog::default(),
+            sessions: vec![],
         }
     }
 }
@@ -32,11 +35,12 @@ pub struct CampaignPartial {
     pub description: Option<String>,
 }
 
-// Add this struct for campaign metadata
-#[derive(Debug, Serialize)]
-pub struct CampaignMetadata {
-    pub total_sessions: i32,
-    pub average_level: f32,
-    pub total_experience: i32,
-    pub last_session: Option<String>,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CampaignSession {
+    pub id: InternalId,
+    pub session_order: u32,
+    pub name: String,
+    pub description: Option<String>,
+    pub play_date: DateTime<Utc>,
+    pub encounter_ids: Vec<InternalId>,
 }

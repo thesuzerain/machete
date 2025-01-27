@@ -28,37 +28,36 @@
   } from '@fortawesome/free-solid-svg-icons'
   import { API_URL } from '$lib/config';
   import { encounterStore } from '$lib/stores/encounters';
-  import { campaignStore } from '$lib/stores/campaigns';
+  import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
   import EncounterCreatorNlp from './EncounterCreatorNlp.svelte';
   import { writable, type Writable } from 'svelte/store';
   import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
   import { characterStore } from '$lib/stores/characters';
+  import { campaignSessionStore } from '$lib/stores/campaignSessions';
+  import { goto } from '$app/navigation';
 
     interface Props {
         editingEncounter: Encounter | null;
+        chosenSessionId: number | null;
     }
     let { 
         editingEncounter = $bindable(),
+        chosenSessionId = $bindable()
      } : Props = $props();
 
      library.add(faLink)
 
-
-    const campaignId = parseInt($page.params.id);
-    let campaignCharacters: Character[] = $state([]);
     let loading = $state(true);
     let error: string | null = $state(null);
-
-    let selectedCharacterIds: number[] = $state([]);
     
     // Add new state for auto-saving
     let saveTimeout: NodeJS.Timeout;
     const AUTOSAVE_DELAY = 2000; // 2 seconds
 
-    // Modify the newEncounter state to track the current draft
-    let draftEncounter: CreateEncounter = $state({
+    // Modify the newEncounter state to track the current draft or editing encounter
+    let wipEncounter: CreateEncounter = $state({
         name: '',
-        description: 'fresh',
+        description: '',
         enemies: [],
         enemy_level_adjustments: [],
         hazards: [],
@@ -66,8 +65,33 @@
         treasure_currency: 0,
         extra_experience: 0,
         party_level: 1,
-        party_size: 4
+        party_size: 4,
+        status: 'Draft',
+    });
 
+    function setWipEncounterAs(encounter : Encounter) {
+        wipEncounter = {
+            name: encounter.name,
+            description: encounter.description,
+            enemies: encounter.enemies.map(e => ({ id: e.id, level_adjustment: e.level_adjustment })),
+            hazards: encounter.hazards,
+            treasure_items: encounter.treasure_items,
+            treasure_currency: encounter.treasure_currency,
+            extra_experience: encounter.extra_experience,
+            party_level: encounter.party_level,
+            party_size: encounter.party_size,
+            status: encounter.status,
+        };
+    }
+    if (editingEncounter) {
+        setWipEncounterAs(editingEncounter);
+    }
+
+    // TODO: Effect is a smell, refactor when possible
+    $effect(() => {
+        if (editingEncounter) {
+            setWipEncounterAs(editingEncounter);
+        }
     });
 
     // Add these variables near the top of the script section, with the other state variables
@@ -77,14 +101,26 @@
 
     // Subscribe to the stores
     let encounters = $derived($encounterStore);
-    let campaigns = $derived( $campaignStore);
     let libraryEnemies = $derived($creatureStore);
     let libraryHazards = $derived($hazardStore);
     let libraryItems = $derived($itemStore);
+    let selectedCampaignId = $derived($selectedCampaignStore);
+    let campaignSessions = $derived.by(() => {
+        if (selectedCampaignId) {
+            return $campaignSessionStore.get(selectedCampaignId) || null;
+        } else {
+            return null;
+        }
+    });
 
-    // Add a new state variable for selected campaign
-    let selectedCampaign: number | null = $state($campaignStore.keys().next()?.value || null);
-    
+    let chosenSessionIndex = $derived.by(() => {
+        if (campaignSessions && chosenSessionId) {
+            return campaignSessions.findIndex(s => s.id === chosenSessionId);
+        } else {
+            return -1;
+        }
+    });
+
     // Fetch campaigns data
     async function fetchCampaigns() {
         await campaignStore.fetchCampaigns();
@@ -96,7 +132,7 @@
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
                 encounters.flatMap(e => e.enemies)
-                    .concat(draftEncounter.enemies)
+                    .concat(wipEncounter.enemies)
             );
             
             if (enemyIds.size > 0) {
@@ -108,7 +144,7 @@
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
                 encounters.flatMap(e => e.hazards)
-                    .concat(draftEncounter.hazards)
+                    .concat(wipEncounter.hazards)
             );
             if (hazardIds.size > 0) {
                 await hazardStore.fetchEntities({
@@ -119,7 +155,7 @@
             // Load any items that are in current encounters
             const itemIds = new Set(
                 encounters.flatMap(e => e.treasure_items)
-                    .concat(draftEncounter.treasure_items)
+                    .concat(wipEncounter.treasure_items)
             );
             if (itemIds.size > 0) {
                 await itemStore.fetchEntities({
@@ -132,12 +168,22 @@
         }
     }
 
+    export function loadEncounterCopyToDraft(encounter: Encounter) {
+        editingEncounter = null;
+        setWipEncounterAs(encounter);
+    }
+
     onMount(async () => {
         try {
-            // First check for any in-progress encounter
+            // First check for any in-progress draft encounter, if we are not editing an existing one
             const inProgress = await encounterStore.getDraft();
-            if (inProgress) {
-                draftEncounter = inProgress;
+            if (inProgress && !editingEncounter) {
+                wipEncounter = inProgress;
+            }
+
+            // Setting sessions
+            if (selectedCampaignId) {
+                await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
             }
 
             // Then load other encounters and campaigns
@@ -156,12 +202,15 @@
     // Auto-save function
     async function autoSave() {
         if (saveTimeout) clearTimeout(saveTimeout);
+
+        // Do not autosave if we are editing an existing encounter
+        if (editingEncounter) return;
         
         saveTimeout = setTimeout(async () => {
             try {
                 console.log("Auto-saving...");
                 await encounterStore.updateDraft({
-                    ...draftEncounter,
+                    ...wipEncounter,
                 });
             } catch (e) {
                 error = e instanceof Error ? e.message : 'Failed to save draft';
@@ -172,71 +221,54 @@
     // Modify the createEncounter function
     async function createEncounter(event: SubmitEvent) {
         event.preventDefault();
-        
-        let finalized : CreateEncounterFinalized = {
-            ...draftEncounter,
-            total_currency: totalTreasure,
-            total_experience: totalEarnedXP,
-        };
 
-        try {
-            const response = await fetch(`${API_URL}/encounters`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify([{
-                    ...finalized,
-                }]),
-            });
-
-            if (!response.ok) throw new Error('Failed to create encounter');
-            
-            // Reset draft
-            draftEncounter = {
-                name: '',
-                description: '',
-                enemies: [],
-                hazards: [],
-                treasure_items: [],
-                extra_experience: 0,
-                treasure_currency: 0,
-                party_level: 1,
-                party_size: 4
+        try {      
+            let finalized : CreateEncounterFinalized = {
+                ...wipEncounter,
+                total_currency: totalTreasure,
+                total_experience: totalEarnedXP,
+                session_id: chosenSessionId,
             };
+
+            if (editingEncounter) {                
+                await encounterStore.replaceEncounter(editingEncounter.id, finalized);
+            } else {
+                // Creating for first time
+                // TODO: Some kind of way to choose/change this?
+                finalized.status = 'Prepared';
+
+                await encounterStore.addEncounter(finalized);
             
-            // Clear any existing draft
-            await fetch(`${API_URL}/encounters/draft`, {
-                method: 'DELETE',
-                credentials: 'include',
-            });
+                // Reset draft
+                wipEncounter = {
+                    name: '',
+                    description: '',
+                    enemies: [],
+                    hazards: [],
+                    treasure_items: [],
+                    extra_experience: 0,
+                    treasure_currency: 0,
+                    party_level: 1,
+                    party_size: 4,
+                    status: 'Draft',
+                };
+                
+                // Clear any existing draft
+                await fetch(`${API_URL}/encounters/draft`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+            }
 
             // This creates a new draft on backend
             await fetchEncounters();
 
-            // If a campaign is selected, get player/party count defaults
-            pickDefaultCampaignForParty();
+            if (!editingEncounter) {
+                // If a campaign is selected, get player/party count defaults
+                pickDefaultCampaignForParty(selectedCampaignId);
+            }
         } catch (e) {
             error = e instanceof Error ? e.message : 'Failed to create encounter';
-        }
-    }
-
-    async function updateEncounter(encounter: Encounter) {
-        try {
-            const response = await fetch(`${API_URL}/encounters/${encounter.id}`, {
-                method: 'PUT',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({encounter}),
-            });
-
-            if (!response.ok) throw new Error('Failed to update encounter');
-            
-            await fetchEncounters();
-            editingEncounter = null;
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to update encounter';
         }
     }
 
@@ -254,8 +286,8 @@
     }
 
     let totalTreasure : number = $derived.by(() => {
-        let total = draftEncounter.treasure_currency || 0;
-        draftEncounter.treasure_items.forEach(itemId => {
+        let total = wipEncounter.treasure_currency || 0;
+        wipEncounter.treasure_items.forEach(itemId => {
             const item = getItemDetails(itemId);
             if (item && item.price) {
                 total += item.price;
@@ -269,37 +301,37 @@
     }
 
     let subtotalXPEnemies : number = $derived(
-        draftEncounter.enemies.reduce((total, encounterEnemy) => {
+        wipEncounter.enemies.reduce((total, encounterEnemy) => {
             const enemy = getEnemyDetails(encounterEnemy.id);
             if (enemy?.level) {
-                return total + getExperienceFromLevel(draftEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
+                return total + getExperienceFromLevel(wipEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
             }
             return total;
         }, 0)
     );
 
     let subtotalXPHazards : number = $derived(
-        draftEncounter.hazards.reduce((total, hazardId) => {
+        wipEncounter.hazards.reduce((total, hazardId) => {
             const hazard = getHazardDetails(hazardId);
             if (hazard?.level) {
-                return total + getExperienceFromLevel(draftEncounter.party_level, hazard.level);
+                return total + getExperienceFromLevel(wipEncounter.party_level, hazard.level);
             }
             return total;
         }, 0)
     );
 
-    async function pickDefaultCampaignForParty() {
-        if (selectedCampaign) {
-            await characterStore.fetchCharacters(selectedCampaign); // Fetch characters for the selected campaign
-            const characters = $characterStore.get(selectedCampaign);
+    async function pickDefaultCampaignForParty(newCampaignId: number | null) {
+        if (newCampaignId) {
+            await characterStore.fetchCharacters(newCampaignId); // Fetch characters for the selected campaign
+            const characters = $characterStore.get(newCampaignId);
             if (characters) {                
                 // Set PartyConfig to the player count and level of the campaign
-                draftEncounter.party_size = characters.length;
-                draftEncounter.party_level = characters.reduce((max, char) => Math.max(max, char.level), 1);
-            }
+                wipEncounter.party_size = characters.length;
+                wipEncounter.party_level = characters.reduce((max, char) => Math.max(max, char.level), 1);
+            }   
         }
     }
-    pickDefaultCampaignForParty();
+    selectedCampaignStore.subscribe(pickDefaultCampaignForParty);
 
     // TODO: modularize, along with css classes
     function getClassForDifficulty(difficulty: EncounterDifficulty): string {
@@ -325,7 +357,7 @@
             [1, -1],
             [-1, 0]
         ]);
-        let encounterEnemy = draftEncounter.enemies[enemyId];
+        let encounterEnemy = wipEncounter.enemies[enemyId];
         encounterEnemy.level_adjustment = cycleOrder.get(encounterEnemy.level_adjustment) || 0;
     }
 
@@ -353,26 +385,26 @@
 
 
     // Add reactive statement for difficulty calculation
-    let encounterDifficulty : EncounterDifficulty = $derived(getSeverityFromRawExperience(subtotalXPEnemies + subtotalXPHazards, draftEncounter.party_size));
+    let encounterDifficulty : EncounterDifficulty = $derived(getSeverityFromRawExperience(subtotalXPEnemies + subtotalXPHazards, wipEncounter.party_size));
 
     // Sum up the total XP for the encounter, adjusted by party
     // Does not include extra experience
     let subtotalXPPartyAdjusted : number = $derived(
-        getAdjustedExperienceFromPartySize(subtotalXPEnemies + subtotalXPHazards, draftEncounter.party_size)
+        getAdjustedExperienceFromPartySize(subtotalXPEnemies + subtotalXPHazards, wipEncounter.party_size)
     );
     let adjustedXPAmount : number = $derived(subtotalXPPartyAdjusted - (subtotalXPEnemies + subtotalXPHazards));
-    let totalEarnedXP : number = $derived(subtotalXPPartyAdjusted + draftEncounter.extra_experience);
+    let totalEarnedXP : number = $derived(subtotalXPPartyAdjusted + wipEncounter.extra_experience);
 
     // Add reactive statements for auto-saving
     // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
     $effect(() => {
         autoSave();
-        if (draftEncounter.name && 
-            draftEncounter.description && 
-            draftEncounter.enemies &&
-            draftEncounter.hazards && 
-            draftEncounter.treasure_items && 
-            draftEncounter.extra_experience) {
+        if (wipEncounter.name && 
+            wipEncounter.description && 
+            wipEncounter.enemies &&
+            wipEncounter.hazards && 
+            wipEncounter.treasure_items && 
+            wipEncounter.extra_experience) {
             autoSave();
         }
     });
@@ -392,7 +424,7 @@
                         type="text" 
                         id="name" 
                         class="name-input"
-                        bind:value={draftEncounter.name}
+                        bind:value={wipEncounter.name}
                         required
                     />
                 </div>
@@ -402,7 +434,7 @@
                     <textarea
                         id="description"
                         class="description-input"
-                        bind:value={draftEncounter.description}
+                        bind:value={wipEncounter.description}
                     ></textarea>
                 </div>
             </div>
@@ -416,7 +448,7 @@
                             <input 
                                 type="number" 
                                 id="playerCount"
-                                bind:value={draftEncounter.party_size}
+                                bind:value={wipEncounter.party_size}
                                 min="1"
                                 max="6"
                             /></div>
@@ -425,40 +457,31 @@
                             <input 
                                 type="number" 
                                 id="partyLevel"
-                                bind:value={draftEncounter.party_level}
+                                bind:value={wipEncounter.party_level}
                                 min="1"
                                 max="20"
                             /></div>
 
                     </div>
-                    <div class="campaign-defaults-setter">
-                        <label for="campaign">Select Campaign</label>
-                        <select id="campaign" bind:value={selectedCampaign} on:change={() => {pickDefaultCampaignForParty()}}>
-                            <option value={null}>None</option>
-                            {#each campaigns as [id, campaign]}
-                                <option value={id}>{campaign.name}</option>
-                            {/each}
-                        </select>
-                    </div>
                     <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
-                        <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {draftEncounter.extra_experience})</div>
-                        This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{draftEncounter.party_size}</b> level <b>{draftEncounter.party_level}</b> players
+                        <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {wipEncounter.extra_experience})</div>
+                        This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{wipEncounter.party_size}</b> level <b>{wipEncounter.party_level}</b> players
                         </div>
                     </div>
             
         </div>
 
         <EncounterCreatorNlp
-            bind:enemies={draftEncounter.enemies}
-            bind:hazards={draftEncounter.hazards}
-            bind:treasures={draftEncounter.treasure_items}
+            bind:enemies={wipEncounter.enemies}
+            bind:hazards={wipEncounter.hazards}
+            bind:treasures={wipEncounter.treasure_items}
             ></EncounterCreatorNlp>
 
 
         <div class="section collapsible">
             <div class="section-header" on:click={() => enemiesSectionOpen = !enemiesSectionOpen}>
                 <h3>
-                    Enemies ({draftEncounter.enemies.length}) - {subtotalXPEnemies} XP
+                    Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies} XP
                     <span class="toggle-icon">{enemiesSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
@@ -467,7 +490,7 @@
                 <div class="section-content" transition:fade>
                     
                     <div class="list-items">
-                        {#each draftEncounter.enemies as encounterEnemy, i}
+                        {#each wipEncounter.enemies as encounterEnemy, i}
                             {#if getEnemyDetails(encounterEnemy.id)}
                                 <div class="list-item">
                                     <div class="entity-adjustment">
@@ -483,13 +506,13 @@
                                             <FontAwesomeIcon icon={['fas', 'link']} />
                                         </a>
                                     </div>
-                                    <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, (getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)}</div>
+                                    <div class="entity-xp">XP: {getExperienceFromLevel(wipEncounter.party_level, (getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)}</div>
                                     <div class="entity-level">Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment}</div>
                                     <button 
                                         type="button" 
                                         class="remove-button"
                                         on:click={() => {
-                                            draftEncounter.enemies = draftEncounter.enemies.filter((_, index) => index !== i);
+                                            wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -506,10 +529,10 @@
                                 id: id,
                                 level_adjustment: 0
                             };
-                            draftEncounter.enemies = [...draftEncounter.enemies, newEnemy];
+                            wipEncounter.enemies = [...wipEncounter.enemies, newEnemy];
                         }}
                         placeholder="Search for enemies..."
-                        initialIds={draftEncounter.enemies.map(e => e.id)}
+                        initialIds={wipEncounter.enemies.map(e => e.id)}
                     />
                     <a 
                         href="/library?encounter=true&tab=creature"
@@ -525,7 +548,7 @@
         <div class="section collapsible">
             <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
                 <h3>
-                    Hazards ({draftEncounter.hazards.length}) - {subtotalXPHazards} XP
+                    Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
                     <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
@@ -533,7 +556,7 @@
             {#if hazardsSectionOpen}
                 <div class="section-content" transition:fade>
                     <div class="list-items">
-                        {#each draftEncounter.hazards as hazardId}
+                        {#each wipEncounter.hazards as hazardId}
                             {#if getHazardDetails(hazardId)}
                                 <div class="list-item">
                                     <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
@@ -542,12 +565,12 @@
                                             <FontAwesomeIcon icon={['fas', 'link']} />
                                         </a>
                                     </div>
-                                    <div class="entity-xp">XP: {getExperienceFromLevel(draftEncounter.party_level, getHazardDetails(hazardId)?.level || 0)}</div>
+                                    <div class="entity-xp">XP: {getExperienceFromLevel(wipEncounter.party_level, getHazardDetails(hazardId)?.level || 0)}</div>
                                     <div class="entity-level">Level {getHazardDetails(hazardId)?.level}</div>
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            draftEncounter.hazards = draftEncounter.hazards.filter(id => id !== hazardId);
+                                            wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
                                         }}
                                     >
                                         Remove
@@ -560,10 +583,10 @@
                     <LibrarySelector
                         entityType="hazard"
                         onSelect={(id) => {
-                            draftEncounter.hazards = [...draftEncounter.hazards, id];
+                            wipEncounter.hazards = [...wipEncounter.hazards, id];
                         }}
                         placeholder="Search for hazards..."
-                        initialIds={draftEncounter.hazards}
+                        initialIds={wipEncounter.hazards}
                     />
                     <a 
                         href="/library?encounter=true&tab=hazard"
@@ -592,7 +615,7 @@
                             type="number"
                             id="currency"
                             class="currency-input"
-                            bind:value={draftEncounter.treasure_currency}
+                            bind:value={wipEncounter.treasure_currency}
                             min="0"
                         />
                     </div>
@@ -602,14 +625,14 @@
                             type="number"
                             id="currency"
                             class="currency-input"
-                            bind:value={draftEncounter.extra_experience}
+                            bind:value={wipEncounter.extra_experience}
                         />
                     </div>
 
 
                     <h4>Items</h4>
                     <div class="list-items">
-                        {#each draftEncounter.treasure_items as itemId}
+                        {#each wipEncounter.treasure_items as itemId}
                             {#if getItemDetails(itemId)}
                                 <div class="list-item">
                                     <span>{getItemDetails(itemId)?.name}</span> 
@@ -621,7 +644,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            draftEncounter.treasure_items = draftEncounter.treasure_items.filter(id => id !== itemId);
+                                            wipEncounter.treasure_items = wipEncounter.treasure_items.filter(id => id !== itemId);
                                         }}
                                     >
                                         Remove
@@ -634,10 +657,10 @@
                     <LibrarySelector
                         entityType="item"
                         onSelect={(id) => {
-                            draftEncounter.treasure_items = [...draftEncounter.treasure_items, id];
+                            wipEncounter.treasure_items = [...wipEncounter.treasure_items, id];
                         }}
                         placeholder="Search for items..."
-                        initialIds={draftEncounter.treasure_items}
+                        initialIds={wipEncounter.treasure_items}
                     />
                     <a 
                         href="/library?encounter=true&tab=item"
@@ -649,9 +672,34 @@
                 </div>
             {/if}
         </div>
+        <div class="section">
 
-        <button type="submit">Create Encounter</button>
-    </form>
+        {#if campaignSessions && !editingEncounter}
+        <div class="session-selector">
+            <label for="session">Add to existing session:</label> 
+            <select bind:value={chosenSessionId}>
+                <option value={null}>Select a session...</option>
+
+                {#each campaignSessions as session, ind}
+                    <option value={session.id}>Session {ind}: {session.name}</option>
+                {/each}
+            </select>
+        </div>
+        {/if}
+
+        <button type="submit" class="create-button">
+            {#if chosenSessionId && campaignSessions && !editingEncounter}
+                Create Encounter into Session {chosenSessionIndex}
+            {:else if !editingEncounter}
+                Create Encounter
+            {:else}
+                Update Encounter
+            {/if}
+            </button>
+       </div>
+
+    
+        </form>
 </div>
 
 <style>
@@ -727,11 +775,6 @@
         align-items: center;
         gap: 2rem;
         flex: 1;
-    }
-
-    .encounter-summary h3 {
-        margin: 0;
-        min-width: 200px;
     }
 
     .encounter-meta {
@@ -812,14 +855,6 @@
         align-items: center;
     }
 
-    .sort-controls select {
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        min-width: 150px;
-    }
-
     .sort-direction {
         padding: 0.5rem 0.75rem;
         border: 1px solid #e5e7eb;
@@ -835,22 +870,6 @@
 
     .detail-section:last-child {
         margin-bottom: 0;
-    }
-
-    .detail-section h4 {
-        margin-bottom: 0.5rem;
-        color: #374151;
-    }
-
-    .detail-section ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    .detail-section li {
-        padding: 0.25rem 0;
-        color: #6b7280;
     }
 
     .actions {
@@ -1044,7 +1063,7 @@
     }
 
     .browse-library-button::before {
-        content: "📚";  /* Optional: adds a library emoji */
+        content: "📚";  /* TODO Optional: adds a library emoji */
     }
 
     .encounter-form-container {
@@ -1071,15 +1090,43 @@
         display: flex;
         gap: 1rem;
     }
-
-    .campaign-defaults-setter select {
-        padding: 0.5rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        font-size: 1rem;
-        flex: 2;
-
+    
+    .session-selector-row {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
     }
+
+    .session-selector {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .session-selector select {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+    }
+
+    .create-button {
+        width: 100%;
+        font-size: 1.2rem;
+
+
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.2s;
+
+
+    }   
 
     .difficulty-indicator {
         padding: 1rem;

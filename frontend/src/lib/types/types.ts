@@ -1,8 +1,18 @@
+
 // TODO: Ensure these line up with the things currently being exported from the backend
 export interface Campaign {
     id: number;
     name: string;
     description?: string;
+}
+
+export interface CampaignSession {
+    id: number;
+    session_order: number;
+    name: string;
+    description?: string;
+    encounter_ids: number[];
+    play_date: Date
 }
 
 export interface Character {

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
-    import { campaignStore } from '$lib/stores/campaigns';
+    import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
     import { characterStore } from '$lib/stores/characters';
     import type { Campaign, InsertEvent, Log } from '$lib/types/types';
     import CampaignModal from '$lib/components/CampaignModal.svelte';
@@ -11,18 +11,22 @@
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
     import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
+    import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
+  import { encounterStore } from '$lib/stores/encounters';
 
-    let selectedCampaignId: number | null = null;
     let loading = true;
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'characters' | 'logs' | 'import' = 'characters';
+    let activeTab: 'summary' | 'characters' | 'logs' | 'import' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
+    $: selectedCampaignId = $selectedCampaignStore;
     $: campaigns = $campaignStore;
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
+    $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
 
     async function fetchLogs() {
         if (!selectedCampaignId) return;
@@ -42,6 +46,8 @@
     $: if (selectedCampaignId) {
         Promise.all([
             characterStore.fetchCharacters(selectedCampaignId),
+            campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
+            encounterStore.fetchEncounters(),
             fetchLogs(),
         ]).catch(e => {
             error = e instanceof Error ? e.message : 'An error occurred';
@@ -71,22 +77,6 @@
 </script>
 
 <div class="campaigns-page">
-    {#if error}
-        <div class="error-message" transition:fade>{error}</div>
-    {/if}
-
-    <div class="campaign-selector">
-        <select bind:value={selectedCampaignId}>
-            <option value={null}>Select a campaign...</option>
-            {#each campaigns as [id, campaign]}
-                <option value={id}>{campaign.name}</option>
-            {/each}
-        </select>
-        <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
-            New Campaign
-        </button>
-    </div>
-
     {#if selectedCampaignId}
         <div class="campaign-metadata" transition:fade>
             <div class="metadata-item">
@@ -111,11 +101,18 @@
 
     <div class="tabs">
         <button 
-            class="tab-button {activeTab === 'characters' ? 'active' : ''}"
-            on:click={() => activeTab = 'characters'}
+            class="tab-button {activeTab === 'summary' ? 'active' : ''}"
+            on:click={() => activeTab = 'summary'}
         >
-            Characters
+            Summary
         </button>
+        <button 
+        class="tab-button {activeTab === 'characters' ? 'active' : ''}"
+        on:click={() => activeTab = 'characters'}
+    >
+        Characters
+    </button>
+
         <button 
             class="tab-button {activeTab === 'logs' ? 'active' : ''}"
             on:click={() => activeTab = 'logs'}
@@ -130,10 +127,15 @@
         </button>
     </div>
 
-        {#if activeTab === 'characters'}
-            <CampaignCharactersTab
+        {#if activeTab === 'summary'}
+            <CampaignSummaryTab
                 {selectedCampaignId}
                 bind:error
+            />
+        {:else if activeTab === 'characters'}
+            <CampaignCharactersTab
+                        {selectedCampaignId}
+                        bind:error
             />
         {:else if activeTab === 'logs'}
             <CampaignLogsTab
@@ -154,22 +156,6 @@
     {/if}
 </div>
 
-<CampaignModal
-    bind:show={showNewCampaignModal}
-    bind:editingCampaign
-    on:saved={(e : CustomEvent<number>) => {
-        showNewCampaignModal = false;
-        editingCampaign = null;
-        
-        if (e.detail) {
-            selectedCampaignId = e.detail;
-        }
-    }}
-    on:close={() => {
-        showNewCampaignModal = false;
-        editingCampaign = null;
-    }}
-/>
 
 <style>
     .campaigns-page {
