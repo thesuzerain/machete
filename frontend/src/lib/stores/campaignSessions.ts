@@ -9,7 +9,6 @@ function createCampaignSessionStore() {
         subscribe,
         fetchCampaignSessions: async (campaignId : number) => {
             try {
-                console.log("SESSIONS");
 
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions`, {
                     credentials: 'include'
@@ -20,9 +19,6 @@ function createCampaignSessionStore() {
                 let campaignSessions : CampaignSession[] = await response.json();
                 
                 campaignSessions.sort((a, b) => a.session_order - b.session_order);
-
-                console.log('Fetched sessions:', campaignSessions);
-                
                 
                 update(chars => {
                     chars.set(campaignId, campaignSessions);

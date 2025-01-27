@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Encounter, CreateEncounter } from '$lib/types/encounters';
+import type { Encounter, CreateEncounter, CreateEncounterFinalized } from '$lib/types/encounters';
 import { API_URL } from '$lib/config';
 import { auth } from './auth';
 
@@ -22,6 +22,78 @@ function createEncounterStore() {
             } catch (e) {
                 console.error('Error fetching encounters:', e);
                 set([]);
+            }
+        },
+        addEncounter: async (encounter: CreateEncounterFinalized) => {
+            try {
+                const response = await fetch(`${API_URL}/encounters`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify([{
+                        ...encounter,
+                    }]),
+                });
+
+                if (!response.ok) throw new Error('Failed to create encounter');
+                await encounterStore.fetchEncounters();
+            } catch (e) {
+                console.error('Error adding encounter:', e);
+                throw e;
+            }
+        },
+        replaceEncounter: async (id : number, encounter: CreateEncounterFinalized) => {
+            try {
+                const response = await fetch(`${API_URL}/encounters/${id}`, {
+                    method: 'PUT',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(encounter),
+                });
+
+                if (!response.ok) throw new Error('Failed to update encounter');
+                await encounterStore.fetchEncounters();
+            } catch (e) {
+                console.error('Error updating encounter:', e);
+                throw e;
+            }
+        },
+        updateEncounter: async (id : number, encounter: Partial<Encounter>) => {
+            try {
+                const response = await fetch(`${API_URL}/encounters/${id}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(encounter),
+                });
+
+                if (!response.ok) throw new Error('Failed to update encounter');
+                await encounterStore.fetchEncounters();
+
+                // TODO: May be helpful to have a refresh for campaign sessions as well here.
+            } catch (e) {
+                console.error('Error updating encounter:', e);
+                throw e;
+            }
+        },
+        deleteEncounter: async (id : number) => {
+            try {
+                const response = await fetch(`${API_URL}/encounters/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+
+                if (!response.ok) throw new Error('Failed to delete encounter');
+                await encounterStore.fetchEncounters();
+            } catch (e) {
+                console.error('Error deleting encounter:', e);
+                throw e;
             }
         },
         getDraft: async () => {

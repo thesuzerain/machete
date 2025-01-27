@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{auth::extract_user_from_cookies, database::sessions::{InsertSession, ModifySession}, models::ids::InternalId, AppState};
+use crate::{
+    auth::extract_user_from_cookies,
+    database::sessions::{InsertSession, ModifySession},
+    models::ids::InternalId,
+    AppState,
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -280,9 +285,7 @@ async fn edit_event(
     Path((_, event_id)): Path<(InternalId, InternalId)>,
     Json(event): Json<EditEvent>,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("Edit event: {:?}", event);
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    log::info!("user: {:?}", user);
 
     // Check if user has access to the event
     if database::events::get_owned_events_ids(&pool, &[event_id], user.id)
@@ -331,7 +334,6 @@ async fn delete_events(
     Ok(StatusCode::NO_CONTENT)
 }
 
-
 async fn get_sessions(
     State(pool): State<PgPool>,
     jar: CookieJar,
@@ -370,7 +372,6 @@ async fn edit_sessions(
     jar: CookieJar,
     Json(session): Json<HashMap<InternalId, ModifySession>>,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("Edit session: {:?}", session);
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     // Check if user has access to the session
@@ -382,9 +383,9 @@ async fn edit_sessions(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::update_sessions(&pool,  &session).await?;
+    database::sessions::update_sessions(&pool, &session).await?;
     Ok(StatusCode::NO_CONTENT)
-}   
+}
 
 async fn delete_session(
     State(pool): State<PgPool>,
@@ -405,4 +406,4 @@ async fn delete_session(
         .await
         .unwrap();
     Ok(StatusCode::NO_CONTENT)
-}   
+}

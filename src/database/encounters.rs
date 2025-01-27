@@ -4,6 +4,7 @@ use crate::models;
 use crate::models::encounter::EncounterEnemy;
 use crate::models::encounter::{CompletionStatus, Encounter};
 use crate::models::ids::InternalId;
+use crate::models::query::CommaSeparatedVec;
 use serde::{Deserialize, Serialize};
 
 use super::creatures::CreatureFilters;
@@ -12,14 +13,28 @@ use super::items::ItemFilters;
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
+    pub ids: Option<CommaSeparatedVec>,
     pub name: Option<String>,
     pub status: Option<CompletionStatus>,
+}
+
+impl EncounterFilters {
+    pub fn from_ids(ids: &[InternalId]) -> Self {
+        Self {
+            ids: Some(CommaSeparatedVec(
+                ids.iter().map(|id| id.0 as u32).collect(),
+            )),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(serde::Deserialize, Debug, Default)]
 pub struct InsertEncounter {
     pub name: String,
     pub description: String,
+
+    pub session_id: Option<InternalId>,
 
     pub enemies: Vec<InsertEncounterEnemy>,
     pub hazards: Vec<InternalId>,
@@ -30,6 +45,9 @@ pub struct InsertEncounter {
     pub treasure_items: Vec<InternalId>,
     pub treasure_currency: f32,
     pub extra_experience: i32,
+
+    #[serde(default)]
+    pub status: CompletionStatus,
 
     // These are derived values. If provided, they will be considered as an override.
     pub total_experience: Option<i32>,
@@ -69,6 +87,13 @@ pub struct ModifyEncounter {
     pub name: Option<String>,
     pub description: Option<String>,
 
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::double_option"
+    )]
+    pub session_id: Option<Option<InternalId>>,
+
     pub enemies: Option<Vec<InsertEncounterEnemy>>,
     pub hazards: Option<Vec<InternalId>>,
 
@@ -83,7 +108,28 @@ pub struct ModifyEncounter {
 
     // These are derived values. If provided, they will be considered as an override.
     pub total_experience: Option<i32>,
-    pub total_treasure_value: Option<i32>,
+    pub total_treasure_value: Option<f32>,
+}
+
+// For PUT request
+impl From<InsertEncounter> for ModifyEncounter {
+    fn from(encounter: InsertEncounter) -> Self {
+        Self {
+            name: Some(encounter.name),
+            description: Some(encounter.description),
+            session_id: Some(encounter.session_id),
+            enemies: Some(encounter.enemies),
+            hazards: Some(encounter.hazards),
+            treasure_items: Some(encounter.treasure_items),
+            treasure_currency: Some(encounter.treasure_currency),
+            extra_experience: Some(encounter.extra_experience),
+            party_level: Some(encounter.party_level),
+            party_size: Some(encounter.party_size),
+            status: Some(encounter.status),
+            total_experience: encounter.total_experience,
+            total_treasure_value: encounter.total_treasure_value,
+        }
+    }
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -96,6 +142,12 @@ pub async fn get_encounters(
     condition: &EncounterFilters,
 ) -> crate::Result<Vec<Encounter>> {
     // TODO: Campaign needs to be checked for ownership
+    let ids = condition.ids.clone().map(|t| {
+        t.into_inner()
+            .into_iter()
+            .map(|id| id as i32)
+            .collect::<Vec<i32>>()
+    });
 
     let query = sqlx::query!(
         r#"
@@ -103,6 +155,7 @@ pub async fn get_encounters(
             en.id,
             en.name,
             en.description,
+            en.session_id,
             en.enemies,
             en.enemy_level_adjustments,
             en.hazards,
@@ -119,10 +172,12 @@ pub async fn get_encounters(
         WHERE 
             ($1::text IS NULL OR en.name LIKE '%' || $1 || '%')
             AND ($2::integer IS NULL OR en.status = $2)
-            AND en.owner = $3
+            AND ($3::int[] IS NULL OR en.id = ANY($3::int[]))
+            AND en.owner = $4
     "#,
         condition.name,
         condition.status.as_ref().map(|s| s.as_i32()),
+        &ids as _,
         owner.0 as i64,
     );
 
@@ -135,6 +190,7 @@ pub async fn get_encounters(
                 id: InternalId(row.id as u64),
                 name: row.name,
                 description: row.description,
+                session_id: row.session_id.map(|id| InternalId(id as u64)),
                 status: CompletionStatus::from_i32(row.status as i32),
                 party_level: row.party_level as u32,
                 party_size: row.party_size as u32,
@@ -215,7 +271,6 @@ pub async fn insert_encounters(
     for encounter in encounters {
         // TODO: Mofiy this so that it only does these db call if needed
         // TODO: Also do this in 'edit_encounter'
-        log::info!("!");
         let enemy_ids = encounter
             .enemies
             .iter()
@@ -227,9 +282,7 @@ pub async fn insert_encounters(
             &encounter.enemies.iter().map(|_| 0).collect::<Vec<i8>>(),
         )
         .await?;
-        log::info!("2!");
         let hazard_levels = get_levels_hazards(exec, &encounter.hazards).await?;
-        log::info!("3!");
         let treasure_values = get_values_items(exec, &encounter.treasure_items).await?;
 
         let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
@@ -241,17 +294,6 @@ pub async fn insert_encounters(
         let derived_total_treasure_value =
             treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
 
-        log::info!(
-            "Derived experience: {}, Derived treasure: {}",
-            derived_total_experience,
-            derived_total_treasure_value
-        );
-        log::info!(
-            "Provided experience: {:?}, Provided treasure: {:?}",
-            encounter.total_experience,
-            encounter.total_treasure_value
-        );
-
         let total_experience = encounter
             .total_experience
             .unwrap_or(derived_total_experience as i32);
@@ -261,8 +303,8 @@ pub async fn insert_encounters(
 
         let encounter_id = sqlx::query!(
             r#"
-            INSERT INTO encounters (name, description, enemies, enemy_level_adjustments, hazards, treasure_items, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_treasure_value, owner)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            INSERT INTO encounters (name, description, enemies, enemy_level_adjustments, hazards, treasure_items, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_treasure_value, owner, session_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING id
             "#,
             &encounter.name,
@@ -272,13 +314,14 @@ pub async fn insert_encounters(
             &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
             encounter.treasure_currency as f64,
-            CompletionStatus::default().as_i32() as i64,
+            encounter.status.as_i32() as i64,
             encounter.party_size as i64,
             encounter.party_level as i64,
             encounter.extra_experience as i64,
             total_experience as i64,
             total_treasure_value as i64,
             owner.0 as i64,
+            encounter.session_id.map(|id| id.0 as i32),
         )
         .fetch_one(exec)
         .await?
@@ -343,11 +386,7 @@ pub async fn edit_encounter(
         hazards.as_deref(),
         treasure_items.as_deref(),
         new_encounter.treasure_currency.as_ref().map(|c| *c as f64),
-        new_encounter
-            .status
-            .as_ref()
-            .map(|s| s.as_i32() as i16)
-            .unwrap_or_default(),
+        new_encounter.status.as_ref().map(|s| s.as_i32() as i16),
         new_encounter.party_size.map(|s| s as i32),
         new_encounter.party_level.map(|l| l as i32),
         new_encounter.extra_experience.map(|e| e as i32),
@@ -355,6 +394,20 @@ pub async fn edit_encounter(
     )
     .execute(exec)
     .await?;
+
+    if let Some(session_id) = new_encounter.session_id {
+        sqlx::query!(
+            r#"
+            UPDATE encounters
+            SET session_id = $1
+            WHERE id = $2
+            "#,
+            session_id.map(|id| id.0 as i32),
+            encounter_id.0 as i64,
+        )
+        .execute(exec)
+        .await?;
+    }
 
     Ok(())
 }
@@ -476,6 +529,7 @@ pub async fn get_encounter_draft(
             description: row.description,
             status: CompletionStatus::from_i32(row.status as i32),
             owner: InternalId(row.owner as u64),
+            session_id: None,
             enemies: row
                 .enemies
                 .iter()
@@ -511,6 +565,7 @@ pub async fn get_encounter_draft(
                     id,
                     name: "".to_string(),
                     description: Some("".to_string()),
+                    session_id: None,
                     owner,
                     status: CompletionStatus::Draft,
                     enemies: vec![],

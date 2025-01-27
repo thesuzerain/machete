@@ -2,10 +2,11 @@
     import LoginModal from "$lib/components/LoginModal.svelte";
     import SignupModal from "$lib/components/SignupModal.svelte";
     import { auth, isLoading } from '$lib/stores/auth';
-    import { API_URL } from '$lib/config';
     import { onMount } from 'svelte';
     import "../app.css";
+  import CampaignSelector from "$lib/components/CampaignSelector.svelte";
 
+  let error: string | null = null;
     let showLoginModal = false;
     let showSignupModal = false;
 
@@ -50,6 +51,8 @@
                 </div>
             </div>
         </nav>
+
+        <CampaignSelector bind:error />
 
         <main>
             <slot />

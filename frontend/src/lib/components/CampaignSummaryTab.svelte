@@ -13,7 +13,6 @@
     import { id } from 'date-fns/locale';
 
     export let selectedCampaignId: number;
-    export let error: string | null;
 
     let showNewCharacterModal = false;
     let showSessionOrderModal = false;
@@ -23,8 +22,6 @@
     let tempName = '';
     let tempDescription = '';
 
-    $: characters = $characterStore.get(selectedCampaignId) || [];
-    $: classes = $classStore;
     $: campaignSessions = ($campaignSessionStore.get(selectedCampaignId)) || [];
     $: selectedSession = campaignSessions.find(s => s.id === selectedSessionId);
     $: sessionEncounters = selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : [];
@@ -45,21 +42,21 @@
     
     }, { xp: 0, currency: { gold: 0, silver: 0, copper: 0 } });
 
-    console.log("$campaignSessionStore", $campaignSessionStore);
-    console.log("$campaignSessionStore.get", $campaignSessionStore.get(selectedCampaignId)  || []);
-    
-    console.log("characters", $characterStore.get(selectedCampaignId));
-
     // Set to most recent session by default
     // TODO: Cache where user were recently
     onMount(async () => {
-        await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+        await handleCampaignChange(selectedCampaignId);
+    });
+
+    // TODO: Bad pattern?
+    $: handleCampaignChange(selectedCampaignId);
+
+    async function handleCampaignChange(id: number) {
+        await campaignSessionStore.fetchCampaignSessions(id);
         if (campaignSessions.length > 0) {
             selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
         }
-        console.log("--campaignSessions", campaignSessions);
-
-    });
+    }
 
     async function updateSessionName() {
         if (!selectedSession || !tempName) return;
@@ -73,35 +70,36 @@
         editingDescription = false;
     }
 
-    async function addEncounterToSession(encounterId: number) {
-        if (!selectedSession) return;
-        const updatedEncounterIds = [...selectedSession.encounter_ids, encounterId];
-        await campaignSessionStore.updateCampaignSession(selectedCampaignId, { 
-            ...selectedSession, 
-            encounter_ids: updatedEncounterIds 
-        });
-    }
-
     async function removeEncounterFromSession(encounterId: number) {
         if (!selectedSession) return;
-        const updatedEncounterIds = selectedSession.encounter_ids.filter(id => id !== encounterId);
-        await campaignSessionStore.updateCampaignSession(selectedCampaignId, { 
-            ...selectedSession, 
-            encounter_ids: updatedEncounterIds 
+        await encounterStore.updateEncounter(encounterId, {
+            session_id: null,
         });
+        await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+    }
+
+    async function handleTemporarySessionReorder(e: CustomEvent<DndEvent<CampaignSession>>) {
+        let sessions = e.detail.items;
+        let acc = 0;
+        let sessionOrders = sessions.map(s => {
+            acc++;
+            return { ...s, session_order: acc };
+        });
+        campaignSessions = sessionOrders;
     }
 
     async function handleSessionReorder(e: CustomEvent<DndEvent<CampaignSession>>) {
         let sessions = e.detail.items;
+        let acc = 0;
         let sessionOrders = sessions.map(s => {
-            return { id: s.id, session_order: s.session_order };
+            acc++;
+            return { ...s, session_order: acc };
         });
         await campaignSessionStore.updateCampaignSessions(selectedCampaignId, sessionOrders);
     }
 
     async function createNewSession() {
         const highestSessionOrder = campaignSessions.reduce((acc, s) => s.session_order > acc ? s.session_order : acc, 0);
-        console.log("How many?", campaignSessions.length);
         await campaignSessionStore.addCampaignSessions(selectedCampaignId, [{
             name: `New session`,
             description: '',
@@ -112,17 +110,19 @@
         await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
 
         // Go to the new session
-        console.log("How many?", campaignSessions.length);
         selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
     }
 
     function createNewEncounter() {
-        goto('/encounters/new');
+        goto('/encounters?sessionId=' + selectedSessionId);
     }
 
     function editEncounter(encounterId: number) {
+        // TODO
         goto(`/encounters/${encounterId}`);
     }
+
+
 </script>
 
 <div class="characters-section" transition:fade>
@@ -211,6 +211,17 @@
                 {/each}
             </div>
         </div>
+
+        <div class="misc-section">
+            <h3>Reward Assignments</h3>
+            <div class="item-division">
+                TODO
+            </div>
+
+            <div class="gold-division">
+                TODO
+            </div>
+        </div>
     {/if}
 </div>
 
@@ -218,7 +229,7 @@
     <div class="modal">
         <div class="modal-content">
             <h2>Reorder Sessions</h2>
-            <div use:dndzone={{items: campaignSessions}} on:finalize="{handleSessionReorder}">
+            <div use:dndzone={{items: campaignSessions}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
                 {#each campaignSessions as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
                         <span class="drag-handle">⋮⋮</span>
@@ -255,27 +266,6 @@
         border-radius: 0.5rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         padding: 1.5rem;
-    }
-
-    .sessions-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .session-selector {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .session-selector select {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
     }
 
     .session-header {
@@ -373,5 +363,32 @@
         padding: 0.5rem 1rem;
         border-radius: 0.375rem;
         cursor: pointer;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
     }
 </style> 

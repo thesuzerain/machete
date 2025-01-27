@@ -29,15 +29,17 @@
   } from '@fortawesome/free-solid-svg-icons'
   import { API_URL } from '$lib/config';
   import { encounterStore } from '$lib/stores/encounters';
-  import { campaignStore } from '$lib/stores/campaigns';
+  import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
   import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
   import { characterStore } from '$lib/stores/characters';
+  import { campaignSessionStore } from '$lib/stores/campaignSessions';
 
 library.add(faLink)
 
     let loading = $state(true);
     let error: string | null = $state(null);
     
+    let encounterCreator: EncounterCreator;
 
     // Variables for encounter display
     let encountersListOpen = $state(true);
@@ -48,13 +50,30 @@ library.add(faLink)
 
     // Form values for editing/completing encounters
     let editingEncounter: Encounter | null = $state(null);
-    let completingEncounter: Encounter | null = $state(null);
-    let selectedCharacterIds: number[] = $state([]);
 
-    // Add a new state variable for selected campaign
-    let selectedCompletionCampaign: number | null = $state(null);
-    let campaignCharacters = $derived((selectedCompletionCampaign ? $characterStore.get(selectedCompletionCampaign) : []) || []);
+    let linkingEncounter: Encounter | null = $state(null);
 
+    let selectedLinkingSession: number | null = $state(null);
+
+    // Default session (pass to this page with a query parameter)
+
+    let chosenSessionId : number | null = $state(null);
+    let sessionIdString = $page.url.searchParams.get('sessionId');
+    if (sessionIdString) {
+        chosenSessionId = parseInt(sessionIdString);
+    }
+
+    let deletingEncounter: number | null = $state(null);
+    let deletingEncounterName: string | null = $derived.by(() => {
+        if (deletingEncounter === null) return null;
+        return encounters.find(e => e.id === deletingEncounter)?.name || null;
+    });
+    
+    async function deleteEncounter(id: number | null) {
+        if (id === null) return;
+        await encounterStore.deleteEncounter(id);
+        deletingEncounter = null;
+    }
 
     // Subscribe to the stores
     let encounters = $derived($encounterStore);
@@ -62,6 +81,16 @@ library.add(faLink)
     let libraryEnemies = $derived($creatureStore);
     let libraryHazards = $derived($hazardStore);
     let libraryItems = $derived($itemStore);
+    let globalCampaignId = $derived($selectedCampaignStore);
+    let campaignSessions = $derived($campaignSessionStore.get(globalCampaignId || 0) || []);
+
+    let sessionIx = $derived.by(() => {
+        let sessionIx : Map<number, number> = new Map();
+        campaignSessions.forEach((session, ix) => {
+            sessionIx.set(session.id, ix);
+        });
+        return sessionIx;
+    });
 
     // Fetch campaigns data
     async function fetchCampaigns() {
@@ -135,121 +164,9 @@ library.add(faLink)
         return libraryItems.entities.get(id);
     }
 
-
     async function fetchEncounters() {
         await encounterStore.fetchEncounters();
     }
-
-    async function completeEncounter(encounter: Encounter | null) {
-        if (!encounter || !selectedCompletionCampaign) return;
-
-        if (!selectedCharacterIds.length) {
-            error = "Please select at least one character";
-            return;
-        }
-
-        try {
-            // Create a log with all the events
-            const logResponse = await fetch(`${API_URL}/campaign/${selectedCompletionCampaign}/logs`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: `Completed: ${encounter.name}`,
-                    description: encounter.description,
-                    events: [
-                        // Enemy defeated events
-                        ...encounter.enemies.flatMap(encounterEnemy => 
-                            selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
-                                character: charId,
-                                event_type: 'EnemyDefeated',
-                                description: `Defeated ${libraryEnemies.entities.get(encounterEnemy.id)?.name}`,
-                                data: {
-                                    id: encounterEnemy.id,
-                                    level_adjustment: encounterEnemy.level_adjustment
-                                }
-                            })).flat()
-                        ),
-                        // Enemy experience events
-                        ...encounter.enemies.flatMap(encounterEnemy => 
-                            selectedCharacterIds.map(charId => Array(encounter.enemies.length).fill({
-                                character: charId,
-                                event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryEnemies.entities.get(encounterEnemy.id)?.level || 0)} experience from defeating ${libraryEnemies.entities.get(encounterEnemy.id)?.name}`,
-                                data: {
-                                    experience: getExperienceFromLevel(encounter.party_level, (libraryEnemies.entities.get(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)
-                                }
-                            })).flat()
-                        ),
-                        // Hazard defeated events
-                        ...encounter.hazards.flatMap(hazardId => 
-                            selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
-                                character: charId,
-                                event_type: 'HazardDefeated',
-                                description: `Overcame ${libraryHazards.entities.get(hazardId)?.name}`,
-                                data: {
-                                    id: hazardId,
-                                }
-                            })).flat()
-                        ),
-                        // Hazard experience events
-                        ...encounter.hazards.flatMap(hazardId => 
-                            selectedCharacterIds.map(charId => Array(encounter.hazards.length).fill({
-                                character: charId,
-                                event_type: 'ExperienceGain',
-                                description: `Gained ${getExperienceFromLevel(encounter.party_level, libraryHazards.entities.get(hazardId)?.level || 0)} experience from overcoming ${libraryHazards.entities.get(hazardId)?.name}`,
-                                data: {
-                                    experience: getExperienceFromLevel(encounter.party_level, libraryHazards.entities.get(hazardId)?.level || 0)
-                                }
-                            })).flat()
-                        ),
-                        // Treasure events
-                        ...selectedCharacterIds.map(charId => ({
-                            character: charId,
-                            event_type: 'CurrencyGain',
-                            description: `Gained ${encounter.treasure_currency} currency from ${encounter.name}`,
-                            data: {
-                                currency: encounter.treasure_currency
-                            }
-                        })),
-                        // Item gain events
-                        ...encounter.treasure_items.flatMap(itemId => 
-                            selectedCharacterIds.map(charId => ({
-                                character: charId,
-                                event_type: 'ItemGain',
-                                description: `Found ${libraryItems.entities.get(itemId)?.name}`,
-                                data: {
-                                    id: itemId
-                                }
-                            }))
-                        )
-                    ]
-                })
-            });
-
-            if (!logResponse.ok) throw new Error('Failed to create completion log');
-
-            // Update encounter status
-            const statusResponse = await fetch(`${API_URL}/encounters/${encounter.id}`, {
-                method: 'PUT',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...encounter,
-                    status: 'Success'
-                }),
-            });
-
-            if (!statusResponse.ok) throw new Error('Failed to update encounter status');
-            
-            await fetchEncounters();
-            completingEncounter = null;
-            selectedCharacterIds = [];
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to complete encounter';
-        }
-    }
-
 
     // Add this reactive statement to sort and filter encounters
     let filteredAndSortedEncounters = $derived(encounters
@@ -292,6 +209,13 @@ library.add(faLink)
         return adjustment > 0 ? 'Elite' : 'Weak';
     }
 
+    function linkEncounterToSession(encounter: Partial<Encounter>, sessionId: number | null) {
+        if (!encounter.id) return;
+        encounterStore.updateEncounter(encounter.id, {
+            session_id: sessionId
+        });
+    }
+
 </script>
 
 <div class="encounters-page">
@@ -300,7 +224,7 @@ library.add(faLink)
         <div class="error">{error}</div>
     {/if}
 
-    <EncounterCreator bind:editingEncounter />
+    <EncounterCreator bind:editingEncounter bind:chosenSessionId bind:this={encounterCreator} />
 
     {#if loading}
         <div class="loading">Loading encounters...</div>
@@ -351,6 +275,9 @@ library.add(faLink)
                                         <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
                                         <span class="xp">XP: {encounter.total_experience} (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}">{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience).toWellFormed()}</span>)</span>
                                         <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
+                                        {#if encounter.session_id}
+                                            <span class="session">Session: {sessionIx.get(encounter.session_id)}</span>
+                                        {/if}
                                     </div>
                                 </div>
                                 <span class="toggle-icon">{encounterOpenStates[encounter.id] ? '▼' : '▶'}</span>
@@ -400,9 +327,37 @@ library.add(faLink)
                                             </ul>
                                         </div>
                                     </div>
+                                    <div class="actions">
 
-                                    {#if encounter.status === 'Prepared'}
-                                        <div class="actions">
+                                    {#if encounter.status === 'Draft'}
+                                    <button 
+                                    class="clone-encounter-button"
+                                    on:click={() =>  encounterCreator.loadEncounterCopyToDraft(encounter)}
+                                >
+                                    Load draft
+                                </button>
+
+                                    {:else}
+                                    {#if !encounter.session_id}
+                                    <button 
+                                        class="complete-button"
+                                        disabled={encounter.status !== 'Prepared'}
+                                        on:click={() => linkingEncounter = encounter}
+                                    >
+                                        Link to session
+                                    </button>
+                                    {:else}
+                                    
+                                     
+                                    <button 
+                                        class="delete-button"
+                                        disabled={encounter.status !== 'Prepared'}
+                                        on:click={() => linkEncounterToSession(encounter, null)}
+                                    >
+                                        Unlink from session
+                                    </button>
+                                    {/if}
+
                                             <button 
                                                 class="edit-button"
                                                 on:click={() => editingEncounter = encounter}
@@ -410,13 +365,23 @@ library.add(faLink)
                                                 Edit
                                             </button>
                                             <button 
-                                                class="complete-button"
-                                                on:click={() => completingEncounter = encounter}
-                                            >
-                                                Complete
-                                            </button>
-                                        </div>
+                                            class="clone-encounter-button"
+                                            on:click={() =>  encounterCreator.loadEncounterCopyToDraft(encounter)}
+                                        >
+                                            Clone into draft
+                                        </button>
+
+                                        <button 
+                                        class="delete-button"
+                                        on:click={() => deletingEncounter = encounter.id}
+                                    >
+                                        Delete
+                                    </button>
                                     {/if}
+
+
+                                        </div>
+                                        
                                 </div>
                             {/if}
                         </div>
@@ -428,64 +393,63 @@ library.add(faLink)
     
 </div>
 
-{#if completingEncounter}
+{#if deletingEncounter && deletingEncounterName}
     <div class="modal">
         <div class="modal-content">
-            <h2>Complete Encounter: {completingEncounter.name}</h2>
-            <p>{completingEncounter.description}</p>
+            <h2>Delete Encounter: {deletingEncounterName}</h2>
 
-            <div class="form-group">
-                <h3>Select Campaign</h3>
-                <select 
-                    bind:value={selectedCompletionCampaign}
-                    required
-                >
-                    <option value="">Select a campaign...</option>
-                    {#each campaigns as [cid, campaign]}
-                        <option value={cid}>{campaign.name}</option>
-                    {/each}
-                </select>
-            </div>
-
-            {#if selectedCompletionCampaign}
-                <div class="form-group">
-                    <div class="form-group-line"><h3>Select Participating Characters</h3> 
-                    <button class="edit-button" on:click={() => selectedCharacterIds = campaignCharacters.map(c => c.id)}>Select All</button>
-                    </div>
-                    {#if campaignCharacters.length === 0}
-                        <p>No characters found in this campaign.</p>
-                    {:else}
-                        {#each campaignCharacters as character}
-                            <label class="checkbox-label">
-                                <input 
-                                    type="checkbox"
-                                    value={character.id}
-                                    bind:group={selectedCharacterIds}
-                                />
-                                {character.name} (Level {character.level})
-                            </label>
-                        {/each}
-                    {/if}
-                </div>
-            {/if}
+            <p>Are you sure you want to delete this encounter?</p>
+            <p>It will be deleted from any attached sessions and campaigns.</p>
 
             <div class="modal-actions">
                 <button 
-                    class="complete-button"
-                    on:click={() => completeEncounter(completingEncounter)}
-                    disabled={!selectedCompletionCampaign || selectedCharacterIds.length === 0}
-                >
-                    Complete Encounter
-                </button>
-                <button 
                     class="cancel-button"
-                    on:click={() => {
-                        completingEncounter = null;
-                        selectedCharacterIds = [];
-                        selectedCompletionCampaign = null;
-                    }}
+                    on:click={() => deletingEncounter = null}
                 >
                     Cancel
+                </button>
+                <button 
+                    class="delete-button"
+                    on:click={() => deleteEncounter(deletingEncounter)}
+                >
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if linkingEncounter}
+    <div class="modal">
+        <div class="modal-content">
+            <h2>Link Encounter to Session</h2>
+
+            <p>Choose a session to link this encounter to:</p>
+
+            <select bind:value={selectedLinkingSession}>
+                <option value={null}>Select a session...</option>
+                {#each campaignSessions as session}
+                    <option value={session.id}>{session.name}</option>
+                {/each}
+            </select>
+
+            <div class="modal-actions">
+                <button 
+                    class="cancel-button"
+                    on:click={() => linkingEncounter = null}
+                >
+                    Cancel
+                </button>
+                <button 
+                    class="complete-button"
+                    disabled={selectedLinkingSession === null}
+                    on:click={() => {
+                        if (linkingEncounter === null || selectedLinkingSession === null) return;
+                        linkEncounterToSession(linkingEncounter, selectedLinkingSession);
+                        linkingEncounter = null;
+                    }}
+                >
+                    Link
                 </button>
             </div>
         </div>
@@ -759,6 +723,24 @@ library.add(faLink)
     }
 
     .edit-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .delete-button {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .clone-encounter-button {
         background: #3b82f6;
         color: white;
         border: none;

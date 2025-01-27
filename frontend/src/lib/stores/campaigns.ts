@@ -49,6 +49,7 @@ function createCampaignStore() {
     };
 }
 
+export const selectedCampaignStore = writable<number | null>(null);
 export const campaignStore = createCampaignStore();
 
 // Subscribe to auth changes to reset store on logout

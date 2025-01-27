@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Json, Router,
 };
 
@@ -25,8 +25,9 @@ pub fn router() -> Router<AppState> {
         .route("/draft", get(get_encounter_draft))
         .route("/draft", post(insert_encounter_draft))
         .route("/draft", delete(clear_encounter_draft))
-        .route("/:id", put(edit_encounter))
-        .route("/:id/", delete(delete_encounter))
+        .route("/:id", patch(edit_encounter))
+        .route("/:id", put(replace_encounter))
+        .route("/:id", delete(delete_encounter))
 }
 
 async fn get_encounters(
@@ -46,7 +47,31 @@ async fn insert_encounter(
     Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
+    let ids = database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
+    let encounters =
+        database::encounters::get_encounters(&pool, user.id, &EncounterFilters::from_ids(&ids))
+            .await?;
+    Ok(Json(encounters))
+}
+
+async fn replace_encounter(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(encounter_id): Path<InternalId>,
+    Json(encounter): Json<InsertEncounter>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let encounter = encounter.into();
+    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

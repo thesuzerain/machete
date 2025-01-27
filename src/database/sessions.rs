@@ -10,7 +10,6 @@ pub struct InsertSession {
     pub session_order: u32,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub encounter_ids: Vec<InternalId>,
     pub play_date: Option<DateTime<Utc>>,
 }
 
@@ -19,7 +18,6 @@ pub struct ModifySession {
     pub session_order: Option<u32>,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub encounter_ids: Option<Vec<InternalId>>,
     pub play_date: Option<DateTime<Utc>>,
 }
 
@@ -38,10 +36,10 @@ pub async fn get_sessions(
             s.name,
             s.description,
             s.play_date,
-            ARRAY_AGG(se.encounter_id) filter (where se.encounter_id is not null) as encounter_ids
+            ARRAY_AGG(e.id) filter (where e.id is not null) as encounter_ids
         FROM campaign_sessions s
         LEFT JOIN campaigns ca ON s.campaign_id = ca.id
-        LEFT JOIN campaign_sessions_encounters se ON s.id = se.session_id
+        LEFT JOIN encounters e ON s.id = e.session_id
         WHERE 
             ca.id = $1
             AND ca.owner = $2
@@ -63,17 +61,21 @@ pub async fn get_sessions(
                 description: row.description,
                 session_order: row.session_order as u32,
                 play_date: row.play_date.into(),
-                encounter_ids: row.encounter_ids.unwrap_or_default().iter().map(|e| InternalId(*e as u64)).collect(),
+                encounter_ids: row
+                    .encounter_ids
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|e| InternalId(*e as u64))
+                    .collect(),
             })
         })
         .collect::<Result<Vec<CampaignSession>, sqlx::Error>>()?;
     Ok(sessions)
 }
 
-
 pub async fn update_sessions(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    sessions: &HashMap<InternalId,ModifySession>,
+    sessions: &HashMap<InternalId, ModifySession>,
 ) -> crate::Result<()> {
     // TODO: Create non-iterative version of this (or rather just move iteration onto postgres side)
     for (session_id, session) in sessions.iter() {
@@ -94,30 +96,6 @@ pub async fn update_sessions(
             session.play_date,
         );
         query.execute(exec).await?;
-
-        if let Some(encounter_ids) = &session.encounter_ids {
-            sqlx::query!(
-                r#"
-                DELETE FROM campaign_sessions_encounters
-                WHERE session_id = $1
-                "#,
-                session_id.0 as i32,
-            )
-            .execute(exec)
-            .await?;
-
-            let encounter_ids = encounter_ids.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
-            sqlx::query!(
-                r#"
-                INSERT INTO campaign_sessions_encounters (session_id, encounter_id)
-                SELECT * FROM UNNEST ($1::int[], $2::int[])
-                "#,
-                &iter::once(session_id.0 as i32).cycle().take(encounter_ids.len()).collect::<Vec<i32>>(),
-                &encounter_ids as _,
-            )
-            .execute(exec)
-            .await?;
-        }
     }
     Ok(())
 }
@@ -136,12 +114,22 @@ pub async fn insert_sessions(
         .cycle()
         .take(sessions.len())
         .collect::<Vec<i32>>();
-    let (session_orders, names, descriptions, play_dates): (Vec<i32>, Vec<Option<String>>, Vec<Option<String>>, Vec<DateTime<Utc>>) = sessions
+    let (session_orders, names, descriptions, play_dates): (
+        Vec<i32>,
+        Vec<Option<String>>,
+        Vec<Option<String>>,
+        Vec<DateTime<Utc>>,
+    ) = sessions
         .iter()
         .map(|e| {
             // TODO: remove clones
             let date_or_now = e.play_date.unwrap_or_else(|| Utc::now());
-            (e.session_order as i32, e.name.clone(), e.description.clone(), date_or_now)
+            (
+                e.session_order as i32,
+                e.name.clone(),
+                e.description.clone(),
+                date_or_now,
+            )
         })
         .multiunzip();
 
@@ -159,21 +147,6 @@ pub async fn insert_sessions(
     .execute(exec)
     .await?;
 
-    // tODO: No nested unnest- want to be able to do this in one query
-    for (i, session) in sessions.iter().enumerate() {
-        let encounter_ids = session.encounter_ids.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
-        sqlx::query!(
-            r#"
-            INSERT INTO campaign_sessions_encounters (session_id, encounter_id)
-            SELECT * FROM UNNEST ($1::int[], $2::int[])
-            "#,
-            &iter::once(i as i32).cycle().take(encounter_ids.len()).collect::<Vec<i32>>(),
-            &encounter_ids as _,
-        )
-        .execute(exec)
-        .await?;
-    }
-
     Ok(())
 }
 
@@ -181,16 +154,6 @@ pub async fn delete_session(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     session_id: InternalId,
 ) -> crate::Result<()> {
-    sqlx::query!(
-        r#"
-        DELETE FROM campaign_sessions_encounters
-        WHERE session_id = $1
-        "#,
-        session_id.0 as i32,
-    )
-    .execute(exec)
-    .await?;
-
     // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
     sqlx::query!(
         r#"
@@ -220,7 +183,10 @@ pub async fn get_owned_session_ids(
             s.id = ANY($1::int[])
             AND ca.owner = $2
         "#,
-        &session_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        &session_ids
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
         owner.0 as i32,
     )
     .fetch_all(exec)

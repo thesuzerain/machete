@@ -2,7 +2,6 @@ import type { Character, InsertEvent, WIPLogEnemy, WIPLogTreasure } from "$lib/t
 import { getExperienceFromLevel } from "./encounter";
 
 export function generateEventsFromData(characterIds: number[], characters:Character[], enemies: WIPLogEnemy[], treasures: WIPLogTreasure[]): InsertEvent[] {
-    console.log("generating events from data", characterIds, characters, enemies, treasures);
     const events: InsertEvent[] = [];
     
     // Generate defeat and experience events for each enemy/hazard

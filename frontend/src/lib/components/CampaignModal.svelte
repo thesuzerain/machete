@@ -45,8 +45,6 @@
                 body: JSON.stringify(campaignData),
             });
 
-            console.log('Response:', response);
-
             if (!response.ok) throw new Error('Failed to save campaign');
 
             // Get campaigns
