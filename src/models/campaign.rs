@@ -46,6 +46,9 @@ pub struct CampaignSession {
     pub play_date: DateTime<Utc>,
     pub encounter_ids: Vec<InternalId>,
 
-    pub compiled_item_rewards: HashMap<InternalId, Vec<InternalId>>,
-    pub compiled_gold_rewards: HashMap<InternalId, i32>,
+    // encounter_id -> character_id -> rewards
+    pub compiled_gold_rewards: HashMap<InternalId, HashMap<InternalId, i32>>,
+    pub compiled_item_rewards: HashMap<InternalId, HashMap<InternalId, Vec<InternalId>>>,
+    pub unassigned_gold_rewards: HashMap<InternalId, i32>,
+    pub unassigned_item_rewards: HashMap<InternalId, Vec<InternalId>>,
 }

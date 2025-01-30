@@ -87,13 +87,6 @@ pub struct ModifyEncounter {
     pub name: Option<String>,
     pub description: Option<String>,
 
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::double_option"
-    )]
-    pub session_id: Option<Option<InternalId>>,
-
     pub enemies: Option<Vec<InsertEncounterEnemy>>,
     pub hazards: Option<Vec<InternalId>>,
 
@@ -109,27 +102,6 @@ pub struct ModifyEncounter {
     // These are derived values. If provided, they will be considered as an override.
     pub total_experience: Option<i32>,
     pub total_treasure_value: Option<f32>,
-}
-
-// For PUT request
-impl From<InsertEncounter> for ModifyEncounter {
-    fn from(encounter: InsertEncounter) -> Self {
-        Self {
-            name: Some(encounter.name),
-            description: Some(encounter.description),
-            session_id: Some(encounter.session_id),
-            enemies: Some(encounter.enemies),
-            hazards: Some(encounter.hazards),
-            treasure_items: Some(encounter.treasure_items),
-            treasure_currency: Some(encounter.treasure_currency),
-            extra_experience: Some(encounter.extra_experience),
-            party_level: Some(encounter.party_level),
-            party_size: Some(encounter.party_size),
-            status: Some(encounter.status),
-            total_experience: encounter.total_experience,
-            total_treasure_value: encounter.total_treasure_value,
-        }
-    }
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -303,8 +275,8 @@ pub async fn insert_encounters(
 
         let encounter_id = sqlx::query!(
             r#"
-            INSERT INTO encounters (name, description, enemies, enemy_level_adjustments, hazards, treasure_items, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_treasure_value, owner, session_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            INSERT INTO encounters (name, description, enemies, enemy_level_adjustments, hazards, treasure_items, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_treasure_value, owner)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING id
             "#,
             &encounter.name,
@@ -321,11 +293,19 @@ pub async fn insert_encounters(
             total_experience as i64,
             total_treasure_value as i64,
             owner.0 as i64,
-            encounter.session_id.map(|id| id.0 as i32),
         )
         .fetch_one(exec)
         .await?
         .id;
+
+        if let Some(session_id) = encounter.session_id {
+            super::sessions::link_encounter_to_session(
+                exec,
+                InternalId(encounter_id as u64),
+                session_id,
+            )
+            .await?;
+        }
 
         ids.push(InternalId(encounter_id as u64));
     }
@@ -395,19 +375,33 @@ pub async fn edit_encounter(
     .execute(exec)
     .await?;
 
-    if let Some(session_id) = new_encounter.session_id {
-        sqlx::query!(
-            r#"
-            UPDATE encounters
-            SET session_id = $1
-            WHERE id = $2
-            "#,
-            session_id.map(|id| id.0 as i32),
-            encounter_id.0 as i64,
-        )
-        .execute(exec)
-        .await?;
-    }
+    // Clear all item/treasure assignments
+    // Resets it all back to unassigned
+    // TODO: This is unnecessary. We can clear only ones that we need to clean (some type of set diff being mindful of duplicates)
+    sqlx::query!(
+        r#"
+        UPDATE campaign_session_encounter_character_assignments
+        SET gold_rewards = 0, item_rewards = '{}'
+        WHERE encounter_id = $1
+        "#,
+        encounter_id.0 as i64,
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        UPDATE campaign_session_encounters
+        SET unassigned_gold_rewards = sub.treasure_currency, unassigned_item_rewards = sub.treasure_items
+        FROM (
+            SELECT treasure_currency, treasure_items
+            FROM encounters
+            WHERE id = $1
+        ) AS sub
+        WHERE encounter_id = $1
+        "#,
+        encounter_id.0 as i64,
+    ).execute(exec).await?;
 
     Ok(())
 }

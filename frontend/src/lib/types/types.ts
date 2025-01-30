@@ -14,10 +14,30 @@ export interface CampaignSession {
     encounter_ids: number[];
     play_date: Date;
 
-    // For encounter mappings. encounter_id -> item_id -> character_id
-    item_character_mapping: Record<number, Record<number, number>>;
-    // For encounter mappings. character_id -> gold
-    gold_character_mapping: Record<number, number>;
+    // These are assumed to be correct, and are derived values.
+    // TODO: Handle unlinking encounters from a sessions- these values will need to be changed or reset?
+    //  encounter_id -> character_id -> item_id -> #
+    compiled_item_rewards: Record<number, Record<number, number[]>>;
+    compiled_gold_rewards: Record<number, Record<number, number>>;
+    unassigned_item_rewards: Record<number, number[]>;
+    unassigned_gold_rewards: Record<number, number>;
+}
+
+export interface InsertCampaignSession {
+    session_order: number;
+    name: string;
+    description?: string;
+    encounter_ids: number[];
+}
+
+export interface InsertCampaignSessionEncounterLinksMetadata {
+    encounter_ids: number[];
+
+    // TODO: Should we split these out into separate routes (ie with /:encounterId)? Shoudl we coalesce t he down into just the campaign session route
+    compiled_item_rewards: Record<number, Record<number, number[]>>;
+    compiled_gold_rewards: Record<number, Record<number, number>>;
+    unassigned_item_rewards: Record<number, number[]>;
+    unassigned_gold_rewards: Record<number, number>;
 }
 
 export interface Character {

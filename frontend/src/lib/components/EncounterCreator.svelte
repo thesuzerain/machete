@@ -13,7 +13,7 @@
         getAdjustedExperienceFromPartySize
 
     } from '$lib/utils/encounter';
-    import type { Encounter, CreateEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy } from '$lib/types/encounters';
+    import type { Encounter, CreateOrReplaceEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy, CreateOrReplaceEncounterExtended } from '$lib/types/encounters';
     import { getFullUrl, getFullUrlWithAdjustment, type LibraryCreature, type LibraryHazard, type LibraryItem } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -55,7 +55,7 @@
     const AUTOSAVE_DELAY = 2000; // 2 seconds
 
     // Modify the newEncounter state to track the current draft or editing encounter
-    let wipEncounter: CreateEncounter = $state({
+    let wipEncounter: CreateOrReplaceEncounter = $state({
         name: '',
         description: '',
         enemies: [],
@@ -87,7 +87,7 @@
         setWipEncounterAs(editingEncounter);
     }
 
-    // TODO: Effect is a smell, refactor when possible
+    // TODO: Effect is a smell, refactor when possible. (But needs to update when editingEncounter updates from inside here or elsewhere)
     $effect(() => {
         if (editingEncounter) {
             setWipEncounterAs(editingEncounter);
@@ -223,16 +223,20 @@
         event.preventDefault();
 
         try {      
-            let finalized : CreateEncounterFinalized = {
+            let extended : CreateOrReplaceEncounterExtended = {
                 ...wipEncounter,
                 total_currency: totalTreasure,
                 total_experience: totalEarnedXP,
-                session_id: chosenSessionId,
             };
 
             if (editingEncounter) {                
-                await encounterStore.replaceEncounter(editingEncounter.id, finalized);
+                await encounterStore.updateEncounter(editingEncounter.id, extended);
             } else {
+                let finalized : CreateEncounterFinalized = {
+                    ...extended,
+                    session_id: chosenSessionId,
+                };
+
                 // Creating for first time
                 // TODO: Some kind of way to choose/change this?
                 finalized.status = 'Prepared';

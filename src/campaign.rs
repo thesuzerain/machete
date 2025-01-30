@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     auth::extract_user_from_cookies,
-    database::sessions::{InsertSession, ModifySession},
+    database::{
+        encounters::EncounterFilters,
+        sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateEncounterSessions},
+    },
     models::ids::InternalId,
     AppState,
 };
@@ -49,6 +52,18 @@ pub fn router() -> Router<AppState> {
         .route("/:id/sessions", post(insert_sessions))
         .route("/:id/sessions", patch(edit_sessions))
         .route("/:id/sessions/:id", delete(delete_session))
+        .route(
+            "/:id/sessions/:session_id/encounters",
+            post(link_sessions_encounters),
+        )
+        .route(
+            "/:id/sessions/:session_id/encounters",
+            patch(update_link_session_encounters),
+        )
+        .route(
+            "/:id/sessions/:session_id/encounters/:encounter_id",
+            delete(unlink_session_encounters),
+        )
 }
 
 async fn get_campaigns(
@@ -405,5 +420,99 @@ async fn delete_session(
     database::sessions::delete_session(&pool, session_id)
         .await
         .unwrap();
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn link_sessions_encounters(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path((_campaign_id, session_id)): Path<(InternalId, InternalId)>,
+    Json(link): Json<LinkEncounterSession>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the session
+    if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::sessions::link_encounter_to_session(&pool, link.encounter_id, session_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn update_link_session_encounters(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path((_campaign_id, session_id)): Path<(InternalId, InternalId)>,
+    Json(session): Json<UpdateEncounterSessions>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the session
+    if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+
+    // Ensure all encounters are bound to the session
+    let encounter_ids = session
+        .compiled_gold_rewards
+        .keys()
+        .chain(session.compiled_item_rewards.keys())
+        .chain(session.unassigned_gold_rewards.keys())
+        .chain(session.unassigned_item_rewards.keys())
+        .cloned()
+        .collect::<Vec<_>>();
+    let any_unlinked = database::encounters::get_encounters(
+        &mut *tx,
+        user.id,
+        &EncounterFilters::from_ids(&encounter_ids),
+    )
+    .await?
+    .into_iter()
+    .find(|e| e.session_id != Some(session_id));
+    if let Some(unlinked) = any_unlinked {
+        return Err(ServerError::BadRequest(format!(
+            "Encounter {} is not linked to session {}",
+            unlinked.id, session_id
+        )));
+    }
+
+    database::sessions::edit_encounter_session_character_assignments(&mut tx, session_id, &session)
+        .await?;
+
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn unlink_session_encounters(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path((_campaign_id, session_id, encounter_id)): Path<(InternalId, InternalId, InternalId)>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    log::info!(
+        "Unlinking encounter {} from session {}",
+        encounter_id,
+        session_id
+    );
+
+    // Check if user has access to the session
+    if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    database::sessions::unlink_encounter_from_session(&pool, encounter_id, session_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

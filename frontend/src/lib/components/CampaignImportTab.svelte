@@ -575,12 +575,8 @@
                                 class="edit-btn"
                                 on:click={() => {
                                     editingLogName = log.name
-                                    console.log('editing log name', editingLogName, log.name, wipLogs);
                                     const foundLog = wipLogs.find(l => l.name === log.name);
-                                    console.log('found log', foundLog);
-                                    console.log("log creation modal", logCreationModal);
                                     logCreationModal.setInitialData(foundLog || null);
-                                    console.log('editing past');
                                     }}
                             >
                                 Edit

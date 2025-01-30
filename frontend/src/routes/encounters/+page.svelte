@@ -14,7 +14,7 @@
         getSeverityFromFinalExperience
 
     } from '$lib/utils/encounter';
-    import type { Encounter, CreateEncounter, EncounterStatus } from '$lib/types/encounters';
+    import type { Encounter, EncounterStatus } from '$lib/types/encounters';
     import { getFullUrl } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -50,13 +50,11 @@ library.add(faLink)
 
     // Form values for editing/completing encounters
     let editingEncounter: Encounter | null = $state(null);
-
     let linkingEncounter: Encounter | null = $state(null);
-
     let selectedLinkingSession: number | null = $state(null);
 
     // Default session (pass to this page with a query parameter)
-
+    // TODO: Svelte solution for parsing query parameters to a page?
     let chosenSessionId : number | null = $state(null);
     let sessionIdString = $page.url.searchParams.get('sessionId');
     if (sessionIdString) {
@@ -145,6 +143,15 @@ library.add(faLink)
                 fetchCampaigns(),
             ]);
             await loadLibraryData();
+
+            // TODO: Svelte solution for parsing query parameters to a page?
+            let encounterIdString = $page.url.searchParams.get('encounterId');
+            if (encounterIdString) {
+                // Load the encounter into the editor.
+                // editingEncounteris bound to EncounterCreator
+                editingEncounter = encounters.find(e => e.id === parseInt(encounterIdString)) || null;
+            }
+
         } catch (e) {
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
@@ -210,10 +217,13 @@ library.add(faLink)
     }
 
     function linkEncounterToSession(encounter: Partial<Encounter>, sessionId: number | null) {
-        if (!encounter.id) return;
-        encounterStore.updateEncounter(encounter.id, {
-            session_id: sessionId
-        });
+        if (!encounter.id || !globalCampaignId) return;
+        console.log("Linking encounter to session", encounter, sessionId);
+        if (sessionId && globalCampaignId) {
+            campaignSessionStore.linkEncounterToSession(globalCampaignId, sessionId, encounter.id);
+        } else {
+            encounterStore.unlinkEncounterFromSession(encounter.id);
+        }
     }
 
 </script>
@@ -428,8 +438,8 @@ library.add(faLink)
 
             <select bind:value={selectedLinkingSession}>
                 <option value={null}>Select a session...</option>
-                {#each campaignSessions as session}
-                    <option value={session.id}>{session.name}</option>
+                {#each campaignSessions as session, ix}
+                    <option value={session.id}>Session {ix}: {session.name}</option>
                 {/each}
             </select>
 
@@ -498,17 +508,6 @@ library.add(faLink)
         white-space: nowrap;
         color: #666;
     }
-
-    .list-item button {
-        white-space: nowrap;
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
     .encounters-list {
         display: flex;
         flex-direction: column;
@@ -772,11 +771,6 @@ library.add(faLink)
         margin-bottom: 0.5rem;
     }
 
-    .selected-creature .xp {
-        color: #666;
-        font-size: 0.875rem;
-    }
-
     .remove-button {
         margin-left: auto;
         background: #ef4444;
@@ -793,19 +787,6 @@ library.add(faLink)
 
     .list-items {
         margin-bottom: 1rem;
-    }
-
-    .list-item button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .list-item button:hover {
-        background: #dc2626;
     }
 
     .draft-indicator {
@@ -843,15 +824,6 @@ library.add(faLink)
         cursor: pointer;
         user-select: none;
     }
-
-    .section-header h3 {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin: 0;
-        padding: 0.5rem 0;
-    }
-
     .toggle-icon {
         font-size: 0.8em;
         color: #666;
@@ -930,16 +902,6 @@ library.add(faLink)
         display: flex;
         justify-content: space-between;
         align-items: center;
-    }
-
-    .form-group h3 {
-        margin-bottom: 0.75rem;
-        color: #374151;
-    }
-
-    .form-group p {
-        color: #6b7280;
-        font-style: italic;
     }
 
     .difficulty-trivial {

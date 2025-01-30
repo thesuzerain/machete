@@ -14,16 +14,35 @@ CREATE TABLE campaign_sessions (
     campaign_id INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    play_date timestamptz NOT NULL,
-
-    compiled_item_rewards JSONB NOT NULL DEFAULT '{}',
-    compiled_gold_rewards JSONB NOT NULL DEFAULT '{}',
+    play_date timestamptz NOT NULL
 );
 
 ALTER TABLE encounters ADD COLUMN session_id INTEGER 0 REFERENCES campaign_sessions(id);
+
+CREATE TABLE campaign_session_encounters (
+    session_id INTEGER NOT NULL REFERENCES campaign_sessions(id),
+    encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+
+    unassigned_gold_rewards double precision NOT NULL DEFAULT 0,
+    unassigned_item_rewards INTEGER[] NOT NULL DEFAULT '{}',
+
+    PRIMARY KEY (session_id, encounter_id)
+)
+
+CREATE TABLE campaign_session_encounter_character_assignments (
+    session_id INTEGER NOT NULL REFERENCES campaign_sessions(id),
+    encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+    character_id INTEGER NOT NULL REFERENCES characters(id),
+
+    gold_rewards double precision NOT NULL DEFAULT 0,
+    item_rewards INTEGER[] NOT NULL DEFAULT '{}',
+
+    PRIMARY KEY (session_id, encounter_id, character_id)
+);
 
 ALTER TABLE event_groups ADD COLUMN session_id INTEGER NOT NULL DEFAULT 0 REFERENCES campaign_sessions(id);
 ALTER TABLE events ADD COLUMN session_id INTEGER NOT NULL DEFAULT 0 REFERENCES campaign_sessions(id);
 
 ALTER TABLE event_groups ADD COLUMN intra_session_order INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE events ADD COLUMN intra_session_order INTEGER NOT NULL DEFAULT 0;
+

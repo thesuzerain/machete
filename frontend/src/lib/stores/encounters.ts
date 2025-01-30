@@ -1,11 +1,13 @@
-import { writable } from 'svelte/store';
-import type { Encounter, CreateEncounter, CreateEncounterFinalized } from '$lib/types/encounters';
+import { get, writable } from 'svelte/store';
+import type { Encounter, CreateOrReplaceEncounterExtended, CreateEncounterFinalized, CreateOrReplaceEncounter } from '$lib/types/encounters';
 import { API_URL } from '$lib/config';
 import { auth } from './auth';
+import { campaignSessionStore } from './campaignSessions';
+import { campaignStore, selectedCampaignStore } from './campaigns';
 
 function createEncounterStore() {
     const { subscribe, set, update } = writable<Encounter[]>([]);
-    let currentDraft: CreateEncounter | null = null;
+    let currentDraft: CreateOrReplaceEncounter | null = null;
 
     return {
         subscribe,
@@ -24,6 +26,7 @@ function createEncounterStore() {
                 set([]);
             }
         },
+        // addEncounter
         addEncounter: async (encounter: CreateEncounterFinalized) => {
             try {
                 const response = await fetch(`${API_URL}/encounters`, {
@@ -44,25 +47,7 @@ function createEncounterStore() {
                 throw e;
             }
         },
-        replaceEncounter: async (id : number, encounter: CreateEncounterFinalized) => {
-            try {
-                const response = await fetch(`${API_URL}/encounters/${id}`, {
-                    method: 'PUT',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(encounter),
-                });
-
-                if (!response.ok) throw new Error('Failed to update encounter');
-                await encounterStore.fetchEncounters();
-            } catch (e) {
-                console.error('Error updating encounter:', e);
-                throw e;
-            }
-        },
-        updateEncounter: async (id : number, encounter: Partial<Encounter>) => {
+        updateEncounter: async (id : number, encounter: Partial<CreateOrReplaceEncounterExtended>) => {
             try {
                 const response = await fetch(`${API_URL}/encounters/${id}`, {
                     method: 'PATCH',
@@ -96,6 +81,32 @@ function createEncounterStore() {
                 throw e;
             }
         },
+        unlinkEncounterFromSession: async (encounterId: number) => {
+            try {
+                console.log("unlinking in encounterStore");
+                const response = await fetch(`${API_URL}/encounters/${encounterId}/session`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+
+                if (!response.ok) throw new Error('Failed to unlink encounter');
+
+                // Refresh session and encounter data after unlinking
+                const selectedCampaign = get(selectedCampaignStore);
+                if (selectedCampaign) {
+                    await Promise.all([
+                        campaignSessionStore.fetchCampaignSessions(selectedCampaign),
+                        encounterStore.fetchEncounters(),
+                    ]);
+                } else {
+                    await encounterStore.fetchEncounters();
+                }
+
+            } catch (e) {
+                console.error('Error unlinking encounter:', e);
+                throw e;
+            }
+        },
         getDraft: async () => {
             try {
                 const response = await fetch(`${API_URL}/encounters/draft`, {
@@ -109,7 +120,7 @@ function createEncounterStore() {
                 return null;
             }
         },
-        updateDraft: async (draft: CreateEncounter) => {
+        updateDraft: async (draft: CreateOrReplaceEncounter) => {
             try {
                 const response = await fetch(`${API_URL}/encounters/draft`, {
                     method: 'POST',
