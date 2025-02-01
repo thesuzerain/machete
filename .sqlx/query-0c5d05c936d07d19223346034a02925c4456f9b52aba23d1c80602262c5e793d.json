@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            s.id AS \"id!\"\n        FROM campaign_sessions s\n        LEFT JOIN campaigns ca ON s.campaign_id = ca.id\n        WHERE \n            s.id = ANY($1::int[])\n            AND ca.owner = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0c5d05c936d07d19223346034a02925c4456f9b52aba23d1c80602262c5e793d"
+}

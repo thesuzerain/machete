@@ -59,8 +59,18 @@ function createEncounterStore() {
                 });
 
                 if (!response.ok) throw new Error('Failed to update encounter');
-                await encounterStore.fetchEncounters();
 
+                // Update encounters (and sessions if we're in a campaign)
+                let campaignId = get(selectedCampaignStore);
+                if (campaignId) {
+                await Promise.all([
+                    campaignSessionStore.fetchCampaignSessions(campaignId),
+                    await encounterStore.fetchEncounters()
+                ]);
+            } else {
+                await encounterStore.fetchEncounters();
+            }
+                
                 // TODO: May be helpful to have a refresh for campaign sessions as well here.
             } catch (e) {
                 console.error('Error updating encounter:', e);
@@ -83,7 +93,6 @@ function createEncounterStore() {
         },
         unlinkEncounterFromSession: async (encounterId: number) => {
             try {
-                console.log("unlinking in encounterStore");
                 const response = await fetch(`${API_URL}/encounters/${encounterId}/session`, {
                     method: 'DELETE',
                     credentials: 'include',

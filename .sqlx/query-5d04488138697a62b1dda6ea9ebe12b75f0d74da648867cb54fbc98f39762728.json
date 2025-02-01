@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT unassigned_gold_rewards, unassigned_item_rewards\n        FROM campaign_sessions\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unassigned_gold_rewards",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "unassigned_item_rewards",
+        "type_info": "Int8Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5d04488138697a62b1dda6ea9ebe12b75f0d74da648867cb54fbc98f39762728"
+}

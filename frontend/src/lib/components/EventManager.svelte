@@ -17,7 +17,6 @@
 
     async function updateEvent(eventId: number, formData: Record<string, any>) {
         try {
-            console.log("Updating event with ID: ", eventId, " and data: ", formData);
             // Reconstruct nested data structure
             const newData = Object.entries(formData).reduce((acc: any, [key, value]) => {
                 const parts = key.split('.');
@@ -32,7 +31,6 @@
                 return acc;
             }, {});
 
-            console.log("Sending up date with data: ", newData);
             const response = await fetch(`${API_URL}/campaign/${campaignId}/events/${eventId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards, item_rewards)\n        SELECT $1, ch.id, 0, '{}'\n        FROM characters ch\n        INNER JOIN campaigns cp ON ch.campaign = cp.id\n        INNER JOIN campaign_sessions cs ON cp.id = cs.campaign_id\n        WHERE cs.id = $1\n        ON CONFLICT DO NOTHING\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d934cfa2682a0b3a06bbed86e78ddf6408d7595f02a6fa7d28db9639edcce11"
+}

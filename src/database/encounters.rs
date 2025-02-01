@@ -263,12 +263,7 @@ pub async fn insert_encounters(
             encounter.party_level,
             encounter.party_size,
         );
-        log::info!(
-            "Deriving treasure value from items: {:?}, and currency: {}",
-            treasure_values,
-            encounter.treasure_currency
-        );
-        log::info!("Encounter: {:?}", encounter);
+
         let derived_total_treasure_value =
             treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
 
@@ -278,12 +273,6 @@ pub async fn insert_encounters(
         let total_treasure_value = encounter
             .total_treasure_value
             .unwrap_or(derived_total_treasure_value as f32);
-
-        log::info!(
-            "Inserting encounter with total experience: {}, and total treasure value: {}",
-            total_experience,
-            total_treasure_value
-        );
 
         let encounter_id = sqlx::query!(
             r#"

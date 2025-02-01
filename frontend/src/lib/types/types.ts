@@ -15,8 +15,7 @@ export interface CampaignSession {
     play_date: Date;
 
     // These are assumed to be correct, and are derived values.
-    // TODO: Handle unlinking encounters from a sessions- these values will need to be changed or reset?
-    //  encounter_id -> character_id -> item_id -> #
+    //  character_id -> {gold and items}
     compiled_rewards: Record<number, CompiledRewards>;
     unassigned_item_rewards: number[];
     unassigned_gold_rewards: number;

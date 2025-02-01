@@ -41,7 +41,6 @@
 
     // Load initial data if provided
     export function setInitialData(i : WIPInsertLog | null) {
-        console.log("setting initial data", i);
         if (!i) return;
         name = i.name;
         description = i.description;

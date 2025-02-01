@@ -218,7 +218,6 @@ library.add(faLink)
 
     function linkEncounterToSession(encounter: Partial<Encounter>, sessionId: number | null) {
         if (!encounter.id || !globalCampaignId) return;
-        console.log("Linking encounter to session", encounter, sessionId);
         if (sessionId && globalCampaignId) {
             campaignSessionStore.linkEncounterToSession(globalCampaignId, sessionId, encounter.id);
         } else {

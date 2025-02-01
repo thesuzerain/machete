@@ -90,7 +90,7 @@ pub async fn get_sessions(
 
             let character_rewards: Vec<RowCharacterRewards> = row
                 .character_rewards
-                .map(|x| serde_json::from_value(x).unwrap())
+                .and_then(|x| serde_json::from_value(x).ok())
                 .unwrap_or_default();
             let compiled_rewards: HashMap<InternalId, CampaignSessionCharacterRewards> =
                 character_rewards

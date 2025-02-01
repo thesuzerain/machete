@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE campaign_sessions\n            SET\n                session_order = COALESCE($2, session_order),\n                name = COALESCE($3, name),\n                description = COALESCE($4, description),\n                play_date = COALESCE($5, play_date)\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cedc044ea0a85f5fec4d96e70298f8ad77763cc57ff38d59c07a4a8b15c3b880"
+}

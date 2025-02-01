@@ -164,9 +164,7 @@ async fn delete_character(
         return Err(ServerError::NotFound);
     }
 
-    database::characters::delete_character(&pool, character_id)
-        .await
-        .unwrap();
+    database::characters::delete_character(&pool, character_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -237,9 +235,7 @@ async fn delete_log(
         return Err(ServerError::NotFound);
     }
 
-    database::logs::delete_log(&pool, user.id, log_id)
-        .await
-        .unwrap();
+    database::logs::delete_log(&pool, user.id, log_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -416,9 +412,7 @@ async fn delete_session(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::delete_session(&pool, session_id)
-        .await
-        .unwrap();
+    database::sessions::delete_session(&pool, session_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -441,7 +435,6 @@ async fn link_sessions_encounters(
     let mut tx = pool.begin().await?;
 
     // Unlink first
-    // TODO: This only unlinks from own session. Should by default  unlinking from any session
     database::sessions::unlink_encounter_from_session(&mut tx, link.encounter_id).await?;
     database::sessions::link_encounter_to_session(&mut tx, link.encounter_id, session_id).await?;
     tx.commit().await?;
@@ -480,12 +473,6 @@ async fn unlink_session_encounters(
     Path((_campaign_id, session_id, encounter_id)): Path<(InternalId, InternalId, InternalId)>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-
-    log::info!(
-        "Unlinking encounter {} from session {}",
-        encounter_id,
-        session_id
-    );
 
     // Check if user has access to the session
     if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)

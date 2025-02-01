@@ -57,9 +57,6 @@
         const data = await response.json();
         
         data.forEach((entity: LibraryEntity) => {
-            if (entity.id == 6230) {
-                console.log("eatthbinding", entity);
-            }
             entities.set(entity.id, entity);
         });
         entities = entities;

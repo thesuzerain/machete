@@ -45,8 +45,6 @@
         acc.currency += encounter.treasure_currency;
         acc.items[encounter.id]= encounter.treasure_items;
         acc.total_treasure_value += encounter.total_treasure_value;
-
-        console.log("Encounter: ", encounter);
         return acc;
     }, { xp: 0, currency: 0, items: {}, total_treasure_value: 0 } as TotalRewards));
     
