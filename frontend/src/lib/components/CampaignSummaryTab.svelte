@@ -62,6 +62,13 @@
         let finishedCharacters : Record<number, Record<number, number>> = {};
         let finishedLeftover : Record<number, number> = {};
 
+        // Create empty base record for each encounter
+        const sessionEncounterIds = sessionEncounters.map(e => e.id);
+        sessionEncounterIds.forEach(eid => {
+            finishedCharacters[eid] = {};
+            finishedLeftover[eid] = 0;
+        });
+
         const clonedCompiledGoldRewards = { ...$state.snapshot(compiledGoldRewards) };
         const totalTreasures = Object.fromEntries(sessionEncounters.map(e => [e.id, e.treasure_currency]));
 
@@ -109,6 +116,13 @@
         let finishedCharacters : Record<number, Record<number, number[]>> = {};
         let finishedLeftover : Record<number, number[]> = {};
 
+        // Create empty base record for each encounter
+        const sessionEncounterIds = sessionEncounters.map(e => e.id);
+        sessionEncounterIds.forEach(eid => {
+            finishedCharacters[eid] = {};
+            finishedLeftover[eid] = [];
+        });
+
         Object.entries(compiledItemRewardsWithIds).forEach(([cid, characterItems]) => {
             let characterId = Number(cid);
             characterItems.forEach(item => {
@@ -150,10 +164,11 @@
     }
 
     async function handleSessionChange() {
-        await handleEncountersUpdate();
+        // await handleEncountersUpdate();
     }
 
     async function handleEncountersUpdate() {
+        console.log("handleEncountersUpdate");
         // TODO: Refactor
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
@@ -198,12 +213,14 @@
         // Populate with gold
         Object.entries(session.compiled_gold_rewards).forEach(([eId, characterGolds]) => {
             Object.entries(characterGolds).forEach(([characterId, gold]) => {
+                console.log("Adding gold", characterId, gold);
                 compiledGoldRewards[Number(characterId)] = (compiledGoldRewards[Number(characterId)] || 0) + gold;
             });
         });
 
         // Add unassigned ones as -1
         Object.entries(session.unassigned_gold_rewards).forEach(([eId, gold], ix) => {
+            console.log("Adding gold", -1, gold);
             compiledGoldRewards[-1] = (compiledGoldRewards[-1] || 0) + gold;
         });
 
@@ -230,6 +247,9 @@
     async function removeEncounterFromSession(encounterId: number) {
         if (!selectedSession) return;
         await campaignSessionStore.unlinkEncounterFromSession(selectedCampaignId, selectedSession.id, encounterId);
+
+        // Update the session encounters (gold, etc, changes so we need to re-assign)
+        await handleEncountersUpdate();
     }
 
     let temporarySessionOrder: CampaignSession[] = [];
@@ -279,12 +299,10 @@
     }
 
     function createNewEncounter() {
-        // TODO
         goto('/encounters?sessionId=' + selectedSessionId);
     }
 
     function editEncounter(encounterId: number) {
-        // TODO
         goto(`/encounters?encounterId=${encounterId}`);
     }
 
@@ -306,17 +324,24 @@
     function reassignGoldWithMaximum(cidEdited: number) {
         // Ensure we don't exceed the total gold rewards
         const totalCompiledGoldRewards = Object.values(compiledGoldRewards).reduce((acc, curr) => acc + curr, 0);
-        const amountToReduce = totalCompiledGoldRewards - totalSessionRewards.currency;
+        let amountToReduce = totalCompiledGoldRewards - totalSessionRewards.currency;
 
-        if (amountToReduce !== 0) {
+        while (amountToReduce !== 0) {
             // Remove from unassigned if we can, otherwise remove from the first character
             const firstOtherKeyWithGold = Object.entries(compiledGoldRewards).filter(([key, value]) => value > 0 && Number(key) !== cidEdited).map(([key, value]) => Number(key));
             const firstOtherKeyWithSpace = Object.entries(compiledGoldRewards).filter(([key, value]) => value < totalSessionRewards.currency && Number(key) !== cidEdited).map(([key, value]) => Number(key));
 
             if (firstOtherKeyWithGold.length > 0 && amountToReduce > 0) {
-                compiledGoldRewards[firstOtherKeyWithGold[0]] -= amountToReduce;
+                let singularReduction = Math.min(compiledGoldRewards[firstOtherKeyWithGold[0]], amountToReduce);
+                compiledGoldRewards[firstOtherKeyWithGold[0]] -= singularReduction;
+                amountToReduce -= singularReduction;
+
             } else if (firstOtherKeyWithSpace.length > 0 && amountToReduce < 0) {
-                compiledGoldRewards[firstOtherKeyWithSpace[0]] -= amountToReduce;
+                let singularReduction = Math.min(totalSessionRewards.currency - compiledGoldRewards[firstOtherKeyWithSpace[0]], amountToReduce);
+                compiledGoldRewards[firstOtherKeyWithSpace[0]] -= singularReduction;
+                amountToReduce += singularReduction;
+            } else {
+                break;
             }
         }
     }
@@ -392,7 +417,8 @@
                     <div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
-                            <p>XP: {encounter.total_experience}</p>
+                            <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
+                            <div class="encounter-info-row"><p>Assigned gold: {Object.values(selectedSession.compiled_gold_rewards[encounter.id]).reduce((partialSum, a) => partialSum + a, 0) || 0}</p><p>Unassigned gold: {selectedSession.unassigned_gold_rewards[encounter.id] || 0}</p></div>
                         </div>
                         <div class="encounter-actions">
                             <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
@@ -416,6 +442,10 @@
                 <div class="reward-details">
                     <p>Experience: {totalSessionRewards.xp} XP</p>
                     <p>Treasure: {totalSessionRewards.currency}g</p>
+                    <p>Assigned Gold: {compiledGoldTotal}g</p>
+                    <p>Original: {JSON.stringify(compiledGoldRewards)}</p>
+                    <p>Assigned Items: {compiledItemRewardsTotal}</p>
+                    <p>Original: {JSON.stringify(compiledItemRewardsWithIds)}</p>
                 </div>
             </div>
 

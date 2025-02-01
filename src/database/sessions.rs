@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::models::campaign::CampaignSession;
+use crate::models::campaign::{CampaignSession, CampaignSessionCharacterRewards};
 use crate::models::ids::InternalId;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
@@ -43,40 +43,6 @@ pub async fn get_sessions(
     owner: InternalId,
     campaign_id: InternalId,
 ) -> crate::Result<Vec<CampaignSession>> {
-    #[derive(Deserialize, Debug, Clone)]
-    struct EncounterCharacterContext {
-        character_id: i32,
-        item_rewards: Vec<InternalId>,
-        gold_rewards: i32,
-    }
-
-    let encounters_context_query = sqlx::query!(
-        r#"
-        SELECT 
-            cse.encounter_id,
-            JSONB_AGG(
-                DISTINCT jsonb_build_object('character_id', cse.character_id, 'item_rewards', item_rewards, 'gold_rewards', gold_rewards)
-            ) filter (WHERE cse.character_id IS NOT NULL) characters
-        FROM campaign_session_encounter_character_assignments cse
-        INNER JOIN campaign_sessions cs ON cse.session_id = cs.id
-        INNER JOIN campaigns ca ON cs.campaign_id = ca.id
-        WHERE 
-            ca.id = $1
-        GROUP BY cse.encounter_id
-        "#,
-        campaign_id.0 as i32,
-    )
-    .fetch_all(exec)
-    .await?
-    .into_iter()
-    .map(|row| {
-        let characters: Vec<EncounterCharacterContext> = serde_json::from_value(row.characters.unwrap()).unwrap();
-        Ok((
-            InternalId(row.encounter_id as u64),
-            characters,
-        ))
-    })
-    .collect::<Result<HashMap<InternalId, Vec<EncounterCharacterContext>>, sqlx::Error>>()?;
 
     // TODO: Campaign needs to be checked for ownership
     let query = sqlx::query!(
@@ -88,13 +54,20 @@ pub async fn get_sessions(
             s.description,
             s.play_date,
             ARRAY_AGG(e.id) filter (where e.id is not null) as encounter_ids,
+            unassigned_gold_rewards,
+            unassigned_item_rewards,
             COALESCE(JSONB_AGG(
-                DISTINCT jsonb_build_object('encounter_id', cse.encounter_id, 'unassigned_gold_rewards', unassigned_gold_rewards, 'unassigned_item_rewards', unassigned_item_rewards)
-            ) filter (WHERE cse.encounter_id IS NOT NULL), '[]') as "encounter_rewards!"
+                JSONB_BUILD_OBJECT(
+                    'session_id', csc.session_id,
+                    'character_id', csc.character_id,
+                    'gold_rewards', csc.gold_rewards,
+                    'item_rewards', csc.item_rewards
+                )
+            ), '[]') as "character_rewards!"
         FROM campaign_sessions s
         LEFT JOIN campaigns ca ON s.campaign_id = ca.id
         LEFT JOIN encounters e ON s.id = e.session_id
-        LEFT JOIN campaign_session_encounters cse ON s.id = cse.session_id
+        LEFT JOIN campaign_session_characters csc ON s.id = csc.session_id
         WHERE 
             ca.id = $1
             AND ca.owner = $2
@@ -110,59 +83,30 @@ pub async fn get_sessions(
         .await?
         .into_iter()
         .map(|row| {
-            let mut compiled_item_rewards = HashMap::new();
-            let mut compiled_gold_rewards = HashMap::new();
-
-            let encounter_ids = row
-                .encounter_ids
-                .unwrap_or_default()
-                .into_iter()
-                .map(|e| InternalId(e as u64))
-                .collect::<Vec<InternalId>>();
-            for encounter_id in encounter_ids.iter() {
-                // let empty_vec = vec![];
-                let characters = encounters_context_query
-                    .get(encounter_id)
-                    .cloned()
-                    .unwrap_or_default();
-                let mut gold_rewards = HashMap::new();
-                let mut item_rewards = HashMap::new();
-                for character in characters {
-                    gold_rewards.insert(
-                        InternalId(character.character_id as u64),
-                        character.gold_rewards,
-                    );
-                    item_rewards.insert(
-                        InternalId(character.character_id as u64),
-                        character.item_rewards.clone(),
-                    );
-                }
-                compiled_gold_rewards.insert(*encounter_id, gold_rewards);
-                compiled_item_rewards.insert(*encounter_id, item_rewards);
-            }
-
             #[derive(Deserialize, Debug)]
-            struct EncounterContext {
-                encounter_id: i32,
-                unassigned_gold_rewards: i32,
-                unassigned_item_rewards: Vec<InternalId>,
+            struct RowCharacterRewards {
+                session_id: i32,
+                character_id: i32,
+                gold_rewards: f64,
+                item_rewards: Vec<i32>,
             }
 
-            let encounters_context: Vec<EncounterContext> =
-                serde_json::from_value(row.encounter_rewards).unwrap();
-            let unassigned_gold_rewards = encounters_context
-                .iter()
-                .map(|e| (InternalId(e.encounter_id as u64), e.unassigned_gold_rewards))
-                .collect::<HashMap<InternalId, i32>>();
-            let unassigned_item_rewards = encounters_context
-                .iter()
-                .map(|e| {
-                    (
-                        InternalId(e.encounter_id as u64),
-                        e.unassigned_item_rewards.clone(),
-                    )
-                })
-                .collect::<HashMap<InternalId, Vec<InternalId>>>();
+            let character_rewards: Vec<RowCharacterRewards> = serde_json::from_value(row.character_rewards).unwrap();
+            let compiled_rewards: HashMap<InternalId, CampaignSessionCharacterRewards> = character_rewards
+                .into_iter()
+                .fold(HashMap::new(), |mut acc, row| {
+                    let character_id = InternalId(row.character_id as u64);
+                    acc.insert(
+                        character_id,
+                        CampaignSessionCharacterRewards {
+                            items: row.item_rewards.iter().map(|e| InternalId(*e as u64)).collect(),
+                            gold: row.gold_rewards,
+                        },
+                    );
+                    acc
+                });
+            let encounter_ids = row.encounter_ids.unwrap_or_default().iter().map(|e| InternalId(*e as u64)).collect::<Vec<InternalId>>();
+
 
             Ok(CampaignSession {
                 id: InternalId(row.id as u64),
@@ -171,10 +115,9 @@ pub async fn get_sessions(
                 session_order: row.session_order as u32,
                 play_date: row.play_date,
                 encounter_ids,
-                compiled_item_rewards,
-                compiled_gold_rewards,
-                unassigned_gold_rewards,
-                unassigned_item_rewards,
+                compiled_rewards,
+                unassigned_gold_rewards: row.unassigned_gold_rewards,
+                unassigned_item_rewards: row.unassigned_item_rewards.iter().map(|e| InternalId(*e as u64)).collect(),
             })
         })
         .collect::<Result<Vec<CampaignSession>, sqlx::Error>>()?;
@@ -369,12 +312,14 @@ pub async fn unlink_encounter_from_session(
         UPDATE encounters
         SET session_id = NULL
         WHERE id = $1
+        RETURNING treasure_currency
         "#,
         encounter_id.0 as i64,
     )
-    .execute(exec)
+    .fetch_one(exec)
     .await?;
 
+    // Delete associated assignment records
     sqlx::query!(
         r#"
         DELETE FROM campaign_session_encounters
