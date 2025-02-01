@@ -1,46 +1,71 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { Character, CampaignSession } from '$lib/types/types';
-    import CharacterModal from '$lib/components/CharacterModal.svelte';
+    import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
-    import { classStore } from '$lib/stores/libraryStore';
+    import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import { encounterStore } from '$lib/stores/encounters';
     import { goto } from '$app/navigation';
-    import { dndzone, type DndEvent } from 'svelte-dnd-action';
-    import { getRewardForLevelSeverity } from '$lib/utils/encounter';
+    import { dndzone, SHADOW_PLACEHOLDER_ITEM_ID, type DndEvent } from 'svelte-dnd-action';
     import { onMount } from 'svelte';
-    import { id } from 'date-fns/locale';
+    import RangeSlider from 'svelte-range-slider-pips';
+    import { compile } from 'svelte/compiler';
 
-    export let selectedCampaignId: number;
+    interface Props {
+        selectedCampaignId: number;
+    }
+    let { 
+        selectedCampaignId = $bindable(),
 
-    let showNewCharacterModal = false;
-    let showSessionOrderModal = false;
-    let editingName = false;
-    let editingDescription = false;
-    let selectedSessionId: number | null = null;
-    let tempName = '';
-    let tempDescription = '';
+     } : Props = $props();
 
-    $: campaignSessions = ($campaignSessionStore.get(selectedCampaignId)) || [];
-    $: selectedSession = campaignSessions.find(s => s.id === selectedSessionId);
-    $: sessionEncounters = selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : [];
-    
+    let showSessionOrderModal = $state(false);
+    let editingName = $state(false);
+    let editingDescription = $state(false);
+    let selectedSessionId: number | null = $state(null);
+
+    let tempName = $state('');
+    let tempDescription = $state('');
+
+    let items = $derived($itemStore);
+    let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
+    let selectedSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
+    let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
+    let campaignCharacters = $derived(($characterStore.get(selectedCampaignId)) || []);
+
     // Calculate total rewards for the session
-    $: totalSessionRewards = sessionEncounters.reduce((acc, enc) => {
-        const gold = Math.floor(enc.treasure_currency);
-        const silver = Math.floor((enc.treasure_currency - gold) * 10);
-        const copper = Math.floor(((enc.treasure_currency - gold) * 10 - silver) * 10);
-        return ({
-        xp: acc.xp + enc.total_experience,
-        currency: {
-            gold: acc.currency.gold + gold,
-            silver: acc.currency.silver + silver,
-            copper: acc.currency.copper + copper
-        }
-    })
+    interface TotalRewards {
+        xp: number;
+        currency: number;
+        items: Record<number, number[]>;
+        total_treasure_value: number;
+    }
+    let totalSessionRewards = $derived(sessionEncounters.reduce((acc, encounter) => {
+        acc.xp += encounter.total_experience;
+        acc.currency += encounter.treasure_currency;
+        acc.items[encounter.id]= encounter.treasure_items;
+        acc.total_treasure_value += encounter.total_treasure_value;
+        return acc;
+    }, { xp: 0, currency: 0, items: {}, total_treasure_value: 0 } as TotalRewards));
     
-    }, { xp: 0, currency: { gold: 0, silver: 0, copper: 0 } });
+    // character -> items and character -> gold
+    // -1 -> unassigned
+    interface DndRewardItem {
+        // For drag and drop. Almost always will parse to itemId
+        id: string;
+        itemId: number;
+    }
+
+    let compiledGoldRewards : Record<number, number> = $state({});
+    let compiledGoldTotal = $derived(Object.values(compiledGoldRewards).reduce((acc, curr) => acc + curr, 0));
+
+    let compiledItemRewardsWithIds : Record<number, DndRewardItem[]> = $state({});
+    let compiledItemRewardsApi = $derived(Object.fromEntries(Object.entries(compiledItemRewardsWithIds).map(([key, value]) => [key, value.map(v => v.itemId)]
+    ))) as Record<number, number[]>;
+    let compiledItemRewardsIter = $derived(Object.entries(compiledItemRewardsWithIds).map((a,b) => {
+        return [Number(a[0]), a[1]];
+    }) as [number, DndRewardItem[]][]);
+    let compiledItemRewardsTotal = $derived(Object.values(compiledItemRewardsWithIds).flat().length);
 
     // Set to most recent session by default
     // TODO: Cache where user were recently
@@ -48,14 +73,70 @@
         await handleCampaignChange(selectedCampaignId);
     });
 
-    // TODO: Bad pattern?
-    $: handleCampaignChange(selectedCampaignId);
+    // TODO: Bad pattern? Onupdate?
+    $effect(() => {
+        handleCampaignChange(selectedCampaignId);
+    });
 
     async function handleCampaignChange(id: number) {
         await campaignSessionStore.fetchCampaignSessions(id);
         if (campaignSessions.length > 0) {
             selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
         }
+
+        // TODO: This is not right. Because when we 'switch' the campaign it will all reset...
+        await handleEncountersUpdate();
+    }
+
+    async function handleSessionChange() {
+        await handleEncountersUpdate();
+    }
+
+    async function handleEncountersUpdate() {
+        // TODO: Refactor
+        const requiredItems = sessionEncounters.reduce((acc, encounter) => {
+            return acc.concat(encounter.treasure_items);
+        }, [] as number[]);
+        await itemStore.fetchEntities({
+            ids: requiredItems.join(','),
+        })
+
+        // Update compiled rewards.
+        let session = campaignSessions.find(s => s.id === selectedSessionId);
+        if (!session) return;
+
+        compiledItemRewardsWithIds = {};
+        compiledGoldRewards = {};
+
+        // Populate with items and gold
+        Object.entries(session.compiled_rewards).forEach(([characterId, characterRewards]) => {
+            // Populate with gold
+            compiledGoldRewards[Number(characterId)] = characterRewards.gold;
+
+            // Populate with items
+            compiledItemRewardsWithIds[Number(characterId)] = characterRewards.items.map((iid, ix) => {
+                return {
+                    id: iid.toString()+'-'+ix,
+                    itemId: iid,
+                } as DndRewardItem;
+            });
+        });
+
+        // Add unassigned ones as -1
+        compiledItemRewardsWithIds[-1] = session.unassigned_item_rewards.map((iid, ix) => {
+            return {
+                id: iid.toString()+'-'+ix,
+                itemId: iid,
+            } as DndRewardItem;
+        });
+        compiledGoldRewards[-1] = session.unassigned_gold_rewards;
+
+        // For every character in this session, ensure they have a key in both compilations
+        // TODO: Not every character is in every session
+        campaignCharacters.forEach(c => {
+            compiledItemRewardsWithIds[c.id] = compiledItemRewardsWithIds[c.id] || [];
+            compiledGoldRewards[c.id] = compiledGoldRewards[c.id] || 0;
+        });
     }
 
     async function updateSessionName() {
@@ -72,10 +153,17 @@
 
     async function removeEncounterFromSession(encounterId: number) {
         if (!selectedSession) return;
-        await encounterStore.updateEncounter(encounterId, {
-            session_id: null,
-        });
-        await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+        await campaignSessionStore.unlinkEncounterFromSession(selectedCampaignId, selectedSession.id, encounterId);
+
+        // Update the session encounters (gold, etc, changes so we need to re-assign)
+        await handleEncountersUpdate();
+    }
+
+    let temporarySessionOrder : CampaignSession[] = $state([]);
+
+    async function initializeSessionReorder() {
+        temporarySessionOrder = campaignSessions;
+        showSessionOrderModal = true;
     }
 
     async function handleTemporarySessionReorder(e: CustomEvent<DndEvent<CampaignSession>>) {
@@ -85,7 +173,7 @@
             acc++;
             return { ...s, session_order: acc };
         });
-        campaignSessions = sessionOrders;
+        temporarySessionOrder = sessionOrders;
     }
 
     async function handleSessionReorder(e: CustomEvent<DndEvent<CampaignSession>>) {
@@ -95,7 +183,8 @@
             acc++;
             return { ...s, session_order: acc };
         });
-        await campaignSessionStore.updateCampaignSessions(selectedCampaignId, sessionOrders);
+        temporarySessionOrder = sessionOrders;
+        await campaignSessionStore.updateCampaignSessions(selectedCampaignId, sessionOrders);   
     }
 
     async function createNewSession() {
@@ -105,6 +194,9 @@
             description: '',
             session_order: highestSessionOrder + 1,
             encounter_ids: [],
+            unassigned_gold_rewards: 0,
+            unassigned_item_rewards: [],
+            compiled_rewards: [],
         }]);
 
         await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
@@ -118,22 +210,82 @@
     }
 
     function editEncounter(encounterId: number) {
-        // TODO
-        goto(`/encounters/${encounterId}`);
+        goto(`/encounters?encounterId=${encounterId}`);
     }
 
+    function dragItemAssignmentConsider(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
+        compiledItemRewardsWithIds[cid] = e.detail.items.filter(i => i.id !== SHADOW_PLACEHOLDER_ITEM_ID);
+    }
 
+    function dragItemAssignmentFinalize(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
+        compiledItemRewardsWithIds[cid] = e.detail.items.filter(i => i.id !== SHADOW_PLACEHOLDER_ITEM_ID);
+        updateRewardAssignments();
+    }
+    
+    function modifyGoldReward(cid : number, e: {detail: {value: number}}) {
+        compiledGoldRewards[cid] = e.detail.value;
+        reassignGoldWithMaximum(cid);
+        updateRewardAssignments();
+    }
+
+    function reassignGoldWithMaximum(cidEdited: number) {
+        let randomNum = Math.random();
+
+        // Ensure we don't exceed the total gold rewards
+        const totalCompiledGoldRewards = Object.values(compiledGoldRewards).reduce((acc, curr) => acc + curr, 0);
+        let amountToReduce = totalCompiledGoldRewards - totalSessionRewards.currency;
+
+        while (amountToReduce !== 0) {
+            // Remove from unassigned if we can, otherwise remove from the first character
+            // todo: why is this an array
+            const firstOtherKeyWithGold = Object.entries(compiledGoldRewards).filter(([key, value]) => value > 0 && Number(key) !== cidEdited).map(([key, value]) => Number(key));
+            const firstOtherKeyWithSpace = Object.entries(compiledGoldRewards).filter(([key, value]) => value < totalSessionRewards.currency && Number(key) !== cidEdited).map(([key, value]) => Number(key));
+
+            if (firstOtherKeyWithGold.length > 0 && amountToReduce > 0) {
+                let singularReduction = Math.min(compiledGoldRewards[firstOtherKeyWithGold[0]], amountToReduce);
+                compiledGoldRewards[firstOtherKeyWithGold[0]] -= singularReduction;
+                amountToReduce -= singularReduction;
+            } else if (firstOtherKeyWithSpace.length > 0 && amountToReduce < 0) {
+                let singularReduction = Math.min(totalSessionRewards.currency - compiledGoldRewards[firstOtherKeyWithSpace[0]], amountToReduce);
+                compiledGoldRewards[firstOtherKeyWithSpace[0]] -= singularReduction;
+                amountToReduce -= singularReduction;
+            } else {
+                break;
+            }
+        }
+    }
+
+    async function updateRewardAssignments() {
+        if (!selectedSession) return;
+
+        let itemRewards : Record<number,number[]> = $state.snapshot(compiledItemRewardsApi);
+        delete itemRewards[-1];
+
+        let goldRewards : Record<number,number> = $state.snapshot(compiledGoldRewards);
+        delete goldRewards[-1];
+
+        let compiledRewards : Record<number,CompiledRewards> = {};
+        Object.entries(itemRewards).forEach(([cid, items]) => {
+            compiledRewards[Number(cid)] = {
+                gold: goldRewards[Number(cid)] || 0,
+                items: items,
+            }
+        });
+
+        await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId, selectedSession.id,
+        { ...selectedSession, compiled_rewards: compiledRewards });
+    }
 </script>
 
 <div class="characters-section" transition:fade>
     <div class="session-selector">
-        <select bind:value={selectedSessionId}>
+        <select bind:value={selectedSessionId} on:change={handleSessionChange}>
             <option value={null}>Select a session...</option>
             {#each campaignSessions as session, ind}
                 <option value={session.id}>Session {ind}: {session.name}</option>
             {/each}
         </select>
-        <button class="edit-button" on:click={() => showSessionOrderModal = true}>
+        <button class="edit-button" on:click={() => initializeSessionReorder()}>
             Edit sessions
         </button>
         <button class="add-button" on:click={createNewSession}>
@@ -174,15 +326,6 @@
             </div>
         </div>
 
-        <div class="session-summary">
-            <div class="summary-box">
-                <h4>Session Rewards</h4>
-                <div class="reward-details">
-                    <p>Experience: {totalSessionRewards.xp} XP</p>
-                    <p>Treasure: {totalSessionRewards.currency.gold}g {totalSessionRewards.currency.silver}s {totalSessionRewards.currency.copper}c</p>
-                </div>
-            </div>
-        </div>
 
         <div class="encounters-section">
             <div class="section-header">
@@ -197,7 +340,7 @@
                     <div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
-                            <p>XP: {encounter.total_experience}</p>
+                            <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
                         </div>
                         <div class="encounter-actions">
                             <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
@@ -213,24 +356,70 @@
         </div>
 
         <div class="misc-section">
-            <h3>Reward Assignments</h3>
-            <div class="item-division">
-                TODO
+            <div class="reward-assignments-header">
+                <h3>Reward Assignments</h3>
+            </div>
+            <div class="summary-box">
+                <h4>Session Rewards</h4>
+                <div class="reward-details">
+                    <p>Experience: {totalSessionRewards.xp} XP</p>
+                    <p>Gold: {totalSessionRewards.currency}g</p>
+                    <p>Total treasure value: {totalSessionRewards.total_treasure_value}</p>
+                </div>
             </div>
 
-            <div class="gold-division">
-                TODO
-            </div>
+            <div class="item-division-characters">
+                {#each compiledItemRewardsIter as [cid, characterItems]}
+                <div class="item-division-character-column">
+
+                    {#if compiledGoldTotal > 0 || compiledItemRewardsTotal > 0}
+                    <h4>{ cid === -1 ? 'Unassigned' : campaignCharacters.find(c => c.id === cid)?.name}</h4>
+                    {/if}
+                    {#if compiledItemRewardsTotal > 0}
+                        <section use:dndzone="{{items: characterItems}}" on:consider="{(e) => dragItemAssignmentConsider(cid, e)}" on:finalize="{(e) => dragItemAssignmentFinalize(cid, e)}" class="item-division-character-dnd">
+                            {#each characterItems as item(item.id)}
+                                {#if items.entities.get(item.itemId)}
+                                <div class="session-order-item" draggable="true">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <span>{items.entities.get(item.itemId)!.name}</span>
+                                </div>
+                                {:else}
+                                <div class="session-order-item" draggable="true">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <span>Failed to find item: {item.id}</span>
+                                </div>
+
+                                    
+                                {/if}
+                            {/each}
+                        </section>
+                    {/if}
+                    {#if compiledGoldTotal > 0}
+                    <div class="gold-division">
+                        <input type="number" bind:value={compiledGoldRewards[cid]} min={0} max={Math.ceil(totalSessionRewards.currency)} 
+                        on:change={(e) => reassignGoldWithMaximum(cid)}
+                        />
+                        <RangeSlider value={compiledGoldRewards[cid]} all='label' 
+                        float="true" pipstep={Math.ceil(totalSessionRewards.currency/10)} springValues={[0.1, 0.1]} pips 
+                        on:change={(e) => modifyGoldReward(cid, e)}
+                        min={0} max={Math.ceil(totalSessionRewards.currency)} />
+                        <p>gold</p>
+                    </div>
+                    {/if}
+                </div>
+                {/each}
+                </div>
         </div>
     {/if}
 </div>
 
+<!-- TODO: Extract to component?-->
 {#if showSessionOrderModal}
     <div class="modal">
         <div class="modal-content">
             <h2>Reorder Sessions</h2>
-            <div use:dndzone={{items: campaignSessions}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
-                {#each campaignSessions as session, ix (session.id)}
+            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
+                {#each temporarySessionOrder as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
                         <span class="drag-handle">⋮⋮</span>
                         <span>Session {ix} {session.name}</span>
@@ -391,4 +580,57 @@
         align-items: center;
         margin-bottom: 1rem;
     }
+
+    .item-division-characters {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .item-division-character-column {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        flex: 1;
+    }
+
+    .item-division-character-dnd {
+        flex: 1;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .gold-division {
+        display: grid;
+        grid-template-columns: 0.1fr 0.9fr 0.1fr;
+        gap: rem;
+    }
+
+    .gold-division input {
+        height: 50%;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+
+    .gold-division p {
+        padding-top: 0.5rem;
+        text-align: center;
+    }
+
+    .misc-section {
+        margin-top: 2rem;
+    }
+
+    .reward-assignments-header {
+        margin-bottom: 1rem;
+    }
+
 </style> 

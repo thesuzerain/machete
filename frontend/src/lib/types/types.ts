@@ -12,7 +12,29 @@ export interface CampaignSession {
     name: string;
     description?: string;
     encounter_ids: number[];
-    play_date: Date
+    play_date: Date;
+
+    // These are assumed to be correct, and are derived values.
+    //  character_id -> {gold and items}
+    compiled_rewards: Record<number, CompiledRewards>;
+    unassigned_item_rewards: number[];
+    unassigned_gold_rewards: number;
+}
+
+export interface CompiledRewards {
+    gold: number;
+    items: number[];
+}
+
+export interface InsertCampaignSession {
+    session_order: number;
+    name: string;
+    description?: string;
+    encounter_ids: number[];
+}
+
+export interface InsertCampaignSessionEncounterLinksMetadata {
+    compiled_rewards: Record<number, CompiledRewards>;
 }
 
 export interface Character {

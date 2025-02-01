@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE campaign_sessions\n        SET unassigned_gold_rewards = $1, unassigned_item_rewards = $2\n        WHERE id = $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8Array",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0ed9a49ff120ea27f87b1c1dfc7510bd0f029411273f931354186b0ee732951b"
+}

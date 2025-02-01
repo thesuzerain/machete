@@ -130,7 +130,6 @@
         {#if activeTab === 'summary'}
             <CampaignSummaryTab
                 {selectedCampaignId}
-                bind:error
             />
         {:else if activeTab === 'characters'}
             <CampaignCharactersTab

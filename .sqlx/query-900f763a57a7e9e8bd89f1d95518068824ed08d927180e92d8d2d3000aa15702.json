@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE campaign_sessions\n            SET \n                unassigned_gold_rewards = unassigned_gold_rewards + e.treasure_currency,\n                unassigned_item_rewards = unassigned_item_rewards || e.treasure_items\n            FROM (SELECT * FROM encounters WHERE id = $2) e\n            WHERE campaign_sessions.id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "900f763a57a7e9e8bd89f1d95518068824ed08d927180e92d8d2d3000aa15702"
+}

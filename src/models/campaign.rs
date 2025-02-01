@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{characters::Character, events::EventLog, ids::InternalId};
 
 use chrono::{DateTime, Utc};
@@ -43,4 +45,16 @@ pub struct CampaignSession {
     pub description: Option<String>,
     pub play_date: DateTime<Utc>,
     pub encounter_ids: Vec<InternalId>,
+
+    // These are reward assignments from the encounters linked to this session.
+    // Their encounter information is not considered here- it's fungible.
+    pub compiled_rewards: HashMap<InternalId, CampaignSessionCharacterRewards>,
+    pub unassigned_gold_rewards: f64,
+    pub unassigned_item_rewards: Vec<InternalId>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CampaignSessionCharacterRewards {
+    pub gold: f64,
+    pub items: Vec<InternalId>,
 }

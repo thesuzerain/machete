@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE campaign_session_characters\n            SET gold_rewards = $1, item_rewards = $2\n            WHERE session_id = $3\n            AND character_id = $4\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8Array",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3d1a29dd451cfe4cc4fc232a8c45dcb3e14bb9d2b54a1b306ca5a076ab3e714"
+}

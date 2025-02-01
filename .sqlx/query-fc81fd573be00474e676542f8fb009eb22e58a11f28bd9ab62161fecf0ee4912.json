@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO campaign_sessions (session_order, name, description, play_date, campaign_id)\n        SELECT * FROM UNNEST ($1::int[], $2::varchar[], $3::varchar[], $4::timestamptz[], $5::int[])\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "VarcharArray",
+        "VarcharArray",
+        "TimestamptzArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fc81fd573be00474e676542f8fb009eb22e58a11f28bd9ab62161fecf0ee4912"
+}

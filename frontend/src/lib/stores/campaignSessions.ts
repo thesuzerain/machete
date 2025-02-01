@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
-import type { CampaignSession } from '$lib/types/types';
+import type { CampaignSession, InsertCampaignSessionEncounterLinksMetadata } from '$lib/types/types';
 import { API_URL } from '$lib/config';
+import { encounterStore } from './encounters';
 
 function createCampaignSessionStore() {
     const { subscribe, set, update } = writable<Map<number,CampaignSession[]>>(new Map());
@@ -70,6 +71,64 @@ function createCampaignSessionStore() {
                 throw error;
             }
         },
+        linkEncounterToSession: async (campaignId : number, campaignSessionId : number, encounterId : number) => {
+            try {
+                const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions/${campaignSessionId}/encounters`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        encounter_id: encounterId,
+                    }),
+                });
+                if (!response.ok) throw new Error('Failed to link encounters to session');
+
+                // Refresh session and encounter data after unlinking
+                await Promise.all([
+                    campaignSessionStore.fetchCampaignSessions(campaignId),
+                    encounterStore.fetchEncounters(),
+                ]);
+                
+            } catch (error) {
+                console.error('Error linking encounters to session:', error);
+                throw error;
+            }
+        },
+        updateEncounterLinksMetadata: async (campaignId : number, campaignSessionId : number, metadata : InsertCampaignSessionEncounterLinksMetadata) => {
+            try {
+                const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions/${campaignSessionId}/encounters`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(metadata),
+                });
+                if (!response.ok) throw new Error('Failed to update encounter links metadata');
+
+                await campaignSessionStore.fetchCampaignSessions(campaignId);
+            } catch (error) {
+                console.error('Error updating encounter links metadata:', error);
+                throw error;
+            }
+        },
+        unlinkEncounterFromSession: async (campaignId : number, campaignSessionId : number, encounterId : number) => {
+            try {
+                const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions/${campaignSessionId}/encounters/${encounterId}`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+                if (!response.ok) throw new Error('Failed to unlink encounter from session');
+
+                // Refresh session and encounter data after unlinking
+                await Promise.all([
+                    campaignSessionStore.fetchCampaignSessions(campaignId),
+                    encounterStore.fetchEncounters(),
+                ]);
+            } catch (error) {
+                console.error('Error unlinking encounter from session:', error);
+                throw error;
+            }
+        },
+        
         deleteCampaignSessions: async (campaignId : number, id: number) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions/${id}`, {

@@ -260,9 +260,6 @@
             .map(([name]) => name);
 
         if (unmappedEnemies.length > 0 || unmappedItems.length > 0 || ummappedTraps.length > 0) {
-            console.log(unmappedEnemies);
-            console.log(unmappedItems);
-            console.log(ummappedTraps);
             error = 'Please map all enemies, traps, and items before continuing';
             return;
         }
@@ -575,12 +572,8 @@
                                 class="edit-btn"
                                 on:click={() => {
                                     editingLogName = log.name
-                                    console.log('editing log name', editingLogName, log.name, wipLogs);
                                     const foundLog = wipLogs.find(l => l.name === log.name);
-                                    console.log('found log', foundLog);
-                                    console.log("log creation modal", logCreationModal);
                                     logCreationModal.setInitialData(foundLog || null);
-                                    console.log('editing past');
                                     }}
                             >
                                 Edit

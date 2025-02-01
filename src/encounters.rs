@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, patch, post, put},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 
@@ -26,8 +26,8 @@ pub fn router() -> Router<AppState> {
         .route("/draft", post(insert_encounter_draft))
         .route("/draft", delete(clear_encounter_draft))
         .route("/:id", patch(edit_encounter))
-        .route("/:id", put(replace_encounter))
         .route("/:id", delete(delete_encounter))
+        .route("/:id/session", delete(delete_session_link))
 }
 
 async fn get_encounters(
@@ -47,32 +47,13 @@ async fn insert_encounter(
     Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let ids = database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
+    let mut tx = pool.begin().await?;
+    let ids = database::encounters::insert_encounters(&mut tx, user.id, &encounters).await?;
     let encounters =
-        database::encounters::get_encounters(&pool, user.id, &EncounterFilters::from_ids(&ids))
+        database::encounters::get_encounters(&mut *tx, user.id, &EncounterFilters::from_ids(&ids))
             .await?;
+    tx.commit().await?;
     Ok(Json(encounters))
-}
-
-async fn replace_encounter(
-    State(pool): State<PgPool>,
-    jar: CookieJar,
-    Path(encounter_id): Path<InternalId>,
-    Json(encounter): Json<InsertEncounter>,
-) -> Result<impl IntoResponse, ServerError> {
-    let user = extract_user_from_cookies(&jar, &pool).await?;
-
-    // Check if user has access to the encounter
-    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
-        .await?
-        .is_empty()
-    {
-        return Err(ServerError::NotFound);
-    }
-
-    let encounter = encounter.into();
-    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
-    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn edit_encounter(
@@ -91,7 +72,10 @@ async fn edit_encounter(
         return Err(ServerError::NotFound);
     }
 
-    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
+    let mut tx = pool.begin().await?;
+    database::encounters::edit_encounter(&mut tx, encounter_id, &encounter).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -142,5 +126,28 @@ async fn clear_encounter_draft(
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
     database::encounters::clear_user_encounter_draft(&pool, user.id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_session_link(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(encounter_id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the encounter
+    if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
+        .await?
+        .is_empty()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    // Unlink the encounter from the session
+    let mut tx = pool.begin().await?;
+    database::sessions::unlink_encounter_from_session(&mut tx, encounter_id).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }

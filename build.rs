@@ -1,3 +1,4 @@
+#![allow(clippy::result_large_err)]
 fn main() -> Result<(), nlprule_build::Error> {
     println!("cargo:rerun-if-changed=build.rs");
 
