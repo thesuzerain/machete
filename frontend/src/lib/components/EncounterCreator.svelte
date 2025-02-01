@@ -49,6 +49,8 @@
 
     let loading = $state(true);
     let error: string | null = $state(null);
+
+    let encounterCreatorNlp : EncounterCreatorNlp;
     
     // Add new state for auto-saving
     let saveTimeout: NodeJS.Timeout;
@@ -225,8 +227,8 @@
         try {      
             let extended : CreateOrReplaceEncounterExtended = {
                 ...wipEncounter,
-                total_currency: totalTreasure,
                 total_experience: totalEarnedXP,
+                total_treasure_value: totalTreasure,
             };
 
             if (editingEncounter) {                
@@ -256,6 +258,9 @@
                     party_size: 4,
                     status: 'Draft',
                 };
+                
+                // Clear NLP box
+                encounterCreatorNlp.clear();
                 
                 // Clear any existing draft
                 await fetch(`${API_URL}/encounters/draft`, {
@@ -476,6 +481,7 @@
         </div>
 
         <EncounterCreatorNlp
+            bind:this={encounterCreatorNlp}
             bind:enemies={wipEncounter.enemies}
             bind:hazards={wipEncounter.hazards}
             bind:treasures={wipEncounter.treasure_items}

@@ -42,7 +42,7 @@ export interface EncounterEnemy {
 export interface CreateOrReplaceEncounterExtended extends CreateOrReplaceEncounter {    
     // On creation, these are optionally omitted and, if so, are calculated by the backend
     total_experience: number;
-    total_currency: number;
+    total_treasure_value: number;
 } 
 
 export interface CreateEncounterFinalized extends CreateOrReplaceEncounterExtended {    

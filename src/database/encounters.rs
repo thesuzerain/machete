@@ -226,7 +226,7 @@ pub async fn get_owned_encounter_ids(
 }
 
 pub async fn insert_encounters(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     encounters: &Vec<InsertEncounter>,
 ) -> crate::Result<Vec<InternalId>> {
@@ -249,13 +249,13 @@ pub async fn insert_encounters(
             .map(|e| e.to_id())
             .collect::<Vec<InternalId>>();
         let enemy_levels = get_levels_enemies(
-            exec,
+            &mut **tx,
             &enemy_ids,
             &encounter.enemies.iter().map(|_| 0).collect::<Vec<i8>>(),
         )
         .await?;
-        let hazard_levels = get_levels_hazards(exec, &encounter.hazards).await?;
-        let treasure_values = get_values_items(exec, &encounter.treasure_items).await?;
+        let hazard_levels = get_levels_hazards(&mut **tx, &encounter.hazards).await?;
+        let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
 
         let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
             &enemy_levels,
@@ -263,6 +263,12 @@ pub async fn insert_encounters(
             encounter.party_level,
             encounter.party_size,
         );
+        log::info!(
+            "Deriving treasure value from items: {:?}, and currency: {}",
+            treasure_values,
+            encounter.treasure_currency
+        );
+        log::info!("Encounter: {:?}", encounter);
         let derived_total_treasure_value =
             treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
 
@@ -272,6 +278,12 @@ pub async fn insert_encounters(
         let total_treasure_value = encounter
             .total_treasure_value
             .unwrap_or(derived_total_treasure_value as f32);
+
+        log::info!(
+            "Inserting encounter with total experience: {}, and total treasure value: {}",
+            total_experience,
+            total_treasure_value
+        );
 
         let encounter_id = sqlx::query!(
             r#"
@@ -294,13 +306,13 @@ pub async fn insert_encounters(
             total_treasure_value as i64,
             owner.0 as i64,
         )
-        .fetch_one(exec)
+        .fetch_one(&mut **tx)
         .await?
         .id;
 
         if let Some(session_id) = encounter.session_id {
             super::sessions::link_encounter_to_session(
-                exec,
+                &mut *tx,
                 InternalId(encounter_id as u64),
                 session_id,
             )
@@ -314,7 +326,7 @@ pub async fn insert_encounters(
 }
 
 pub async fn edit_encounter(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     encounter_id: InternalId,
     new_encounter: &ModifyEncounter,
 ) -> crate::Result<()> {
@@ -343,6 +355,11 @@ pub async fn edit_encounter(
             .collect::<Vec<i64>>()
     });
 
+    // First, unlink the encounter from the session
+    // TODO: We can refactor this editing to not need to explicitly unlinking/relinking (by being more explicit)
+    let unlinked_session_id =
+        super::sessions::unlink_encounter_from_session(&mut *tx, encounter_id).await?;
+
     sqlx::query!(
         r#"
         UPDATE encounters
@@ -356,8 +373,11 @@ pub async fn edit_encounter(
         status = COALESCE($8, status),
         party_size = COALESCE($9, party_size),
         party_level = COALESCE($10, party_level),
-        extra_experience = COALESCE($11, extra_experience)
-        WHERE id = $12
+        extra_experience = COALESCE($11, extra_experience),
+        
+        total_experience = COALESCE($12, total_experience),
+        total_treasure_value = COALESCE($13, total_treasure_value)
+        WHERE id = $14
         "#,
         new_encounter.name.as_deref(),
         new_encounter.description.as_deref(),
@@ -370,38 +390,18 @@ pub async fn edit_encounter(
         new_encounter.party_size.map(|s| s as i32),
         new_encounter.party_level.map(|l| l as i32),
         new_encounter.extra_experience.map(|e| e as i32),
+        new_encounter.total_experience.map(|e| e as i32),
+        new_encounter.total_treasure_value.map(|e| e as f64),
         encounter_id.0 as i64,
     )
-    .execute(exec)
+    .fetch_optional(&mut **tx)
     .await?;
 
-    // Clear all item/treasure assignments
-    // Resets it all back to unassigned
-    // TODO: This is unnecessary. We can clear only ones that we need to clean (some type of set diff being mindful of duplicates)
-    sqlx::query!(
-        r#"
-        UPDATE campaign_session_encounter_character_assignments
-        SET gold_rewards = 0, item_rewards = '{}'
-        WHERE encounter_id = $1
-        "#,
-        encounter_id.0 as i64,
-    )
-    .execute(exec)
-    .await?;
-
-    sqlx::query!(
-        r#"
-        UPDATE campaign_session_encounters
-        SET unassigned_gold_rewards = sub.treasure_currency, unassigned_item_rewards = sub.treasure_items
-        FROM (
-            SELECT treasure_currency, treasure_items
-            FROM encounters
-            WHERE id = $1
-        ) AS sub
-        WHERE encounter_id = $1
-        "#,
-        encounter_id.0 as i64,
-    ).execute(exec).await?;
+    // Unlink and re-link the encounter to the session if needed
+    // TODO: We can refactor this editing to not need to explicitly unlinking/relinking (by being more explicit)
+    if let Some(session_id) = unlinked_session_id {
+        super::sessions::link_encounter_to_session(&mut *tx, encounter_id, session_id).await?;
+    }
 
     Ok(())
 }
@@ -579,7 +579,7 @@ pub async fn get_encounter_draft(
 // Helper function accessing creatures databases to get levels of enemies given their ids and adjustments
 // Used for default experience calculation
 async fn get_levels_enemies(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     enemies: &[InternalId],
     enemy_level_adjustments: &[i8],
 ) -> crate::Result<Vec<i8>> {
@@ -606,7 +606,7 @@ async fn get_levels_enemies(
 // Helper function accessing hazards databases to get levels of hazards given their ids
 // Used for default experience calculation
 async fn get_levels_hazards(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     hazards: &[InternalId],
 ) -> crate::Result<Vec<i8>> {
     let ids = hazards.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
@@ -627,7 +627,7 @@ async fn get_levels_hazards(
 // Helper function accessing items databases to get values of items given their ids
 // Used for default treasure value calculation
 async fn get_values_items(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
     let ids = items.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();

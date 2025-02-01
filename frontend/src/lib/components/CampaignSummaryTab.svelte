@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { CampaignSession } from '$lib/types/types';
+    import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
@@ -38,108 +38,35 @@
         xp: number;
         currency: number;
         items: Record<number, number[]>;
+        total_treasure_value: number;
     }
     let totalSessionRewards = $derived(sessionEncounters.reduce((acc, encounter) => {
         acc.xp += encounter.total_experience;
         acc.currency += encounter.treasure_currency;
         acc.items[encounter.id]= encounter.treasure_items;
+        acc.total_treasure_value += encounter.total_treasure_value;
+
+        console.log("Encounter: ", encounter);
         return acc;
-    }, { xp: 0, currency: 0, items: {} } as TotalRewards));
+    }, { xp: 0, currency: 0, items: {}, total_treasure_value: 0 } as TotalRewards));
     
     // character -> items and character -> gold
     // -1 -> unassigned
     interface DndRewardItem {
         // For drag and drop. Almost always will parse to itemId
         id: string;
-        encounterId: number;
         itemId: number;
     }
 
     let compiledGoldRewards : Record<number, number> = $state({});
     let compiledGoldTotal = $derived(Object.values(compiledGoldRewards).reduce((acc, curr) => acc + curr, 0));
-    let [compiledGoldRewardsApi, compiledLeftoverGoldApi] = $derived.by(() => {
-        // It doesn't really matter which encounter the gold is assigned to, as long as it doesn't surpass the total
-        let finishedCharacters : Record<number, Record<number, number>> = {};
-        let finishedLeftover : Record<number, number> = {};
-
-        // Create empty base record for each encounter
-        const sessionEncounterIds = sessionEncounters.map(e => e.id);
-        sessionEncounterIds.forEach(eid => {
-            finishedCharacters[eid] = {};
-            finishedLeftover[eid] = 0;
-        });
-
-        const clonedCompiledGoldRewards = { ...$state.snapshot(compiledGoldRewards) };
-        const totalTreasures = Object.fromEntries(sessionEncounters.map(e => [e.id, e.treasure_currency]));
-
-        // iterate thru clonedCompiledGoldRewards
-        Object.entries(clonedCompiledGoldRewards).forEach(([cid, gold]) => {
-            if (gold > 0) {
-                // Find the first encounter that has gold left
-                const remainingEncounter = Object.entries(totalTreasures).find(([_, treasure]) => treasure > 0) || null;
-                const characterId = Number(cid);
-                if (remainingEncounter) {
-                    const [eid, treasure] = remainingEncounter;
-                    let encounterId = Number(eid);
-                    finishedCharacters[encounterId] = finishedCharacters[encounterId] || {};
-                    if (characterId === -1) {
-                        finishedLeftover[encounterId] = gold;
-                    } else {
-                        finishedCharacters[encounterId][characterId] = gold;
-                        totalTreasures[eid] -= gold;
-                    }
-                } 
-            }
-        });
-
-        // Assign the remaining gold to unassigned
-        Object.entries(totalTreasures).forEach(([eid, treasure]) => {
-            if (finishedLeftover[Number(eid)]) {
-                finishedLeftover[Number(eid)] += treasure;
-            } else {
-                finishedLeftover[Number(eid)] = treasure;
-            }
-        });
-
-        return [finishedCharacters, finishedLeftover];
-    });
-
 
     let compiledItemRewardsWithIds : Record<number, DndRewardItem[]> = $state({});
+    let compiledItemRewardsApi = $derived(Object.fromEntries(Object.entries(compiledItemRewardsWithIds).map(([key, value]) => [key, value.map(v => v.itemId)]
+    ))) as Record<number, number[]>;
     let compiledItemRewardsIter = $derived(Object.entries(compiledItemRewardsWithIds).map((a,b) => {
         return [Number(a[0]), a[1]];
     }) as [number, DndRewardItem[]][]);
-
-    // Original encounterId -> characterId -> itemIds
-    let [compiledItemRewardsApi, compiledLeftoverItemApi] = $derived.by(() => {
-        Object.entries(compiledItemRewardsWithIds)
-        let finishedCharacters : Record<number, Record<number, number[]>> = {};
-        let finishedLeftover : Record<number, number[]> = {};
-
-        // Create empty base record for each encounter
-        const sessionEncounterIds = sessionEncounters.map(e => e.id);
-        sessionEncounterIds.forEach(eid => {
-            finishedCharacters[eid] = {};
-            finishedLeftover[eid] = [];
-        });
-
-        Object.entries(compiledItemRewardsWithIds).forEach(([cid, characterItems]) => {
-            let characterId = Number(cid);
-            characterItems.forEach(item => {
-                finishedLeftover[item.encounterId] = finishedLeftover[item.encounterId] || [];
-                finishedCharacters[item.encounterId] = finishedCharacters[item.encounterId] || {};
-                if (characterId === -1) {
-                    finishedLeftover[item.encounterId].push(item.itemId);
-                } else {
-                    finishedCharacters[item.encounterId][characterId] = finishedCharacters[item.encounterId][characterId] || [];
-                    finishedCharacters[item.encounterId][characterId].push(item.itemId);
-                }
-            });
-        });
-
-        return [finishedCharacters, finishedLeftover];
-    });
-
     let compiledItemRewardsTotal = $derived(Object.values(compiledItemRewardsWithIds).flat().length);
 
     // Set to most recent session by default
@@ -164,11 +91,10 @@
     }
 
     async function handleSessionChange() {
-        // await handleEncountersUpdate();
+        await handleEncountersUpdate();
     }
 
     async function handleEncountersUpdate() {
-        console.log("handleEncountersUpdate");
         // TODO: Refactor
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
@@ -184,45 +110,28 @@
         compiledItemRewardsWithIds = {};
         compiledGoldRewards = {};
 
-        // Populate with items
-        Object.entries(session.compiled_item_rewards).forEach(([encounterId, characterItemIds]) => {
-            Object.entries(characterItemIds).forEach(([characterId, itemIds]) => {
-                let a = itemIds.map((iid, ix) => {
-                    return {
-                        id: iid.toString()+'-'+encounterId+'-'+ix,
-                        encounterId: Number(encounterId),
-                        itemId: iid,
-                    } as DndRewardItem;
-                });
-                compiledItemRewardsWithIds[Number(characterId)] = (compiledItemRewardsWithIds[Number(characterId)] || []).concat(a);
-            });
-        });
+        // Populate with items and gold
+        Object.entries(session.compiled_rewards).forEach(([characterId, characterRewards]) => {
+            // Populate with gold
+            compiledGoldRewards[Number(characterId)] = characterRewards.gold;
 
-        // Add unassigned ones as -1
-        Object.entries(session.unassigned_item_rewards).forEach(([eId, itemIds], ix) => {
-            let a = itemIds.map((iid, ix) => {
+            // Populate with items
+            compiledItemRewardsWithIds[Number(characterId)] = characterRewards.items.map((iid, ix) => {
                 return {
-                    id: iid.toString()+'-'+eId+'-'+ix,
-                    encounterId: Number(eId),
+                    id: iid.toString()+'-'+ix,
                     itemId: iid,
                 } as DndRewardItem;
             });
-            compiledItemRewardsWithIds[-1] = (compiledItemRewardsWithIds[-1] || []).concat(a);
-        });
-
-        // Populate with gold
-        Object.entries(session.compiled_gold_rewards).forEach(([eId, characterGolds]) => {
-            Object.entries(characterGolds).forEach(([characterId, gold]) => {
-                console.log("Adding gold", characterId, gold);
-                compiledGoldRewards[Number(characterId)] = (compiledGoldRewards[Number(characterId)] || 0) + gold;
-            });
         });
 
         // Add unassigned ones as -1
-        Object.entries(session.unassigned_gold_rewards).forEach(([eId, gold], ix) => {
-            console.log("Adding gold", -1, gold);
-            compiledGoldRewards[-1] = (compiledGoldRewards[-1] || 0) + gold;
+        compiledItemRewardsWithIds[-1] = session.unassigned_item_rewards.map((iid, ix) => {
+            return {
+                id: iid.toString()+'-'+ix,
+                itemId: iid,
+            } as DndRewardItem;
         });
+        compiledGoldRewards[-1] = session.unassigned_gold_rewards;
 
         // For every character in this session, ensure they have a key in both compilations
         // TODO: Not every character is in every session
@@ -252,7 +161,7 @@
         await handleEncountersUpdate();
     }
 
-    let temporarySessionOrder: CampaignSession[] = [];
+    let temporarySessionOrder : CampaignSession[] = $state([]);
 
     async function initializeSessionReorder() {
         temporarySessionOrder = campaignSessions;
@@ -276,6 +185,7 @@
             acc++;
             return { ...s, session_order: acc };
         });
+        temporarySessionOrder = sessionOrders;
         await campaignSessionStore.updateCampaignSessions(selectedCampaignId, sessionOrders);   
     }
 
@@ -286,10 +196,9 @@
             description: '',
             session_order: highestSessionOrder + 1,
             encounter_ids: [],
-            unassigned_gold_rewards: {},
-            unassigned_item_rewards: {},
-            compiled_gold_rewards: {},
-            compiled_item_rewards: {},
+            unassigned_gold_rewards: 0,
+            unassigned_item_rewards: [],
+            compiled_rewards: [],
         }]);
 
         await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
@@ -322,12 +231,15 @@
     }
 
     function reassignGoldWithMaximum(cidEdited: number) {
+        let randomNum = Math.random();
+
         // Ensure we don't exceed the total gold rewards
         const totalCompiledGoldRewards = Object.values(compiledGoldRewards).reduce((acc, curr) => acc + curr, 0);
         let amountToReduce = totalCompiledGoldRewards - totalSessionRewards.currency;
 
         while (amountToReduce !== 0) {
             // Remove from unassigned if we can, otherwise remove from the first character
+            // todo: why is this an array
             const firstOtherKeyWithGold = Object.entries(compiledGoldRewards).filter(([key, value]) => value > 0 && Number(key) !== cidEdited).map(([key, value]) => Number(key));
             const firstOtherKeyWithSpace = Object.entries(compiledGoldRewards).filter(([key, value]) => value < totalSessionRewards.currency && Number(key) !== cidEdited).map(([key, value]) => Number(key));
 
@@ -335,11 +247,10 @@
                 let singularReduction = Math.min(compiledGoldRewards[firstOtherKeyWithGold[0]], amountToReduce);
                 compiledGoldRewards[firstOtherKeyWithGold[0]] -= singularReduction;
                 amountToReduce -= singularReduction;
-
             } else if (firstOtherKeyWithSpace.length > 0 && amountToReduce < 0) {
                 let singularReduction = Math.min(totalSessionRewards.currency - compiledGoldRewards[firstOtherKeyWithSpace[0]], amountToReduce);
                 compiledGoldRewards[firstOtherKeyWithSpace[0]] -= singularReduction;
-                amountToReduce += singularReduction;
+                amountToReduce -= singularReduction;
             } else {
                 break;
             }
@@ -348,9 +259,23 @@
 
     async function updateRewardAssignments() {
         if (!selectedSession) return;
+
+        let itemRewards : Record<number,number[]> = $state.snapshot(compiledItemRewardsApi);
+        delete itemRewards[-1];
+
+        let goldRewards : Record<number,number> = $state.snapshot(compiledGoldRewards);
+        delete goldRewards[-1];
+
+        let compiledRewards : Record<number,CompiledRewards> = {};
+        Object.entries(itemRewards).forEach(([cid, items]) => {
+            compiledRewards[Number(cid)] = {
+                gold: goldRewards[Number(cid)] || 0,
+                items: items,
+            }
+        });
+
         await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId, selectedSession.id,
-        { ...selectedSession, compiled_gold_rewards: compiledGoldRewardsApi, 
-            unassigned_gold_rewards: compiledLeftoverGoldApi, compiled_item_rewards: compiledItemRewardsApi, unassigned_item_rewards: compiledLeftoverItemApi });
+        { ...selectedSession, compiled_rewards: compiledRewards });
     }
 </script>
 
@@ -418,7 +343,6 @@
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
                             <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
-                            <div class="encounter-info-row"><p>Assigned gold: {Object.values(selectedSession.compiled_gold_rewards[encounter.id]).reduce((partialSum, a) => partialSum + a, 0) || 0}</p><p>Unassigned gold: {selectedSession.unassigned_gold_rewards[encounter.id] || 0}</p></div>
                         </div>
                         <div class="encounter-actions">
                             <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
@@ -441,17 +365,15 @@
                 <h4>Session Rewards</h4>
                 <div class="reward-details">
                     <p>Experience: {totalSessionRewards.xp} XP</p>
-                    <p>Treasure: {totalSessionRewards.currency}g</p>
-                    <p>Assigned Gold: {compiledGoldTotal}g</p>
-                    <p>Original: {JSON.stringify(compiledGoldRewards)}</p>
-                    <p>Assigned Items: {compiledItemRewardsTotal}</p>
-                    <p>Original: {JSON.stringify(compiledItemRewardsWithIds)}</p>
+                    <p>Gold: {totalSessionRewards.currency}g</p>
+                    <p>Total treasure value: {totalSessionRewards.total_treasure_value}</p>
                 </div>
             </div>
 
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">
+
                     {#if compiledGoldTotal > 0 || compiledItemRewardsTotal > 0}
                     <h4>{ cid === -1 ? 'Unassigned' : campaignCharacters.find(c => c.id === cid)?.name}</h4>
                     {/if}
@@ -498,8 +420,8 @@
     <div class="modal">
         <div class="modal-content">
             <h2>Reorder Sessions</h2>
-            <div use:dndzone={{items: campaignSessions}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
-                {#each campaignSessions as session, ix (session.id)}
+            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
+                {#each temporarySessionOrder as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
                         <span class="drag-handle">⋮⋮</span>
                         <span>Session {ix} {session.name}</span>

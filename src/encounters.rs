@@ -47,10 +47,12 @@ async fn insert_encounter(
     Json(encounters): Json<Vec<InsertEncounter>>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let ids = database::encounters::insert_encounters(&pool, user.id, &encounters).await?;
+    let mut tx = pool.begin().await?;
+    let ids = database::encounters::insert_encounters(&mut tx, user.id, &encounters).await?;
     let encounters =
-        database::encounters::get_encounters(&pool, user.id, &EncounterFilters::from_ids(&ids))
+        database::encounters::get_encounters(&mut *tx, user.id, &EncounterFilters::from_ids(&ids))
             .await?;
+    tx.commit().await?;
     Ok(Json(encounters))
 }
 
@@ -70,7 +72,10 @@ async fn edit_encounter(
         return Err(ServerError::NotFound);
     }
 
-    database::encounters::edit_encounter(&pool, encounter_id, &encounter).await?;
+    let mut tx = pool.begin().await?;
+    database::encounters::edit_encounter(&mut tx, encounter_id, &encounter).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -139,19 +144,10 @@ async fn delete_session_link(
         return Err(ServerError::NotFound);
     }
 
-    // Get the session id from the encounter
-    let session_id = database::encounters::get_encounters(
-        &pool,
-        user.id,
-        &EncounterFilters::from_ids(&[encounter_id]),
-    )
-    .await?
-    .first()
-    .ok_or(ServerError::NotFound)?
-    .session_id
-    .ok_or(ServerError::NotFound)?;
-
     // Unlink the encounter from the session
-    database::sessions::unlink_encounter_from_session(&pool, encounter_id, session_id).await?;
+    let mut tx = pool.begin().await?;
+    database::sessions::unlink_encounter_from_session(&mut tx, encounter_id).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }

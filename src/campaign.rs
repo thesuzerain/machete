@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     auth::extract_user_from_cookies,
-    database::{
-        encounters::EncounterFilters,
-        sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateEncounterSessions},
+    database::sessions::{
+        InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions,
     },
     models::ids::InternalId,
     AppState,
@@ -439,7 +438,14 @@ async fn link_sessions_encounters(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::link_encounter_to_session(&pool, link.encounter_id, session_id).await?;
+    let mut tx = pool.begin().await?;
+
+    // Unlink first
+    // TODO: This only unlinks from own session. Should by default  unlinking from any session
+    database::sessions::unlink_encounter_from_session(&mut tx, link.encounter_id).await?;
+    database::sessions::link_encounter_to_session(&mut tx, link.encounter_id, session_id).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -447,7 +453,7 @@ async fn update_link_session_encounters(
     State(pool): State<PgPool>,
     jar: CookieJar,
     Path((_campaign_id, session_id)): Path<(InternalId, InternalId)>,
-    Json(session): Json<UpdateEncounterSessions>,
+    Json(session): Json<UpdateCharacterSessions>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
@@ -460,30 +466,6 @@ async fn update_link_session_encounters(
     }
 
     let mut tx = pool.begin().await?;
-
-    // Ensure all encounters are bound to the session
-    let encounter_ids = session
-        .compiled_gold_rewards
-        .keys()
-        .chain(session.compiled_item_rewards.keys())
-        .chain(session.unassigned_gold_rewards.keys())
-        .chain(session.unassigned_item_rewards.keys())
-        .cloned()
-        .collect::<Vec<_>>();
-    let any_unlinked = database::encounters::get_encounters(
-        &mut *tx,
-        user.id,
-        &EncounterFilters::from_ids(&encounter_ids),
-    )
-    .await?
-    .into_iter()
-    .find(|e| e.session_id != Some(session_id));
-    if let Some(unlinked) = any_unlinked {
-        return Err(ServerError::BadRequest(format!(
-            "Encounter {} is not linked to session {}",
-            unlinked.id, session_id
-        )));
-    }
 
     database::sessions::edit_encounter_session_character_assignments(&mut tx, session_id, &session)
         .await?;
@@ -513,6 +495,9 @@ async fn unlink_session_encounters(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::unlink_encounter_from_session(&pool, encounter_id, session_id).await?;
+    let mut tx = pool.begin().await?;
+    database::sessions::unlink_encounter_from_session(&mut tx, encounter_id).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }

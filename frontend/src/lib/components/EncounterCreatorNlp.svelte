@@ -15,6 +15,15 @@
         treasures = $bindable(),
 
      } : Props = $props();
+
+    export function clear() {
+        description = '';
+        html = '';
+        currentMatches = [];
+        enemies = [];
+        hazards = [];
+        treasures = [];
+    }
     
 
     let description = $state('');

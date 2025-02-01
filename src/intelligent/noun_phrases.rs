@@ -10,10 +10,9 @@ pub struct NounPhrase {
     pub end: usize,
 }
 
-impl NounPhrase {
-    pub fn to_string(&self) -> String {
-        // TODO: A little faulty with stuff like "men's wives" which currently is parsed as ["men", "'", "s", "wives"]
-        self.words.join(" ")
+impl std::fmt::Display for NounPhrase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.words.join(" "))
     }
 }
 
