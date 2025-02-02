@@ -573,7 +573,7 @@ async fn get_levels_enemies(
     enemy_level_adjustments: &[i8],
 ) -> crate::Result<Vec<i8>> {
     let ids = enemies.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let creatures = super::creatures::get_creatures(exec, &CreatureFilters::from_ids(&ids))
+    let creatures = super::creatures::get_creatures(exec, &CreatureFilters::from_ids(&ids).into())
         .await?
         .into_iter()
         .map(|c| (c.id, c.level))

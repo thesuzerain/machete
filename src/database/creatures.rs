@@ -24,9 +24,6 @@ pub struct CreatureFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
-
-    pub limit: Option<u64>,
-    pub page: Option<u64>,
 }
 
 impl CreatureFilters {
@@ -46,9 +43,34 @@ impl CreatureFilters {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
+pub struct CreatureFiltering {
+    // Page needs to be kept separate from flattened structure.
+    // https://github.com/serde-rs/serde/issues/1183
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
+    #[serde(flatten)]
+    pub filters: CreatureFilters,
+}
+
+impl From<CreatureFilters> for CreatureFiltering {
+    fn from(filters: CreatureFilters) -> Self {
+        CreatureFiltering {
+            filters,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct CreatureSearch {
     pub query: Vec<String>,
     pub min_similarity: Option<f32>, // 0.0 to 1.0
+    pub favor_exact_start: Option<bool>,
+
+    // Page needs to be kept separate from flattened structure.
+    // https://github.com/serde-rs/serde/issues/1183
+    pub page: Option<u64>,
+    pub limit: Option<u64>,
 
     #[serde(flatten)]
     pub filters: CreatureFilters,
@@ -57,14 +79,17 @@ pub struct CreatureSearch {
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
-    condition: &CreatureFilters,
+    condition: &CreatureFiltering,
 ) -> crate::Result<Vec<LibraryCreature>> {
     get_creatures_search(
         exec,
         &CreatureSearch {
             query: vec!["".to_string()], // Empty search query
             min_similarity: None,
-            filters: condition.clone(),
+            filters: condition.filters.clone(),
+            page: condition.page,
+            limit: condition.limit,
+            favor_exact_start: None,
         },
         DEFAULT_MAX_LIMIT,
     )
@@ -84,11 +109,12 @@ pub async fn get_creatures_search(
     search: &CreatureSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
+
     let condition = &search.filters;
 
     // TODO: check on number of queries
-    let limit = condition.limit.unwrap_or(default_limit);
-    let page = condition.page.unwrap_or(0);
+    let limit = search.limit.unwrap_or(default_limit);
+    let page = search.page.unwrap_or(0);
     let offset = page * limit;
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
@@ -107,7 +133,17 @@ pub async fn get_creatures_search(
         FROM UNNEST($10::text[]) query
         CROSS JOIN LATERAL (
             SELECT 
-                SIMILARITY(lo.name, query) AS similarity,
+                -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.
+                CASE
+                    WHEN $12::bool THEN 
+                        CASE
+                            WHEN lo.name ILIKE query || '%' THEN 1.01
+                            WHEN lo.name ILIKE '%' || query || '%' THEN 1.0
+                            ELSE SIMILARITY(lo.name, query)
+                        END
+                    ELSE SIMILARITY(lo.name, query)
+                END AS similarity,
+                CASE WHEN $12::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
                 lo.id,
                 lo.name,
                 lo.game_system,
@@ -133,11 +169,11 @@ pub async fn get_creatures_search(
                 AND ($7::int IS NULL OR size = $7)
                 AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
                 AND ($9::int[] IS NULL OR lo.id = ANY($9))
-                AND SIMILARITY(lo.name, query) >= $11
-            GROUP BY lo.id, lc.id ORDER BY similarity DESC
-            LIMIT $12 OFFSET $13
+                AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
+            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
+            LIMIT $13 OFFSET $14
         ) c
-        ORDER BY similarity DESC
+        ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
         condition.name,
         condition.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -150,6 +186,7 @@ pub async fn get_creatures_search(
         &ids as _,
         &search.query,
         min_similarity,
+        search.favor_exact_start.unwrap_or_default(),
         limit as i64,
         offset as i64,
     );
@@ -167,6 +204,11 @@ pub async fn get_creatures_search(
         .into_iter()
         .fold(hm, |mut map, row| {
             let query = row.query;
+            println!(
+                "Name: {}, similarity: {}",
+                row.name,
+                row.similarity.unwrap_or_default()
+            );
             let creature = LibraryCreature {
                 id: InternalId(row.id as u64),
                 name: row.name,

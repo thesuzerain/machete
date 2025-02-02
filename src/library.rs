@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        creatures::{CreatureFilters, CreatureSearch},
+        creatures::{CreatureFiltering, CreatureFilters, CreatureSearch},
         hazards::HazardSearch,
         items::ItemSearch,
         spells::SpellSearch,
@@ -57,7 +57,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn get_creatures(
-    Query(payload): Query<CreatureFilters>,
+    Query(payload): Query<CreatureFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
@@ -75,10 +75,10 @@ async fn get_creatures_search(
     Query(payload): Query<CreatureSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
-            DEFAULT_MAX_LIMIT
+            DEFAULT_MAX_GROUP_LIMIT
         )));
     }
 
@@ -96,7 +96,7 @@ async fn get_creature_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = CreatureFilters::from_id(id);
-    let creature = database::creatures::get_creatures(&pool, &payload)
+    let creature = database::creatures::get_creatures(&pool, &payload.into())
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;

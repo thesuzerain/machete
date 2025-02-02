@@ -72,6 +72,9 @@ async fn parse_augmented_noun_phrases(
         filters: data.creature_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
+        favor_exact_start: None,
+        page: None,
+        limit: None,
     };
     let hazard_search = HazardSearch {
         filters: data.hazard_filters.unwrap_or_default(),
