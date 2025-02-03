@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { debounce } from '$lib/utils';
     import { API_URL } from '$lib/config';
     import { classStore, creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
@@ -21,6 +21,8 @@
     let page = 0;
     let hasMore = true;
     let loadingMore = false;
+
+    let selectedIndex = 0;
 
     const routePart = {
         'creature': 'creatures',
@@ -45,7 +47,7 @@
 
     // Searches for entities
     // Favours exact start of name (eg: "drag" for "dragon") but will follow up with similar matches
-    // So "lich" will return "lich" first, but "demlich" will be in the list after, even though it's alphabetically first
+    // So "lich" will return "lich" first, but "demlich" (typo intentional) will be in the list after, even though it's alphabetically first
     async function searchEntities(query: string | null, ids : number[] | null, page: string = '0') {
         const endpoint = routePart[entityType];
         let params : Record<string, string> = {
@@ -150,6 +152,48 @@
         searchTerm = '';
         showDropdown = false;
     }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if (!showDropdown || shownEntities.length === 0) return;
+        
+        switch (event.key) {
+            case 'ArrowDown':
+                event.preventDefault();
+                selectedIndex = (selectedIndex + 1) % shownEntities.length;
+                scrollToSelected();
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                selectedIndex = (selectedIndex - 1 + shownEntities.length) % shownEntities.length;
+                scrollToSelected();
+                break;
+            case 'Enter':
+                event.preventDefault();
+                if (shownEntities[selectedIndex]) {
+                    handleSelect(shownEntities[selectedIndex]);
+                }
+                break;
+            case 'Escape':
+                event.preventDefault();
+                showDropdown = false;
+                break;
+        }
+    }
+
+    async function scrollToSelected() {
+        await tick(); // Wait for the DOM to update
+        const dropdown = document.querySelector('.dropdown');
+        const selectedItem = dropdown?.querySelector('.dropdown-item.selected');
+        selectedItem?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    $: if (shownEntities) {
+        selectedIndex = 0;
+    }
+
+    function handleMouseEnter(index: number) {
+        selectedIndex = index;
+    }
 </script>
 
 <div class="entity-selector">
@@ -167,10 +211,10 @@
         placeholder={placeholder}
         bind:value={searchTerm}
         on:focus={() => showDropdown = true}
+        on:keydown={handleKeydown}
         class="unselected-input"
         />
     {/if}
-    {showDropdown} {searchTerm.length > 0} {shownEntities.length}
     {#if showDropdown && searchTerm.length > 0}
         <div class="dropdown" on:scroll={handleScroll}>
             {#if loading && !loadingMore}
@@ -180,10 +224,12 @@
             {:else if shownEntities.length === 0}
                 <div class="dropdown-item no-results">No matches found</div>
             {:else}
-                {#each shownEntities as entity}
+                {#each shownEntities as entity, i}
                     <button
                         class="dropdown-item"
+                        class:selected={selectedIndex === i}
                         on:click={() => handleSelect(entity)}
+                        on:mouseenter={() => handleMouseEnter(i)}
                     >
                         <span class="name">{entity.name}</span>
                         {#if entity.level !== undefined}
@@ -243,7 +289,7 @@
     }
 
     .dropdown-item:hover {
-        background: #f8f8f8;
+        background: #f0f0f0;
     }
 
     .dropdown-item.loading,
@@ -271,5 +317,9 @@
     .unselected-input {
         color: #000;
         font-size: 600000;
+    }
+
+    .dropdown-item.selected {
+        background: #f0f0f0;
     }
 </style> 

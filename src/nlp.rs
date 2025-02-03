@@ -80,16 +80,25 @@ async fn parse_augmented_noun_phrases(
         filters: data.hazard_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
+        favor_exact_start: None,
+        page: None,
+        limit: None,
     };
     let item_search = ItemSearch {
         filters: data.item_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
+        favor_exact_start: None,
+        page: None,
+        limit: None,
     };
     let spell_search = SpellSearch {
         filters: data.spell_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
+        favor_exact_start: None,
+        page: None,
+        limit: None,
     };
 
     // Fetch all the data
