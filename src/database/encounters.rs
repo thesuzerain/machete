@@ -573,7 +573,7 @@ async fn get_levels_enemies(
     enemy_level_adjustments: &[i8],
 ) -> crate::Result<Vec<i8>> {
     let ids = enemies.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let creatures = super::creatures::get_creatures(exec, &CreatureFilters::from_ids(&ids))
+    let creatures = super::creatures::get_creatures(exec, &CreatureFilters::from_ids(&ids).into())
         .await?
         .into_iter()
         .map(|c| (c.id, c.level))
@@ -599,7 +599,7 @@ async fn get_levels_hazards(
     hazards: &[InternalId],
 ) -> crate::Result<Vec<i8>> {
     let ids = hazards.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let hazards_fetched = super::hazards::get_hazards(exec, &HazardFilters::from_ids(&ids))
+    let hazards_fetched = super::hazards::get_hazards(exec, &HazardFilters::from_ids(&ids).into())
         .await?
         .into_iter()
         .map(|h| (h.id, h.level))
@@ -620,7 +620,7 @@ async fn get_values_items(
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
     let ids = items.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let items_fetched = super::items::get_items(exec, &ItemFilters::from_ids(&ids))
+    let items_fetched = super::items::get_items(exec, &ItemFilters::from_ids(&ids).into())
         .await?
         .into_iter()
         .map(|i| (i.id, i.price as f32))

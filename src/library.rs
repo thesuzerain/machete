@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        creatures::{CreatureFilters, CreatureSearch},
-        hazards::HazardSearch,
-        items::ItemSearch,
-        spells::SpellSearch,
+        creatures::{CreatureFiltering, CreatureFilters, CreatureSearch},
+        hazards::{HazardFiltering, HazardSearch},
+        items::{ItemFiltering, ItemSearch},
+        spells::{SpellFiltering, SpellSearch},
         DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
     },
     models::library::{
@@ -57,7 +57,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn get_creatures(
-    Query(payload): Query<CreatureFilters>,
+    Query(payload): Query<CreatureFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
@@ -75,10 +75,10 @@ async fn get_creatures_search(
     Query(payload): Query<CreatureSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
-            DEFAULT_MAX_LIMIT
+            DEFAULT_MAX_GROUP_LIMIT
         )));
     }
 
@@ -96,7 +96,7 @@ async fn get_creature_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = CreatureFilters::from_id(id);
-    let creature = database::creatures::get_creatures(&pool, &payload)
+    let creature = database::creatures::get_creatures(&pool, &payload.into())
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -115,7 +115,7 @@ async fn insert_creatures(
 }
 
 async fn get_items(
-    Query(payload): Query<ItemFilters>,
+    Query(payload): Query<ItemFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
@@ -132,7 +132,7 @@ async fn get_items_search(
     Query(payload): Query<ItemSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
             DEFAULT_MAX_LIMIT
@@ -152,7 +152,7 @@ async fn get_item_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = ItemFilters::from_id(id);
-    let item = database::items::get_items(&pool, &payload)
+    let item = database::items::get_items(&pool, &payload.into())
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -171,7 +171,7 @@ async fn insert_items(
 }
 
 async fn get_spells(
-    Query(payload): Query<SpellFilters>,
+    Query(payload): Query<SpellFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
@@ -188,7 +188,7 @@ async fn get_spells_search(
     Query(payload): Query<SpellSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
             DEFAULT_MAX_LIMIT
@@ -208,7 +208,7 @@ async fn get_spell_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = SpellFilters::from_id(id);
-    let spell = database::spells::get_spells(&pool, &payload)
+    let spell = database::spells::get_spells(&pool, &payload.into())
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -227,7 +227,7 @@ async fn insert_spells(
 }
 
 async fn get_hazards(
-    Query(payload): Query<HazardFilters>,
+    Query(payload): Query<HazardFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
@@ -244,7 +244,7 @@ async fn get_hazards_search(
     Query(payload): Query<HazardSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    if payload.filters.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
             DEFAULT_MAX_LIMIT
@@ -264,7 +264,7 @@ async fn get_hazard_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = HazardFilters::from_id(id);
-    let hazard = database::hazards::get_hazards(&pool, &payload)
+    let hazard = database::hazards::get_hazards(&pool, &payload.into())
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;

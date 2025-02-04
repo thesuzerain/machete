@@ -61,6 +61,8 @@ export interface LibraryItem extends LibraryEntity {
     hands?: number;
 }
 
+export type LibrarySearchRequest<T extends LibraryEntity> = Record<string, T[]>;
+
 export function formatCurrency(currency: number): string {
     const parts: string[] = [];
 

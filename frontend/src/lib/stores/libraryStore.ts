@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { API_URL } from '$lib/config';
-import { type LibraryHazard, type LibraryCreature, type LibraryEntity, type LibraryItem } from '$lib/types/library';
+import { type LibraryHazard, type LibraryCreature, type LibraryEntity, type LibraryItem, type LibrarySearchRequest } from '$lib/types/library';
 
 interface LibraryStoreState<T extends LibraryEntity> {
     entities: Map<number, T>;
@@ -66,7 +66,7 @@ function createLibraryStore<T extends LibraryEntity>(entityType: 'creature' | 'h
         try {
             const response = await fetch(`${API_URL}/library/${endpoint}/search?${queryString}${queriesString}&min_similarity=${minSimilarity}`);
             if (!response.ok) throw new Error(`Failed to fetch ${entityType}s`);
-            const data : Map<string, Array<T>> = new Map(Object.entries(await response.json()));
+            const data : LibrarySearchRequest<T> = await response.json();
             
             update(state => {
 
