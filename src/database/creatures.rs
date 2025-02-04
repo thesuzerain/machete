@@ -109,7 +109,6 @@ pub async fn get_creatures_search(
     search: &CreatureSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
-
     let condition = &search.filters;
 
     // TODO: check on number of queries
@@ -204,11 +203,6 @@ pub async fn get_creatures_search(
         .into_iter()
         .fold(hm, |mut map, row| {
             let query = row.query;
-            println!(
-                "Name: {}, similarity: {}",
-                row.name,
-                row.similarity.unwrap_or_default()
-            );
             let creature = LibraryCreature {
                 id: InternalId(row.id as u64),
                 name: row.name,

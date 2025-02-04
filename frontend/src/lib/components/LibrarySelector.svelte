@@ -24,6 +24,8 @@
 
     let selectedIndex = 0;
 
+    let isMouseActive = false; // Flag to track mouse activity
+
     const routePart = {
         'creature': 'creatures',
         'hazard': 'hazards',
@@ -126,6 +128,10 @@
         }
     }
 
+    function handleMouseMove() {
+        isMouseActive = true;
+    }
+
     onMount(async () => {
         try {
             if (initialIds.length > 0) {
@@ -153,9 +159,17 @@
         showDropdown = false;
     }
 
+    function handleMouseEnter(index: number) {
+        if (isMouseActive) {
+            selectedIndex = index;
+        }
+    }
+
     function handleKeydown(event: KeyboardEvent) {
         if (!showDropdown || shownEntities.length === 0) return;
         
+        isMouseActive = false; // Reset mouse activity on keydown
+
         switch (event.key) {
             case 'ArrowDown':
                 event.preventDefault();
@@ -190,10 +204,6 @@
     $: if (shownEntities) {
         selectedIndex = 0;
     }
-
-    function handleMouseEnter(index: number) {
-        selectedIndex = index;
-    }
 </script>
 
 <div class="entity-selector">
@@ -216,7 +226,7 @@
         />
     {/if}
     {#if showDropdown && searchTerm.length > 0}
-        <div class="dropdown" on:scroll={handleScroll}>
+        <div class="dropdown" on:scroll={handleScroll} on:mousemove={handleMouseMove}>
             {#if loading && !loadingMore}
                 <div class="dropdown-item loading">Loading...</div>
             {:else if error}
@@ -230,6 +240,7 @@
                         class:selected={selectedIndex === i}
                         on:click={() => handleSelect(entity)}
                         on:mouseenter={() => handleMouseEnter(i)}
+                        on:mousemove={() => handleMouseMove()}
                     >
                         <span class="name">{entity.name}</span>
                         {#if entity.level !== undefined}
@@ -286,10 +297,6 @@
         background: none;
         cursor: pointer;
         color: #666;
-    }
-
-    .dropdown-item:hover {
-        background: #f0f0f0;
     }
 
     .dropdown-item.loading,
