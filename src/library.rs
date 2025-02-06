@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        creatures::{CreatureFiltering, CreatureFilters, CreatureSearch},
+        classes::ClassSearch,
+        creatures::{CreatureFiltering, CreatureSearch},
         hazards::{HazardFiltering, HazardSearch},
         items::{ItemFiltering, ItemSearch},
         spells::{SpellFiltering, SpellSearch},
@@ -27,10 +28,7 @@ use axum_extra::extract::Query;
 use sqlx::PgPool;
 
 use crate::{
-    database::{
-        self, classes::ClassFilters, hazards::HazardFilters, items::ItemFilters,
-        spells::SpellFilters,
-    },
+    database::{self, classes::ClassFilters},
     ServerError,
 };
 
@@ -53,6 +51,7 @@ pub fn router() -> Router<AppState> {
         .route("/hazards/:id", get(get_hazard_id))
         .route("/hazards", post(insert_hazards))
         .route("/classes", get(get_classes))
+        .route("/classes/search", get(get_classes_search))
         .route("/classes", post(insert_classes))
 }
 
@@ -95,7 +94,7 @@ async fn get_creature_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let payload = CreatureFilters::from_id(id);
+    let payload = CreatureFiltering::from_id(id);
     let creature = database::creatures::get_creatures(&pool, &payload.into())
         .await?
         .pop()
@@ -151,7 +150,7 @@ async fn get_item_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let payload = ItemFilters::from_id(id);
+    let payload = ItemFiltering::from_id(id);
     let item = database::items::get_items(&pool, &payload.into())
         .await?
         .pop()
@@ -207,7 +206,7 @@ async fn get_spell_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let payload = SpellFilters::from_id(id);
+    let payload = SpellFiltering::from_id(id);
     let spell = database::spells::get_spells(&pool, &payload.into())
         .await?
         .pop()
@@ -263,7 +262,7 @@ async fn get_hazard_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
-    let payload = HazardFilters::from_id(id);
+    let payload = HazardFiltering::from_id(id);
     let hazard = database::hazards::get_hazards(&pool, &payload.into())
         .await?
         .pop()
@@ -287,7 +286,30 @@ async fn get_classes(
     Query(payload): Query<ClassFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
+    log::info!("Getting classes");
     let classes = database::classes::get_classes(&pool, &payload).await?;
+    Ok(Json(classes))
+}
+
+async fn get_classes_search(
+    Query(payload): Query<ClassSearch>,
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    log::info!("in here");
+    if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
+        return Err(ServerError::BadRequest(format!(
+            "Limit exceeds maximum of {}",
+            DEFAULT_MAX_LIMIT
+        )));
+    }
+
+    let classes: HashMap<String, Vec<LibraryClass>> =
+        database::classes::get_classes_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+            .await?
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
+            .collect();
+
     Ok(Json(classes))
 }
 

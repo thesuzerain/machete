@@ -3,10 +3,10 @@ use std::sync::Arc;
 use crate::{database, ServerError};
 use crate::{
     database::{
-        creatures::{CreatureFilters, CreatureSearch},
-        hazards::{HazardFilters, HazardSearch},
-        items::{ItemFilters, ItemSearch},
-        spells::{SpellFilters, SpellSearch},
+        creatures::{CreatureFiltering, CreatureSearch},
+        hazards::{HazardFiltering, HazardSearch},
+        items::{ItemFiltering, ItemSearch},
+        spells::{SpellFiltering, SpellSearch},
         DEFAULT_MAX_GROUP_LIMIT,
     },
     intelligent::noun_phrases,
@@ -27,10 +27,10 @@ pub fn router() -> Router<AppState> {
 pub struct ParseAugmentedNounPhrases {
     pub text: String,
     pub min_similarity: Option<f32>,
-    pub creature_filters: Option<CreatureFilters>,
-    pub item_filters: Option<ItemFilters>,
-    pub spell_filters: Option<SpellFilters>,
-    pub hazard_filters: Option<HazardFilters>,
+    pub creature_filters: Option<CreatureFiltering>,
+    pub item_filters: Option<ItemFiltering>,
+    pub spell_filters: Option<SpellFiltering>,
+    pub hazard_filters: Option<HazardFiltering>,
 }
 
 // TODO: Move things to models
@@ -69,36 +69,24 @@ async fn parse_augmented_noun_phrases(
     // Do searches for each noun phrase
     // Creatures
     let creature_search = CreatureSearch {
-        filters: data.creature_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
-        favor_exact_start: None,
-        page: None,
-        limit: None,
+        ..Default::default()
     };
     let hazard_search = HazardSearch {
-        filters: data.hazard_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
-        favor_exact_start: None,
-        page: None,
-        limit: None,
+        ..Default::default()
     };
     let item_search = ItemSearch {
-        filters: data.item_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
-        favor_exact_start: None,
-        page: None,
-        limit: None,
+        ..Default::default()
     };
     let spell_search = SpellSearch {
-        filters: data.spell_filters.unwrap_or_default(),
         query: noun_phrase_strings.clone(),
         min_similarity: Some(min_similarity),
-        favor_exact_start: None,
-        page: None,
-        limit: None,
+        ..Default::default()
     };
 
     // Fetch all the data

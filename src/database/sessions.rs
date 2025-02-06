@@ -61,7 +61,9 @@ pub async fn get_sessions(
                     'gold_rewards', csc.gold_rewards,
                     'item_rewards', csc.item_rewards
                 )
-            ) filter (where csc.session_id is not null) as character_rewards
+            ) filter (where csc.session_id is not null) as character_rewards,
+            SUM(e.total_treasure_value) as total_treasure_value,
+            SUM(e.total_experience) as total_experience
         FROM campaign_sessions s
         LEFT JOIN campaigns ca ON s.campaign_id = ca.id
         LEFT JOIN encounters e ON s.id = e.session_id
@@ -131,6 +133,8 @@ pub async fn get_sessions(
                     .iter()
                     .map(|e| InternalId(*e as u64))
                     .collect(),
+                total_experience: row.total_experience.map(|e| e as u64).unwrap_or_default(),
+                total_treasure_value: row.total_treasure_value.unwrap_or_default(),
             })
         })
         .collect::<Result<Vec<CampaignSession>, sqlx::Error>>()?;

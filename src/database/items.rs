@@ -9,8 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct ItemFilters {
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct ItemFiltering {
+    // Custom/complex deserialization types, so we can't use #[flatten]
+    // Page needs to be kept separate from flattened structure.
+    // https://github.com/serde-rs/serde/issues/1183
     pub ids: Option<CommaSeparatedVec>,
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
@@ -21,9 +24,12 @@ pub struct ItemFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
-impl ItemFilters {
+impl ItemFiltering {
     pub fn from_id(id: u32) -> Self {
         Self {
             ids: Some(CommaSeparatedVec(vec![id])),
@@ -40,36 +46,48 @@ impl ItemFilters {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct ItemFiltering {
-    // Page needs to be kept separate from flattened structure.
-    // https://github.com/serde-rs/serde/issues/1183
-    pub limit: Option<u64>,
-    pub page: Option<u64>,
-    #[serde(flatten)]
-    pub filters: ItemFilters,
-}
-
-impl From<ItemFilters> for ItemFiltering {
-    fn from(filters: ItemFilters) -> Self {
-        ItemFiltering {
-            filters,
-            ..Default::default()
-        }
-    }
-}
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct ItemSearch {
     pub query: Vec<String>,
     pub min_similarity: Option<f32>, // 0.0 to 1.0
     pub favor_exact_start: Option<bool>,
 
+    // Custom/complex deserialization types, so we can't use #[flatten]
     // Page needs to be kept separate from flattened structure.
     // https://github.com/serde-rs/serde/issues/1183
-    pub page: Option<u64>,
-    pub limit: Option<u64>,
+    pub ids: Option<CommaSeparatedVec>,
+    pub min_level: Option<i8>,
+    pub max_level: Option<i8>,
+    pub min_price: Option<i32>, // TODO: should this be a Currency struct?
+    pub max_price: Option<i32>,
+    pub name: Option<String>,
+    pub rarity: Option<Rarity>,
+    pub game_system: Option<GameSystem>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 
-    #[serde(flatten)]
-    pub filters: ItemFilters,
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
+}
+
+impl From<ItemFiltering> for ItemSearch {
+    fn from(filter: ItemFiltering) -> Self {
+        Self {
+            query: vec!["".to_string()], // Empty search query
+            min_similarity: None,
+            favor_exact_start: None,
+            ids: filter.ids,
+            min_level: filter.min_level,
+            max_level: filter.max_level,
+            min_price: filter.min_price,
+            max_price: filter.max_price,
+            name: filter.name,
+            rarity: filter.rarity,
+            game_system: filter.game_system,
+            tags: filter.tags,
+            limit: filter.limit,
+            page: filter.page,
+        }
+    }
 }
 
 pub async fn get_items(
@@ -78,14 +96,7 @@ pub async fn get_items(
 ) -> crate::Result<Vec<LibraryItem>> {
     get_items_search(
         exec,
-        &ItemSearch {
-            query: vec!["".to_string()], // Empty search query
-            min_similarity: None,
-            filters: condition.filters.clone(),
-            favor_exact_start: None,
-            page: condition.page,
-            limit: condition.limit,
-        },
+        &ItemSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
     .await?
@@ -104,8 +115,6 @@ pub async fn get_items_search(
     search: &ItemSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryItem)>>> {
-    let condition = &search.filters;
-
     // TODO: check on number of queries
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
@@ -113,7 +122,7 @@ pub async fn get_items_search(
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
-    let ids = condition.ids.clone().map(|t| {
+    let ids = search.ids.clone().map(|t| {
         t.into_inner()
             .into_iter()
             .map(|id| id as i32)
@@ -169,14 +178,14 @@ pub async fn get_items_search(
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
-        condition.name,
-        condition.rarity.as_ref().map(|r| r.as_i64() as i32),
-        condition.game_system.as_ref().map(|gs| gs.as_i64() as i32),
-        condition.min_level.map(|l| l as i32),
-        condition.max_level.map(|l| l as i32),
-        condition.min_price.map(|p| p as i32),
-        condition.max_price.map(|p| p as i32),
-        condition.tags.first(), // TODO: This is incorrect, only returning one tag.
+        search.name,
+        search.rarity.as_ref().map(|r| r.as_i64() as i32),
+        search.game_system.as_ref().map(|gs| gs.as_i64() as i32),
+        search.min_level.map(|l| l as i32),
+        search.max_level.map(|l| l as i32),
+        search.min_price.map(|p| p as i32),
+        search.max_price.map(|p| p as i32),
+        search.tags.first(), // TODO: This is incorrect, only returning one tag.
         &ids as _,
         &search.query,
         min_similarity,

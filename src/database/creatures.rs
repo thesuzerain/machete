@@ -9,11 +9,11 @@ use crate::ServerError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// TODO: Consider (for this and others) moving the limit/page to both a separate struct AND 'search'.
-// They both use both fields the same way internally, but they mean slightly different things in the returned data, and we
-// sometimes need to apply limits midway through the pipeline.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct CreatureFilters {
+pub struct CreatureFiltering {
+    // Custom/complex deserialization types, so we can't use #[flatten]
+    // Page needs to be kept separate from flattened structure.
+    // https://github.com/serde-rs/serde/issues/1183
     pub ids: Option<CommaSeparatedVec>,
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
@@ -24,38 +24,22 @@ pub struct CreatureFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
-impl CreatureFilters {
+impl CreatureFiltering {
     pub fn from_id(id: u32) -> Self {
-        CreatureFilters {
+        CreatureFiltering {
             ids: Some(CommaSeparatedVec(vec![id])),
             ..Default::default()
         }
     }
 
     pub fn from_ids(ids: &[u32]) -> Self {
-        CreatureFilters {
-            ids: Some(CommaSeparatedVec(ids.to_vec())),
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Default, Serialize, Deserialize, Debug)]
-pub struct CreatureFiltering {
-    // Page needs to be kept separate from flattened structure.
-    // https://github.com/serde-rs/serde/issues/1183
-    pub limit: Option<u64>,
-    pub page: Option<u64>,
-    #[serde(flatten)]
-    pub filters: CreatureFilters,
-}
-
-impl From<CreatureFilters> for CreatureFiltering {
-    fn from(filters: CreatureFilters) -> Self {
         CreatureFiltering {
-            filters,
+            ids: Some(CommaSeparatedVec(ids.to_vec())),
             ..Default::default()
         }
     }
@@ -67,13 +51,42 @@ pub struct CreatureSearch {
     pub min_similarity: Option<f32>, // 0.0 to 1.0
     pub favor_exact_start: Option<bool>,
 
+    // Custom/complex deserialization types, so we can't use #[flatten]
     // Page needs to be kept separate from flattened structure.
     // https://github.com/serde-rs/serde/issues/1183
+    pub ids: Option<CommaSeparatedVec>,
+    pub min_level: Option<i8>,
+    pub max_level: Option<i8>,
+    pub name: Option<String>,
+    pub rarity: Option<Rarity>,
+    pub alignment: Option<Alignment>,
+    pub size: Option<Size>,
+    pub game_system: Option<GameSystem>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub page: Option<u64>,
     pub limit: Option<u64>,
+}
 
-    #[serde(flatten)]
-    pub filters: CreatureFilters,
+impl From<CreatureFiltering> for CreatureSearch {
+    fn from(filter: CreatureFiltering) -> Self {
+        Self {
+            query: vec!["".to_string()],
+            name: filter.name,
+            min_similarity: None,
+            favor_exact_start: None,
+            ids: filter.ids,
+            min_level: filter.min_level,
+            max_level: filter.max_level,
+            rarity: filter.rarity,
+            alignment: filter.alignment,
+            size: filter.size,
+            game_system: filter.game_system,
+            tags: filter.tags,
+            limit: filter.limit,
+            page: filter.page,
+        }
+    }
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -83,14 +96,7 @@ pub async fn get_creatures(
 ) -> crate::Result<Vec<LibraryCreature>> {
     get_creatures_search(
         exec,
-        &CreatureSearch {
-            query: vec!["".to_string()], // Empty search query
-            min_similarity: None,
-            filters: condition.filters.clone(),
-            page: condition.page,
-            limit: condition.limit,
-            favor_exact_start: None,
-        },
+        &CreatureSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
     .await?
@@ -109,8 +115,6 @@ pub async fn get_creatures_search(
     search: &CreatureSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
-    let condition = &search.filters;
-
     // TODO: check on number of queries
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
@@ -118,7 +122,7 @@ pub async fn get_creatures_search(
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
-    let ids = condition.ids.clone().map(|t| {
+    let ids = search.ids.clone().map(|t| {
         t.into_inner()
             .into_iter()
             .map(|id| id as i32)
@@ -174,14 +178,14 @@ pub async fn get_creatures_search(
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
-        condition.name,
-        condition.rarity.as_ref().map(|r| r.as_i64() as i32),
-        condition.game_system.as_ref().map(|gs| gs.as_i64() as i32),
-        condition.min_level.map(|l| l as i32),
-        condition.max_level.map(|l| l as i32),
-        condition.alignment.as_ref().map(|a| a.as_i64() as i32),
-        condition.size.as_ref().map(|s| s.as_i64() as i32),
-        condition.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
+        search.name,
+        search.rarity.as_ref().map(|r| r.as_i64() as i32),
+        search.game_system.as_ref().map(|gs| gs.as_i64() as i32),
+        search.min_level.map(|l| l as i32),
+        search.max_level.map(|l| l as i32),
+        search.alignment.as_ref().map(|a| a.as_i64() as i32),
+        search.size.as_ref().map(|s| s.as_i64() as i32),
+        search.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
         &ids as _,
         &search.query,
         min_similarity,
