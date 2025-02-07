@@ -394,7 +394,8 @@
                             {/each}
                         </section>
                     {/if}
-                    {#if compiledGoldTotal > 0}
+                    fresh {compiledGoldTotal}
+                    {#if compiledGoldTotal > 0 && totalSessionRewards.currency > 0}
                     <div class="gold-division">
                         <input type="number" bind:value={compiledGoldRewards[cid]} min={0} max={Math.ceil(totalSessionRewards.currency)} 
                         on:change={(e) => reassignGoldWithMaximum(cid)}

@@ -69,7 +69,6 @@ pub async fn get_classes_search(
     search: &ClassSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryClass)>>> {
-    log::info!("Inner: {:?}", search);
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;

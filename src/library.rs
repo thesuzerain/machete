@@ -286,7 +286,6 @@ async fn get_classes(
     Query(payload): Query<ClassFilters>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("Getting classes");
     let classes = database::classes::get_classes(&pool, &payload).await?;
     Ok(Json(classes))
 }
@@ -295,7 +294,6 @@ async fn get_classes_search(
     Query(payload): Query<ClassSearch>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("in here");
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_GROUP_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",

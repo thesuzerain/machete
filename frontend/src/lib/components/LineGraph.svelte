@@ -18,6 +18,8 @@
         yLabel: string;
         yFormat: string;
 
+        prependPointString: string; // eg: "Session" to display "Session 1" instead of "1" on hover
+
         curve: CurveFactory;
         // TODO: These types should be generic (allow Date, etc, as scales can allow for other things)
         xType: (domain : Iterable<NumberValue>, range: Iterable<number>) => ScaleContinuousNumeric<number, number, never>;
@@ -65,12 +67,12 @@
     const xRange = [marginLeft + insetLeft, width - marginRight - insetRight]; // [left, right]
     const yRange = [height - marginBottom - insetBottom, marginTop + insetTop]; // [bottom, top]
   
-    let dotInfo = $state(null);
+    let dotInfo : [number[], number, {x: number, y:number}] | null = $state(null);
 
      let xVals = $derived(data.map((subset) => subset.data.map((el) => el.x)).flat());
      let yVals = $derived(data.map((subset) => subset.data.map((el) => el.y)).flat());
       let colorVals = $derived(data.map((subset, i) => subset.data.map((el) => i)).flat());
-      let points = $derived(data.map((subset) => subset.data.map((el, i) => ({ x: el.x, y: el.y, color: i }))).flat());
+      let points = $derived(data.map((subset, i) => subset.data.map(el => ({ x: el.x, y: el.y, color: i }))).flat());
       let subsets = $derived(data.map((subset) => subset.id));
 
     let I = $derived(range(xVals.length));
@@ -102,22 +104,15 @@
       return lines;
     });
 
-    $effect(() => {
-      console.log("Lines", $state.snapshot(lines));
-    })
-
     let pointsScaled : number[][] = $derived(points.map((el) => [xScale(el.x), yScale(el.y), el.color]));
     let delaunayGrid = $derived(Delaunay.from(pointsScaled.map((el) => [el[0], el[1]])));
     let voronoiGrid = $derived(delaunayGrid.voronoi([0, 0, width, height]));
 
-    $effect(() => {
-      console.log("What points and grid do look like", points, pointsScaled, voronoiGrid);
-    })
-
     let xTicks = $derived(xScale.ticks(xScalefactor));
     let yTicks = $derived(niceY.ticks(yScalefactor));
   </script>
-  <div class="chart-container">
+  <div  style="position:relative;">
+  <div class="chart-container" >
     <svg {width} {height} viewBox="0 0 {width} {height}"
       cursor='crosshair'
       on:mouseout="{() => dotInfo = null}"
@@ -162,7 +157,7 @@
             <text  x="-{marginLeft}" y="5">{tick + yFormat}</text>
           </g>
         {/each}
-        <text x="-{marginLeft}" y={marginTop - 10}>{yLabel}</text>
+        <text x="-{marginLeft}" y={marginTop - 40}>{yLabel}</text>
       </g>
       <!-- X-axis and vertical grid lines -->
       <g class="x-axis" transform="translate(0,{height - marginBottom - insetBottom})" pointer-events='none'>
@@ -186,12 +181,13 @@
           class="voronoi-cell"
           d={voronoiGrid.renderCell(i)}
           on:mouseover="{(e) => {
-            console.log("Mouseover", e);
-            dotInfo = [point, i, e] }
+            dotInfo = [point, i, {x: e.offsetX, y: e.offsetY}]
+          }
           }"
           on:focus="{(e) => {
-            console.log("focus", e);
-            dotInfo = [point, i, e] }
+            console.log("focus",  [point, i, e]);
+            // dotInfo = [point, i, e] 
+            }
           }"
         ></path>
       {/each}
@@ -199,11 +195,12 @@
   </div>
   <!-- Tooltip -->
   {#if dotInfo}
-    <div class="tooltip" style='position:absolute; left:{dotInfo[2].clientX + 12}px; top:{dotInfo[2].clientY + 12}px; pointer-events:none; background-color:{tooltipBackground}; color:{tooltipTextColor}'>
-      {subsets ? subsets[points[dotInfo[1]].color] : ''}:  
+    <div class="tooltip" style='position:absolute; left:{dotInfo[2].x + 12}px; top:{dotInfo[2].y + 12}px; pointer-events:none; background-color:{tooltipBackground}; color:{tooltipTextColor}'>
+      {subsets ? '('+subsets[points[dotInfo[1]].color]+'):' : ''} 
       {points[dotInfo[1]].x}: {points[dotInfo[1]].y.toFixed(2)}{yFormat}
     </div>
   {/if}
+</div>
 <style>
     .chart-container {
       justify-content: center;

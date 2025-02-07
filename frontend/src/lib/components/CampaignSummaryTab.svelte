@@ -1,5 +1,6 @@
 <script lang="ts">
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
+  import { characterStore } from '$lib/stores/characters';
   import LineGraph from './LineGraph.svelte';
 
     interface Props {
@@ -11,12 +12,7 @@
      } : Props = $props();
 
     let campaignSessions = $derived($campaignSessionStore.get(selectedCampaignId) || []);
-    console.log("abc");
-    console.log("campaignSessions", $state.snapshot(campaignSessions));
-
-     $effect(() => {
-        console.log(". campaignSessions", $state.snapshot(campaignSessions));  
-     })
+    let characters = $derived($characterStore.get(selectedCampaignId) || []);
 
     let sessionTreasureTimeSeriesCum = $derived.by(
         () => {
@@ -27,7 +23,7 @@
                 ary.push({ x: i, y: sum });
             }
             return [{
-                id: "treasure",
+                id: "Treasure",
                 data: ary
             }]
         }
@@ -42,9 +38,30 @@
                 ary.push({ x: i, y: sum });
             }
             return [{
-                id: "experience",
+                id: "Experience",
                 data: ary
             }]
+        }
+    );
+
+       // TODO: Move this to a better statistics component for characters- its own route maybe?
+       let goldTimeSeriesPerCharacterCum = $derived.by(
+        () => {
+            let ary = [];
+            let sum = 0;
+            for (let i = 0; i < characters.length; i++) {
+                let character = characters[i];
+                let ary2 = [];
+                for (let j = 0; j < campaignSessions.length; j++) {
+                    sum += campaignSessions[j].compiled_rewards[character.id]?.gold || 0;
+                    ary2.push({ x: j, y: sum });
+                }
+                ary.push({
+                    id: character.name,
+                    data: ary2
+                });
+            }
+            return ary;
         }
     );
 </script>
@@ -53,7 +70,13 @@
 
     <LineGraph data={sessionTreasureTimeSeriesCum} xLabel="Sessions" yLabel="Treasure" />
     <LineGraph data={sessionExperienceTimeSeriesCum} xLabel="Sessions" yLabel="Experience" />
+    <LineGraph
+    data={goldTimeSeriesPerCharacterCum}
+    xLabel="Sessions"
+    yLabel="Gold"
+/>
 
+    
 </div>
 
 <style>
