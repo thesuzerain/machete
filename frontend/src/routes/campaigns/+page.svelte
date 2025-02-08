@@ -12,14 +12,15 @@
     import { requireAuth } from '$lib/guards/auth';
     import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
-    import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
+    import CampaignSessionsTab from '$lib/components/CampaignSessionsTab.svelte';
   import { encounterStore } from '$lib/stores/encounters';
+  import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
 
     let loading = true;
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'summary' | 'characters' | 'logs' | 'import' = 'summary';
+    let activeTab: 'summary' | 'sessions' | 'characters' | 'logs' | 'import' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
@@ -107,6 +108,12 @@
             Summary
         </button>
         <button 
+            class="tab-button {activeTab === 'sessions' ? 'active' : ''}"
+            on:click={() => activeTab = 'sessions'}
+        >
+            Sessions
+        </button>
+        <button 
         class="tab-button {activeTab === 'characters' ? 'active' : ''}"
         on:click={() => activeTab = 'characters'}
     >
@@ -127,11 +134,15 @@
         </button>
     </div>
 
-        {#if activeTab === 'summary'}
-            <CampaignSummaryTab
-                {selectedCampaignId}
-            />
-        {:else if activeTab === 'characters'}
+    {#if activeTab === 'summary'}
+    <CampaignSummaryTab
+        {selectedCampaignId}
+    />
+    {:else if activeTab === 'sessions'}
+        <CampaignSessionsTab
+            {selectedCampaignId}
+        />
+    {:else if activeTab === 'characters'}
             <CampaignCharactersTab
                         {selectedCampaignId}
                         bind:error

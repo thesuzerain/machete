@@ -7,9 +7,9 @@ use crate::models::ids::InternalId;
 use crate::models::query::CommaSeparatedVec;
 use serde::{Deserialize, Serialize};
 
-use super::creatures::CreatureFilters;
-use super::hazards::HazardFilters;
-use super::items::ItemFilters;
+use super::creatures::CreatureFiltering;
+use super::hazards::HazardFiltering;
+use super::items::ItemFiltering;
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
@@ -573,7 +573,7 @@ async fn get_levels_enemies(
     enemy_level_adjustments: &[i8],
 ) -> crate::Result<Vec<i8>> {
     let ids = enemies.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let creatures = super::creatures::get_creatures(exec, &CreatureFilters::from_ids(&ids).into())
+    let creatures = super::creatures::get_creatures(exec, &CreatureFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|c| (c.id, c.level))
@@ -599,7 +599,7 @@ async fn get_levels_hazards(
     hazards: &[InternalId],
 ) -> crate::Result<Vec<i8>> {
     let ids = hazards.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let hazards_fetched = super::hazards::get_hazards(exec, &HazardFilters::from_ids(&ids).into())
+    let hazards_fetched = super::hazards::get_hazards(exec, &HazardFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|h| (h.id, h.level))
@@ -620,7 +620,7 @@ async fn get_values_items(
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
     let ids = items.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
-    let items_fetched = super::items::get_items(exec, &ItemFilters::from_ids(&ids).into())
+    let items_fetched = super::items::get_items(exec, &ItemFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|i| (i.id, i.price as f32))

@@ -46,8 +46,13 @@ pub struct CampaignSession {
     pub play_date: DateTime<Utc>,
     pub encounter_ids: Vec<InternalId>,
 
+    // Aggregation of encounter rewards, for easy reference.
+    pub total_experience: u64,
+    pub total_treasure_value: f64,
+
     // These are reward assignments from the encounters linked to this session.
     // Their encounter information is not considered here- it's fungible.
+    // This is primarily for tracking who gets what rewards.
     pub compiled_rewards: HashMap<InternalId, CampaignSessionCharacterRewards>,
     pub unassigned_gold_rewards: f64,
     pub unassigned_item_rewards: Vec<InternalId>,

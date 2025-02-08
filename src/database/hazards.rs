@@ -12,8 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use super::DEFAULT_MAX_LIMIT;
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct HazardFilters {
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct HazardFiltering {
+    // Custom/complex deserialization types, so we can't use #[flatten]
+    // Page needs to be kept separate from flattened structure.
+    // https://github.com/serde-rs/serde/issues/1183
     pub ids: Option<CommaSeparatedVec>,
     pub min_level: Option<i8>,
     pub max_level: Option<i8>,
@@ -23,56 +26,67 @@ pub struct HazardFilters {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
 }
 
-impl HazardFilters {
+impl HazardFiltering {
     pub fn from_id(id: u32) -> Self {
-        HazardFilters {
+        HazardFiltering {
             ids: Some(CommaSeparatedVec(vec![id])),
             ..Default::default()
         }
     }
 
     pub fn from_ids(ids: &[u32]) -> Self {
-        HazardFilters {
+        HazardFiltering {
             ids: Some(CommaSeparatedVec(ids.to_vec())),
             ..Default::default()
         }
     }
 }
-
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct HazardFiltering {
-    // Page needs to be kept separate from flattened structure.
-    // https://github.com/serde-rs/serde/issues/1183
-    pub limit: Option<u64>,
-    pub page: Option<u64>,
-    #[serde(flatten)]
-    pub filters: HazardFilters,
-}
-
-impl From<HazardFilters> for HazardFiltering {
-    fn from(filters: HazardFilters) -> Self {
-        HazardFiltering {
-            filters,
-            ..Default::default()
-        }
-    }
-}
-
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct HazardSearch {
     pub query: Vec<String>,
     pub min_similarity: Option<f32>, // 0.0 to 1.0
     pub favor_exact_start: Option<bool>,
 
+    // Custom/complex deserialization types, so we can't use #[flatten]
     // Page needs to be kept separate from flattened structure.
     // https://github.com/serde-rs/serde/issues/1183
-    pub page: Option<u64>,
-    pub limit: Option<u64>,
+    pub ids: Option<CommaSeparatedVec>,
+    pub min_level: Option<i8>,
+    pub max_level: Option<i8>,
+    pub hazard_type: Option<HazardType>,
+    pub name: Option<String>,
+    pub rarity: Option<Rarity>,
+    pub game_system: Option<GameSystem>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 
-    #[serde(flatten)]
-    pub filters: HazardFilters,
+    pub limit: Option<u64>,
+    pub page: Option<u64>,
+}
+
+impl From<HazardFiltering> for HazardSearch {
+    fn from(filter: HazardFiltering) -> Self {
+        Self {
+            query: vec!["".to_string()],
+            name: filter.name,
+            min_similarity: None,
+            favor_exact_start: None,
+            ids: filter.ids,
+            min_level: filter.min_level,
+            max_level: filter.max_level,
+            hazard_type: filter.hazard_type,
+            rarity: filter.rarity,
+            game_system: filter.game_system,
+            tags: filter.tags,
+            limit: filter.limit,
+            page: filter.page,
+        }
+    }
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -82,14 +96,7 @@ pub async fn get_hazards(
 ) -> crate::Result<Vec<LibraryHazard>> {
     get_hazards_search(
         exec,
-        &HazardSearch {
-            query: vec!["".to_string()], // Empty search query
-            min_similarity: None,
-            filters: condition.filters.clone(),
-            favor_exact_start: None,
-            page: condition.page,
-            limit: condition.limit,
-        },
+        &HazardSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
     .await?
@@ -108,15 +115,13 @@ pub async fn get_hazards_search(
     search: &HazardSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryHazard)>>> {
-    let condition = &search.filters;
-
     // TODO: check on number of queries
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
-    let ids = condition.ids.clone().map(|t| {
+    let ids = search.ids.clone().map(|t| {
         t.into_inner()
             .into_iter()
             .map(|id| id as i32)
@@ -168,12 +173,12 @@ pub async fn get_hazards_search(
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
-        condition.name,
-        condition.rarity.as_ref().map(|r| r.as_i64() as i32),
-        condition.game_system.as_ref().map(|gs| gs.as_i64() as i32),
-        condition.min_level.map(|r| r as i32),
-        condition.max_level.map(|r| r as i32),
-        condition.tags.first(), // TODO: Incorrect, only returning one tag.
+        search.name,
+        search.rarity.as_ref().map(|r| r.as_i64() as i32),
+        search.game_system.as_ref().map(|gs| gs.as_i64() as i32),
+        search.min_level.map(|r| r as i32),
+        search.max_level.map(|r| r as i32),
+        search.tags.first(), // TODO: Incorrect, only returning one tag.
         &ids as _,
         &search.query,
         min_similarity,

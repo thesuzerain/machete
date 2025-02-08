@@ -14,8 +14,14 @@ export interface CampaignSession {
     encounter_ids: number[];
     play_date: Date;
 
+    // Derived values for aggregation. Not modified directly.
+    total_experience: number;
+    total_treasure_value: number;
+
+    // Character-specific awards
     // These are assumed to be correct, and are derived values.
     //  character_id -> {gold and items}
+    // `compiled_rewards` is modifiable, and the unassigned ones are derived in the backend.
     compiled_rewards: Record<number, CompiledRewards>;
     unassigned_item_rewards: number[];
     unassigned_gold_rewards: number;
