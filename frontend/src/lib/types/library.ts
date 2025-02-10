@@ -58,7 +58,23 @@ export interface LibraryItem extends LibraryEntity {
     category: string;
     price?: number;
     bulk?: number;
-    hands?: number;
+
+    // New ones
+    item_categories?: string[];
+    traits?: string[];
+    consumable?: boolean;
+    magical?: boolean;
+    legacy?: boolean;
+
+    item_type?: string;
+    skill_boosts?: string[];
+    runes?: Rune[];
+    apex_stat?: string;
+}
+
+export interface Rune {
+    type: string;
+    potency: number;
 }
 
 export type LibrarySearchRequest<T extends LibraryEntity> = Record<string, T[]>;

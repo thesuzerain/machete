@@ -9,7 +9,10 @@
 
         formatCurrency,
 
-        getFullUrl
+        getFullUrl,
+
+        type Rune
+
 
 
     } from '$lib/types/library';
@@ -75,7 +78,14 @@
             { key: 'price', label: 'Price', formatter: (price: any) =>  formatCurrency(price)
             },
             { key: 'category', label: 'Category' },
-            { key: 'bulk', label: 'Bulk' }
+            { key: 'bulk', label: 'Bulk' },
+            { key: 'item_type', label: 'Type' },
+            { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
+            { key: 'runes', label: 'Runes', formatter: (runes: Rune[]) => runes.map(rune => `${rune.type} ${rune.potency}`).join(', ') },
+            { key: 'consumable', label: 'Consumable' },
+            { key: 'magical', label: 'Magical' },
+            { key: 'legacy', label: 'Legacy' },
+            
         ]
     };
 
@@ -100,6 +110,26 @@
     let notification: string | null = null;
 
     let lockToCommonRange = false;
+
+    // Add these near the top with other state variables
+    let showColumnSelector = false;
+    let visibleColumns: Record<LibraryEntityType, Set<string>> = {
+        class: new Set(columns.class.map(col => col.key)),
+        spell: new Set(columns.spell.map(col => col.key)),
+        creature: new Set(columns.creature.map(col => col.key)),
+        hazard: new Set(columns.hazard.map(col => col.key)),
+        item: new Set(columns.item.map(col => col.key))
+    };
+
+    function toggleColumn(type: LibraryEntityType, columnKey: string) {
+        const newSet = new Set(visibleColumns[type]);
+        if (newSet.has(columnKey)) {
+            newSet.delete(columnKey);
+        } else {
+            newSet.add(columnKey);
+        }
+        visibleColumns[type] = newSet;
+    }
 
     onMount(async () => {
         await fetchLibraryData(true);
@@ -356,6 +386,33 @@
             </select>
         </div>
 
+        <div class="column-selector-container">
+            <button 
+                class="column-selector-toggle"
+                on:click={() => showColumnSelector = !showColumnSelector}
+            >
+                {showColumnSelector ? 'Hide' : 'Show'} Column Selector
+            </button>
+
+            {#if showColumnSelector}
+                <div class="column-selector" transition:slide>
+                    <h4>Toggle Visible Columns</h4>
+                    <div class="column-options">
+                        {#each columns[activeTab] as column}
+                            <label class="column-option">
+                                <input
+                                    type="checkbox"
+                                    checked={visibleColumns[activeTab].has(column.key)}
+                                    on:change={() => toggleColumn(activeTab, column.key)}
+                                />
+                                {column.label}
+                            </label>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </div>
+
     </div>
 
     <div class="table-container">
@@ -364,7 +421,9 @@
                 <tr>
                     <th></th> <!-- Column for expand/collapse -->
                     {#each columns[activeTab] as column}
-                        <th>{column.label}</th>
+                        {#if visibleColumns[activeTab].has(column.key)}
+                            <th>{column.label}</th>
+                        {/if}
                     {/each}
                     {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
                         <th>Experience</th>
@@ -391,13 +450,15 @@
                             </button>
                         </td>
                         {#each columns[activeTab] as column}
-                            <td>
-                                {#if column.formatter}
-                                    {@html column.formatter(entity[column.key as keyof typeof entity])}
-                                {:else}
-                                    {entity[column.key as keyof typeof entity]}
-                                {/if}
-                            </td>
+                            {#if visibleColumns[activeTab].has(column.key)}
+                                <td>
+                                    {#if column.formatter}
+                                        {@html column.formatter(entity[column.key as keyof typeof entity])}
+                                    {:else}
+                                        {entity[column.key as keyof typeof entity]}
+                                    {/if}
+                                </td>
+                            {/if}
                         {/each}
                         {#if isEncounterMode && activeTab === 'creature'}
                             <td>
@@ -853,5 +914,55 @@
 
     .table-container tr:nth-child(odd) {
         background-color: white; /* Default background for odd rows */
+    }
+
+    .column-selector-container {
+        margin-bottom: 1rem;
+    }
+
+    .column-selector-toggle {
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .column-selector-toggle:hover {
+        background: #e5e7eb;
+    }
+
+    .column-selector {
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .column-selector h4 {
+        margin: 0 0 0.75rem 0;
+        color: #374151;
+    }
+
+    .column-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .column-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #374151;
+        cursor: pointer;
+    }
+
+    .column-option input {
+        cursor: pointer;
     }
 </style> 

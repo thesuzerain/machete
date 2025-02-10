@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use crate::models::characters::Stat;
 use crate::models::ids::InternalId;
+use crate::models::library::item::{Rune, RuneItemType, SkillPotency};
 use crate::models::library::{item::LibraryItem, GameSystem, Rarity};
 
 use crate::models::query::CommaSeparatedVec;
@@ -24,6 +26,7 @@ pub struct ItemFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus>,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -45,6 +48,9 @@ impl ItemFiltering {
     }
 }
 
+// TODO: Add tests for this to make sure we dont add oneto search and not filters
+//eg json deserialization and serialization
+
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct ItemSearch {
     pub query: Vec<String>,
@@ -64,9 +70,21 @@ pub struct ItemSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+}
+
+// todo: export to mod.rs, so all other routes that can use it
+// also add those- for spells, etc. should consider legacy items
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum LegacyStatus {
+    All, // Includes both (duplicates)
+    Legacy, // Only legacy, no remaster
+    #[default]
+    Remaster, // Includes remaster then legacy (but only where no duplicates)
 }
 
 impl From<ItemFiltering> for ItemSearch {
@@ -83,12 +101,45 @@ impl From<ItemFiltering> for ItemSearch {
             name: filter.name,
             rarity: filter.rarity,
             game_system: filter.game_system,
+            legacy: filter.legacy,
             tags: filter.tags,
             limit: filter.limit,
             page: filter.page,
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertLibraryItem {
+    pub name: String,
+    pub game_system: GameSystem,
+    pub rarity: Rarity,
+    pub level: i8,
+    pub tags: Vec<String>,
+    pub price: Option<f64>,
+
+    pub url: Option<String>,
+    pub description: String,
+    pub item_categories : Vec<String>,
+    pub traits: Vec<String>,
+    pub consumable: bool,
+    pub magical: bool,
+    pub legacy: bool,
+    pub item_type: RuneItemType,
+    pub skill_boosts: Vec<SkillPotency>,
+    pub runes : Vec<Rune>,
+    pub apex_stat: Option<Stat>,
+
+    // Extra insertion-specific fields
+    pub runic_context: Option<InsertRune>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertRune {
+    pub runic_stat_boost_category_bonus_id: Option<(i32, i8)>, // If a rune, what stat boost category does it belong to?
+    pub base_rune: Option<String>, // If a rune, what other name should it be
+}
+
 
 pub async fn get_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -156,11 +207,24 @@ pub async fn get_items_search(
                 li.rarity,
                 li.level,
                 li.price,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
+                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                li.item_categories,
+                li.traits,
+                li.consumable,
+                li.magical,
+                li.item_type,
+                li.apex_stat,
+                li.legacy,
+
+                JSON_AGG(JSON_BUILD_OBJECT('name', r.name, 'potency', r.potency)) FILTER (WHERE r.potency IS NOT NULL) AS runes,
+                JSON_AGG(JSON_BUILD_OBJECT('skill', sb.skill, 'bonus', sb.bonus)) FILTER (WHERE sb.bonus IS NOT NULL) AS skill_boosts
             FROM library_objects lo
             INNER JOIN library_items li ON lo.id = li.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
             LEFT JOIN tags t ON lot.tag_id = t.id
+            LEFT JOIN library_items_runes lir ON lo.id = lir.item_id
+            LEFT JOIN runes r ON lir.rune_id = r.id
+            LEFT JOIN library_items_skill_boosts sb ON lo.id = sb.item_id
 
             WHERE
                 ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
@@ -206,17 +270,36 @@ pub async fn get_items_search(
     let items = query.into_iter().fold(hm, |map, row| {
         // TODO: conversions still here shouldnt be needed
         // TODO: unwrap_or_default for stuff like rarity / price / level doesn't seem right
+
         let query = row.query;
+
+        let runes : Option<Vec<serde_json::Value>> = serde_json::from_value(row.runes.unwrap_or_default()).unwrap_or_default();
+        let runes = runes.unwrap_or_default().into_iter().map(|r| {
+            let name = r["name"].as_str().unwrap_or_default().to_string();
+            let potency = r["potency"].as_i64().unwrap_or_default() as i8;
+            Rune::from_parts(&name, potency)
+        }).collect();
+
         let item = LibraryItem {
             id: InternalId(row.id as u64),
             name: row.name,
             game_system: GameSystem::from_i64(row.game_system as i64),
             rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
             level: row.level.unwrap_or_default() as i8,
-            price: row.price.unwrap_or_default(),
+            price: row.price,
             tags: row.tags.unwrap_or_default(),
             url: row.url,
             description: row.description.unwrap_or_default(),
+            item_categories: row.item_categories,
+            traits: row.traits,
+            consumable: row.consumable,
+            legacy: row.legacy,
+            magical: row.magical,
+            item_type: RuneItemType::from_str(&row.item_type.unwrap_or_default()),
+            skill_boosts: serde_json::from_value(row.skill_boosts.unwrap_or_default()).unwrap_or_default(),
+            apex_stat: Stat::from_str(&row.apex_stat.unwrap_or_default()),
+            runes,
+
         };
         let mut map = map;
         map.entry(query)
@@ -229,7 +312,7 @@ pub async fn get_items_search(
 
 pub async fn insert_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    items: &[LibraryItem],
+    items: &[InsertLibraryItem],
 ) -> crate::Result<()> {
     // TODO: Don't *need* two tables for this
 
@@ -266,22 +349,95 @@ pub async fn insert_items(
     .map(|row| Ok(row.id))
     .collect::<Result<Vec<i32>, sqlx::Error>>()?;
 
-    // TODO: as i32 should be unnecessary- fix in models
-    sqlx::query!(
-        r#"
-        INSERT INTO library_items (id, rarity, level, price)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::double precision[])
-    "#,
-        &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
-        &items
-            .iter()
-            .map(|c| c.rarity.as_i64() as i32)
-            .collect::<Vec<i32>>(),
-        &items.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
-        &items.iter().map(|c| c.price as f64).collect::<Vec<f64>>(),
-    )
-    .execute(exec)
-    .await?;
+    // TODO: Unnest problem with arrays again
+    for (item, id) in items.iter().zip(ids.iter()) {
+        let apex_stat = item.apex_stat.as_ref().map(|s| s.to_string());
+                sqlx::query!(
+            r#"
+            INSERT INTO library_items (id, rarity, level, price, item_categories, traits, consumable, magical, item_type, apex_stat, legacy)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        "#,
+            id,
+            item.rarity.as_i64() as i32,
+            item.level as i32,
+            item.price,
+            &item.item_categories,
+            &item.traits,
+            item.consumable,
+            item.magical,
+            &item.item_type.to_string(),
+            apex_stat.as_ref(),
+            item.legacy,
+        )
+        .execute(exec)
+        .await?;
+        
+        // Insert runes, if it is a rune
+        if let Some(runic_context) = &item.runic_context {
+            let rune_category_id = runic_context.runic_stat_boost_category_bonus_id.as_ref().map(|(id, _)| *id);
+
+            // Use basename if it exists, for consistency between legacy and non-legacy items
+            let rune_base_name = runic_context.base_rune.as_ref().map(|s| s.as_str()).unwrap_or(&item.name);
+            println!("Inserting rune {:?}", rune_base_name);
+            println!("Rune: {:?}", item);
+            // Bonus = potency or level (level for property runes, generally)
+            let bonus = runic_context.runic_stat_boost_category_bonus_id.as_ref().map(|(_, b)| *b).unwrap_or(item.level);
+            sqlx::query!(
+                r#"
+                INSERT INTO runes (item_id, name, fundamental, stat_boost_category_id, legacy, potency)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+                *id as i32,
+                rune_base_name,
+                matches!(item.item_type, RuneItemType::FundamentalRune),
+                rune_category_id.map(|i| i as i16),
+                item.legacy,
+                bonus as i16,
+            )
+            .execute(exec)
+            .await?;
+        } else {
+            // Insert any runes that this may have!
+            // println!("Inserting runes for item {:?}", item);
+            if item.name.contains("holy Plate") {
+                println!("Inserting runes for item {:?}", item);
+            }
+            sqlx::query!(
+                r#"
+                INSERT INTO library_items_runes (item_id, rune_id)
+                SELECT
+                    $1::int,
+                    r.id
+                FROM UNNEST($2::text[]) insertion(name)
+                CROSS JOIN LATERAL (
+                    SELECT id
+                    FROM runes
+                    WHERE name = insertion.name
+                ) r
+            "#,
+                *id as i32,
+                &item.runes.iter().map(|r| r.to_parts().0).collect::<Vec<String>>(),
+            )
+            .execute(exec)
+            .await?;
+        }
+
+        // Insert stat boosts
+        let skills = item.skill_boosts.iter().map(|sb| sb.skill.clone().map(|s| s.to_string())).collect::<Vec<Option<String>>>();
+        sqlx::query!(
+            r#"
+            INSERT INTO library_items_skill_boosts (item_id, skill, bonus)
+            SELECT $1, skill, bonus FROM UNNEST ($2::text[], $3::int[]) skill_boosts(skill, bonus)
+        "#,
+            *id as i32,
+            skills.as_slice() as _,
+            &item.skill_boosts.iter().map(|sb| sb.bonus as i32).collect::<Vec<i32>>(),
+        )
+        .execute(exec)
+        .await?;
+        
+    }
 
     Ok(())
+
 }
