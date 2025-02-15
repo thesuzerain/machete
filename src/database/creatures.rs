@@ -1,3 +1,4 @@
+use super::LegacyStatus;
 use super::DEFAULT_MAX_LIMIT;
 use crate::models::ids::InternalId;
 use crate::models::library::{
@@ -24,6 +25,7 @@ pub struct CreatureFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -64,6 +66,8 @@ pub struct CreatureSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus,
+
     pub page: Option<u64>,
     pub limit: Option<u64>,
 }
@@ -83,6 +87,7 @@ impl From<CreatureFiltering> for CreatureSearch {
             size: filter.size,
             game_system: filter.game_system,
             tags: filter.tags,
+            legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
         }
@@ -156,7 +161,8 @@ pub async fn get_creatures_search(
                 level,
                 alignment,
                 size,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
+                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                lc.legacy
             FROM library_objects lo
             INNER JOIN library_creatures lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -173,8 +179,22 @@ pub async fn get_creatures_search(
                 AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
                 AND ($9::int[] IS NULL OR lo.id = ANY($9))
                 AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
+                AND NOT (NOT $13::bool AND lc.legacy = FALSE)
+                AND NOT (NOT $14::bool AND lc.legacy = TRUE)
+
+                -- TODO: Do some tests on this, this might be a bad pattern
+                -- Or at least- maybe requires a WHERE = name + index?
+                AND (NOT $15::bool OR NOT lc.legacy OR
+                    lo.name NOT IN (
+                        SELECT name
+                        FROM library_objects inner_lo
+                        INNER JOIN library_creatures inner_lc ON inner_lo.id = inner_lc.id
+                        WHERE inner_lc.legacy = TRUE
+                    )
+                )
+
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $13 OFFSET $14
+            LIMIT $16 OFFSET $17
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -190,6 +210,9 @@ pub async fn get_creatures_search(
         &search.query,
         min_similarity,
         search.favor_exact_start.unwrap_or_default(),
+        search.legacy.include_remaster(),
+        search.legacy.include_legacy(),
+        search.legacy.favor_remaster(),
         limit as i64,
         offset as i64,
     );
@@ -218,6 +241,7 @@ pub async fn get_creatures_search(
                 tags: row.tags.unwrap_or_default(),
                 url: row.url,
                 description: row.description.unwrap_or_default(),
+                legacy: row.legacy,
             };
 
             map.entry(query)
@@ -270,8 +294,8 @@ pub async fn insert_creatures(
     // TODO: 'as i32' should be unnecessary- fix in models
     sqlx::query!(
         r#"
-        INSERT INTO library_creatures (id, rarity, level, alignment, size)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[], $5::int[])
+        INSERT INTO library_creatures (id, rarity, level, alignment, size, legacy)
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[], $5::int[], $6::bool[])
         "#,
         &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
         &creatures
@@ -290,6 +314,10 @@ pub async fn insert_creatures(
             .iter()
             .map(|c| c.size.as_i64() as i32)
             .collect::<Vec<i32>>(),
+        &creatures
+            .iter()
+            .map(|c| c.legacy)
+            .collect::<Vec<bool>>(),
     )
     .execute(exec)
     .await?;

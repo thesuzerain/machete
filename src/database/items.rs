@@ -9,7 +9,7 @@ use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
 use serde::{Deserialize, Serialize};
 
-use super::DEFAULT_MAX_LIMIT;
+use super::{LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct ItemFiltering {
@@ -26,7 +26,7 @@ pub struct ItemFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
-    pub legacy: LegacyStatus>,
+    pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -74,17 +74,6 @@ pub struct ItemSearch {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
-}
-
-// todo: export to mod.rs, so all other routes that can use it
-// also add those- for spells, etc. should consider legacy items
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum LegacyStatus {
-    All, // Includes both (duplicates)
-    Legacy, // Only legacy, no remaster
-    #[default]
-    Remaster, // Includes remaster then legacy (but only where no duplicates)
 }
 
 impl From<ItemFiltering> for ItemSearch {
@@ -136,10 +125,11 @@ pub struct InsertLibraryItem {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct InsertRune {
-    pub runic_stat_boost_category_bonus_id: Option<(i32, i8)>, // If a rune, what stat boost category does it belong to?
+    pub runic_stat_boost_category_bonus_id : Option<i32>,// If a rune, what stat boost category does it belong to?
+    pub potency : i8,
     pub base_rune: Option<String>, // If a rune, what other name should it be
+    pub applied_to: RuneItemType, // What is this rune applied to?
 }
-
 
 pub async fn get_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -215,7 +205,7 @@ pub async fn get_items_search(
                 li.item_type,
                 li.apex_stat,
                 li.legacy,
-
+        
                 JSON_AGG(JSON_BUILD_OBJECT('name', r.name, 'potency', r.potency)) FILTER (WHERE r.potency IS NOT NULL) AS runes,
                 JSON_AGG(JSON_BUILD_OBJECT('skill', sb.skill, 'bonus', sb.bonus)) FILTER (WHERE sb.bonus IS NOT NULL) AS skill_boosts
             FROM library_objects lo
@@ -237,8 +227,21 @@ pub async fn get_items_search(
                 AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
                 AND ($9::int[] IS NULL OR lo.id = ANY($9))
                 AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
+                AND NOT (NOT $13::bool AND li.legacy = FALSE)
+                AND NOT (NOT $14::bool AND li.legacy = TRUE)
+
+                -- TODO: Do some tests on this, this might be a bad pattern
+                -- Or at least- maybe requires a WHERE = name + index?
+                AND (NOT $15::bool OR NOT li.legacy OR
+                    lo.name NOT IN (
+                        SELECT name
+                        FROM library_objects inner_lo
+                        INNER JOIN library_items inner_li ON inner_lo.id = inner_li.id
+                        WHERE inner_li.legacy = TRUE
+                    )
+                )
             GROUP BY lo.id, li.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $13 OFFSET $14
+            LIMIT $16 OFFSET $17
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -254,6 +257,9 @@ pub async fn get_items_search(
         &search.query,
         min_similarity,
         search.favor_exact_start,
+        search.legacy.include_remaster(),
+        search.legacy.include_legacy(),
+        search.legacy.favor_remaster(),
         limit as i64,
         offset as i64,
     )
@@ -277,7 +283,8 @@ pub async fn get_items_search(
         let runes = runes.unwrap_or_default().into_iter().map(|r| {
             let name = r["name"].as_str().unwrap_or_default().to_string();
             let potency = r["potency"].as_i64().unwrap_or_default() as i8;
-            Rune::from_parts(&name, potency)
+            let rune_item_type = r["item_type"].as_str().unwrap_or_default();
+            Rune::from_parts(&name, potency, RuneItemType::from_str(rune_item_type))
         }).collect();
 
         let item = LibraryItem {
@@ -374,51 +381,49 @@ pub async fn insert_items(
         
         // Insert runes, if it is a rune
         if let Some(runic_context) = &item.runic_context {
-            let rune_category_id = runic_context.runic_stat_boost_category_bonus_id.as_ref().map(|(id, _)| *id);
-
+            let rune_category_id = runic_context.runic_stat_boost_category_bonus_id.as_ref().map(|id| *id);
+            let potency = runic_context.potency;
             // Use basename if it exists, for consistency between legacy and non-legacy items
             let rune_base_name = runic_context.base_rune.as_ref().map(|s| s.as_str()).unwrap_or(&item.name);
-            println!("Inserting rune {:?}", rune_base_name);
-            println!("Rune: {:?}", item);
-            // Bonus = potency or level (level for property runes, generally)
-            let bonus = runic_context.runic_stat_boost_category_bonus_id.as_ref().map(|(_, b)| *b).unwrap_or(item.level);
+            let applied_to = runic_context.applied_to;
+
             sqlx::query!(
                 r#"
-                INSERT INTO runes (item_id, name, fundamental, stat_boost_category_id, legacy, potency)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO runes (item_id, name, fundamental, stat_boost_category_id, legacy, potency, applied_to_item_type)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
                 *id as i32,
                 rune_base_name,
                 matches!(item.item_type, RuneItemType::FundamentalRune),
                 rune_category_id.map(|i| i as i16),
                 item.legacy,
-                bonus as i16,
+                potency as i16,
+                applied_to.to_string(),
             )
             .execute(exec)
             .await?;
         } else {
             // Insert any runes that this may have!
-            // println!("Inserting runes for item {:?}", item);
-            if item.name.contains("holy Plate") {
-                println!("Inserting runes for item {:?}", item);
-            }
             sqlx::query!(
                 r#"
                 INSERT INTO library_items_runes (item_id, rune_id)
                 SELECT
-                    $1::int,
-                    r.id
-                FROM UNNEST($2::text[]) insertion(name)
+                    $1::int as item_id,
+                    r.id as rune_id
+                FROM UNNEST($2::text[], $3::int[]) insertion(name, potency)
                 CROSS JOIN LATERAL (
-                    SELECT id
-                    FROM runes
-                    WHERE name = insertion.name
+                    SELECT r.id
+                    FROM runes r, library_items li
+                    WHERE lower(r.name) = lower(insertion.name) AND li.id = $1 AND li.legacy = r.legacy
+                    AND r.potency = insertion.potency
                 ) r
             "#,
                 *id as i32,
                 &item.runes.iter().map(|r| r.to_parts().0).collect::<Vec<String>>(),
+                &item.runes.iter().map(|r| r.to_parts().1 as i32).collect::<Vec<i32>>(),
+            
             )
-            .execute(exec)
+            .fetch_all(exec)
             .await?;
         }
 

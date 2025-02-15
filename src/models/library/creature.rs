@@ -15,6 +15,7 @@ pub struct LibraryCreature {
     pub tags: Vec<String>,
     pub alignment: Alignment,
     pub size: Size,
+    pub legacy: bool,
 
     pub url: Option<String>,
     pub description: String,

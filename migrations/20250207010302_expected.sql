@@ -5,10 +5,15 @@ ALTER TABLE library_items ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
 
 ALTER TABLE library_items ADD COLUMN consumable boolean NOT NULL DEFAULT FALSE;
 ALTER TABLE library_items ADD COLUMN magical boolean NOT NULL DEFAULT FALSE;
-ALTER TABLE library_items ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
 
 ALTER TABLE library_items ADD COLUMN item_type varchar(16) ;
 ALTER TABLE library_items ADD COLUMN apex_stat varchar(27) ;
+
+ALTER TABLE library_items ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE library_hazards ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE library_spells ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE library_creatures ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+
 CREATE TABLE library_items_skill_boosts (
     item_id BIGINT REFERENCES library_items(id),
     skill VARCHAR(64), -- Null if unrecognized
@@ -32,9 +37,10 @@ CREATE TABLE runes (
     stat_boost_category_id SMALLINT REFERENCES stat_boost_category_types(id),
     legacy boolean NOT NULL DEFAULT FALSE,
     potency SMALLINT NOT NULL, -- May be +x, or x dice, etc. For property runes, this is the level of the rune
+    applied_to_item_type VARCHAR(16) NOT NULL, -- What rune can be applied to
 
     UNIQUE(item_id, name),
-    UNIQUE(name, legacy, potency)
+    UNIQUE(name, legacy, potency, applied_to_item_type)
 );
 CREATE TABLE library_items_runes (
     item_id BIGINT NOT NULL REFERENCES library_items(id),

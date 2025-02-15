@@ -31,6 +31,7 @@
     let error: string | null = null;
     let searchQuery = '';
     let filterRarity: string = '';
+    let filterLegacy = 'remaster'; // default to match Rust enum default
 
     let minLevel = -1;
     let maxLevel = 30;
@@ -58,35 +59,43 @@
             { key: 'rarity', label: 'Rarity' },
             { key: 'rank', label: 'Level' },
             { key: 'traditions', label: 'Traditions', formatter: (traditions: string[]) => traditions.join(', ') },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         creature: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
             { key: 'size', label: 'Size' },
-            { key: 'alignment', label: 'Alignment' }
+            { key: 'alignment', label: 'Alignment' },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         hazard: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         item: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
-            { key: 'price', label: 'Price', formatter: (price: any) =>  formatCurrency(price)
-            },
-            { key: 'category', label: 'Category' },
-            { key: 'bulk', label: 'Bulk' },
+            { key: 'price', label: 'Price', formatter: (price: any) => formatCurrency(price) },
+            { key: 'item_categories', label: 'Categories', formatter: (categories: string[]) => categories.join(', ') },
             { key: 'item_type', label: 'Type' },
             { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
-            { key: 'runes', label: 'Runes', formatter: (runes: Rune[]) => runes.map(rune => `${rune.type} ${rune.potency}`).join(', ') },
-            { key: 'consumable', label: 'Consumable' },
-            { key: 'magical', label: 'Magical' },
-            { key: 'legacy', label: 'Legacy' },
-            
+            { key: 'runes', label: 'Runes', formatter: runeFormatter },
+            { key: 'consumable', label: 'Consumable', formatter: booleanFormatter },
+            { key: 'magical', label: 'Magical', formatter: booleanFormatter },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ]
+    };
+
+    const defaultColumns = {
+        class: ['name', 'rarity', 'hp', 'traditions'],
+        spell: ['name', 'rarity', 'rank', 'traditions'],
+        creature: ['name', 'rarity', 'level', 'size', 'alignment'],
+        hazard: ['name', 'rarity', 'level'],
+        item: ['name', 'rarity', 'level', 'price', 'item_categories', 'item_type', 'traits', 'runes', 'magical']
     };
 
     const pluralizations: Record<LibraryEntityType, string> = {
@@ -114,11 +123,11 @@
     // Add these near the top with other state variables
     let showColumnSelector = false;
     let visibleColumns: Record<LibraryEntityType, Set<string>> = {
-        class: new Set(columns.class.map(col => col.key)),
-        spell: new Set(columns.spell.map(col => col.key)),
-        creature: new Set(columns.creature.map(col => col.key)),
-        hazard: new Set(columns.hazard.map(col => col.key)),
-        item: new Set(columns.item.map(col => col.key))
+        class: new Set(defaultColumns.class),
+        spell: new Set(defaultColumns.spell),
+        creature: new Set(defaultColumns.creature),
+        hazard: new Set(defaultColumns.hazard),
+        item: new Set(defaultColumns.item)
     };
 
     function toggleColumn(type: LibraryEntityType, columnKey: string) {
@@ -129,6 +138,19 @@
             newSet.add(columnKey);
         }
         visibleColumns[type] = newSet;
+    }
+
+    // Formatter function for boolean values
+    function booleanFormatter(value: boolean): string {
+        return value ? '✔️' : ''; // Checkmark for true, blank for false
+    }
+
+    // Formatter function for runes 
+    function runeFormatter(runes: Rune[]): string {
+        return runes.map(rune => {
+            let name = rune.property ? rune.property : rune.type;
+            return `${name} ${rune.potency}`;
+        }).join(', ');
     }
 
     onMount(async () => {
@@ -248,8 +270,9 @@
                 limit: LIMIT.toString(),
                 ...(searchQuery && { name: searchQuery }),
                 ...(filterRarity && { rarity: filterRarity }),
-                ...(minLevel && { min_level: minLevel }),
-                ...(maxLevel && { max_level: maxLevel })
+                ...(minLevel && { min_level: minLevel.toString() }),
+                ...(maxLevel && { max_level: maxLevel.toString() }),
+                legacy: filterLegacy
             });
 
             const pluralType = pluralizations[activeTab];
@@ -277,7 +300,9 @@
 
     // Reset and refetch when filters change
     $: {
-        if (searchQuery !== undefined || filterRarity !== undefined || minLevel !== undefined || maxLevel !== undefined) {
+        if (searchQuery !== undefined || filterRarity !== undefined || 
+            minLevel !== undefined || maxLevel !== undefined || 
+            filterLegacy !== undefined) {
             fetchLibraryData(true);
         }
     }
@@ -383,6 +408,13 @@
                         <option value={i-2 + 1}>{i-2 + 1}</option>
                     {/if}
                 {/each}
+            </select>
+
+            <select bind:value={filterLegacy} class="filter-select">
+                <option value="remaster">Remastered</option>
+                <option value="all">All Versions</option>
+                <option value="legacy_only">Legacy Only</option>
+                <option value="remaster_only">Remastered Only</option>
             </select>
         </div>
 
@@ -544,7 +576,7 @@
 <style>
     .library-page {
         padding: 2rem;
-        max-width: 1400px;
+        max-width: 1600px;
         margin: 0 auto;
     }
 

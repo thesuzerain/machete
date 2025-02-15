@@ -117,14 +117,12 @@ async fn get_items(
     Query(payload): Query<ItemFiltering>,
     State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, ServerError> {
-    log::info!("5555");
     if payload.limit.unwrap_or(0) > DEFAULT_MAX_LIMIT {
         return Err(ServerError::BadRequest(format!(
             "Limit exceeds maximum of {}",
             DEFAULT_MAX_LIMIT
         )));
     }
-    log::info!("Getting items with filters: {:?}", payload);
     let items = database::items::get_items(&pool, &payload).await?;
     Ok(Json(items))
 }

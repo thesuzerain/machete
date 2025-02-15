@@ -10,6 +10,7 @@ pub struct LibrarySpell {
     pub rarity: Rarity,
     pub rank: u8,
     pub tags: Vec<String>,
+    pub legacy: bool,
 
     pub traditions: Vec<String>,
 

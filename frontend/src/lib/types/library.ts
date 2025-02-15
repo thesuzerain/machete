@@ -39,6 +39,7 @@ export interface LibrarySpell extends LibraryEntity {
     range?: string;
     duration?: string;
     saving_throw?: string;
+    legacy?: boolean;
 }
 
 export interface LibraryCreature extends LibraryEntity {
@@ -46,20 +47,19 @@ export interface LibraryCreature extends LibraryEntity {
     size: string;
     alignment?: string;
     type: string;
+    legacy?: boolean;
 }
 
 export interface LibraryHazard extends LibraryEntity {
     complexity: string;
     stealth?: string;
     disable?: string;
+    legacy?: boolean;
 }
 
 export interface LibraryItem extends LibraryEntity {
-    category: string;
     price?: number;
-    bulk?: number;
 
-    // New ones
     item_categories?: string[];
     traits?: string[];
     consumable?: boolean;
@@ -75,6 +75,7 @@ export interface LibraryItem extends LibraryEntity {
 export interface Rune {
     type: string;
     potency: number;
+    property?: string;
 }
 
 export type LibrarySearchRequest<T extends LibraryEntity> = Record<string, T[]>;
