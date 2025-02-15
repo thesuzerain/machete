@@ -484,7 +484,11 @@
                         {#each columns[activeTab] as column}
                             {#if visibleColumns[activeTab].has(column.key)}
                                 <td>
-                                    {#if column.formatter}
+                                    {#if column.key === 'rarity'}
+                                        <span class="rarity-label {entity[column.key as keyof typeof entity]}">
+                                            {entity[column.key as keyof typeof entity]}
+                                        </span>
+                                    {:else if column.formatter}
                                         {@html column.formatter(entity[column.key as keyof typeof entity])}
                                     {:else}
                                         {entity[column.key as keyof typeof entity]}
@@ -954,6 +958,7 @@
 
     .column-selector-toggle {
         background: #f3f4f6;
+        color: #111827;
         border: 1px solid #d1d5db;
         padding: 0.5rem 1rem;
         border-radius: 0.375rem;
@@ -996,5 +1001,32 @@
 
     .column-option input {
         cursor: pointer;
+    }
+
+    .rarity-label {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: white;
+    }
+
+    .rarity-label.common {
+        background-color: #9ca3af; /* Grey */
+    }
+
+    .rarity-label.uncommon {
+        background-color: #fbbf24; /* Yellow */
+    }
+
+    .rarity-label.rare {
+        background-color: #3b82f6; /* Blue */
+    }
+
+    .rarity-label.unique {
+        background-color: #8b5cf6; /* Purple */
     }
 </style> 
