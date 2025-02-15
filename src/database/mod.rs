@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 pub mod auth;
@@ -23,4 +24,31 @@ pub async fn connect() -> Result<PgPool, sqlx::Error> {
     // TODO: Num connections, etc
     let pool = PgPool::connect(&database_url).await?;
     Ok(pool)
+}
+
+
+// todo: export to mod.rs, so all other routes that can use it
+// also add those- for spells, etc. should consider legacy items
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")] // TODO: Camelcase when everything is converted to camelcase
+pub enum LegacyStatus {
+    All, // Includes both (duplicates)
+    LegacyOnly, // Only legacy, no remaster
+    #[default]
+    Remaster, // Includes remaster then legacy (but only where no duplicates)
+    RemasterOnly, // Only remaster, no legacy
+}
+
+impl LegacyStatus {
+    pub fn include_legacy(&self) -> bool {
+        matches!(self, Self::All | Self::LegacyOnly | Self::Remaster)
+    }
+
+    pub fn include_remaster(&self) -> bool {
+        matches!(self, Self::All | Self::Remaster | Self::RemasterOnly)
+    }
+
+    pub fn favor_remaster(&self) -> bool {
+        matches!(self, Self::Remaster)
+    }
 }

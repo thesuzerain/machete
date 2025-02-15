@@ -6,7 +6,7 @@ use crate::{
         classes::ClassSearch,
         creatures::{CreatureFiltering, CreatureSearch},
         hazards::{HazardFiltering, HazardSearch},
-        items::{ItemFiltering, ItemSearch},
+        items::{InsertLibraryItem, ItemFiltering, ItemSearch},
         spells::{SpellFiltering, SpellSearch},
         DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
     },
@@ -162,7 +162,7 @@ async fn insert_items(
     State(pool): State<PgPool>,
     jar: CookieJar,
     headers: HeaderMap,
-    Json(payload): Json<Vec<LibraryItem>>,
+    Json(payload): Json<Vec<InsertLibraryItem>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
     database::items::insert_items(&pool, &payload).await?;

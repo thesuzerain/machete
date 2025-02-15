@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::query::CommaSeparatedVec;
 
-use super::DEFAULT_MAX_LIMIT;
+use super::{LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct SpellFiltering {
@@ -23,6 +23,7 @@ pub struct SpellFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,
 }
@@ -53,6 +54,7 @@ pub struct SpellSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,
 }
@@ -70,6 +72,7 @@ impl From<SpellFiltering> for SpellSearch {
             rarity: filter.rarity,
             game_system: filter.game_system,
             tags: filter.tags,
+            legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
         }
@@ -142,7 +145,8 @@ pub async fn get_spells_search(
                 rarity,
                 rank,
                 traditions,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
+                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                legacy
             FROM library_objects lo
             INNER JOIN library_spells lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -157,8 +161,22 @@ pub async fn get_spells_search(
                 AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
                 AND ($7::int[] IS NULL OR lo.id = ANY($7))
                 AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
+                AND NOT (NOT $11::bool AND lc.legacy = FALSE)
+                AND NOT (NOT $12::bool AND lc.legacy = TRUE)
+
+                -- TODO: Do some tests on this, this might be a bad pattern
+                -- Or at least- maybe requires a WHERE = name + index?
+                AND (NOT $13::bool OR NOT lc.legacy OR
+                    lo.name NOT IN (
+                        SELECT name
+                        FROM library_objects inner_lo
+                        INNER JOIN library_spells inner_lc ON inner_lo.id = inner_lc.id
+                        WHERE inner_lc.legacy = TRUE
+                    )
+                )
+
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $11 OFFSET $12
+            LIMIT $14 OFFSET $15
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -172,6 +190,9 @@ pub async fn get_spells_search(
         &search.query,
         min_similarity as f64,
         search.favor_exact_start.unwrap_or_default(),
+        search.legacy.include_remaster(),
+        search.legacy.include_legacy(),
+        search.legacy.favor_remaster(),
         limit as i64,
         offset as i64,
     );
@@ -198,6 +219,7 @@ pub async fn get_spells_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
                 traditions: row.traditions,
+                legacy: row.legacy
             };
             map.entry(query)
                 .or_default()
@@ -253,13 +275,14 @@ pub async fn insert_spells(
     for (id, spell) in spells.iter().enumerate() {
         sqlx::query!(
             r#"
-            INSERT INTO library_spells (id, rarity, rank, traditions)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO library_spells (id, rarity, rank, traditions, legacy)
+            VALUES ($1, $2, $3, $4, $5)
         "#,
             ids[id] as i32,
             spell.rarity.as_i64() as i32,
             spell.rank as i32,
             &spell.traditions,
+            spell.legacy
         )
         .execute(exec)
         .await?;

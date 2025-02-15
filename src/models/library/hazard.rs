@@ -11,6 +11,7 @@ pub struct LibraryHazard {
     pub rarity: Rarity,
     pub level: i8,
     pub tags: Vec<String>,
+    pub legacy: bool,
 
     pub url: Option<String>,
     pub description: String,

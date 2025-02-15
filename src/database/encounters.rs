@@ -619,11 +619,12 @@ async fn get_values_items(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
+    // TODO: This needs to handle 'priceless' items better- currently just estimates as 0
     let ids = items.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
     let items_fetched = super::items::get_items(exec, &ItemFiltering::from_ids(&ids))
         .await?
         .into_iter()
-        .map(|i| (i.id, i.price as f32))
+        .map(|i| (i.id, i.price.unwrap_or(0.0) as f32))
         .collect::<HashMap<_, _>>();
 
     let mut values = vec![];

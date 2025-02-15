@@ -9,7 +9,10 @@
 
         formatCurrency,
 
-        getFullUrl
+        getFullUrl,
+
+        type Rune
+
 
 
     } from '$lib/types/library';
@@ -28,6 +31,7 @@
     let error: string | null = null;
     let searchQuery = '';
     let filterRarity: string = '';
+    let filterLegacy = 'remaster'; // default to match Rust enum default
 
     let minLevel = -1;
     let maxLevel = 30;
@@ -55,28 +59,43 @@
             { key: 'rarity', label: 'Rarity' },
             { key: 'rank', label: 'Level' },
             { key: 'traditions', label: 'Traditions', formatter: (traditions: string[]) => traditions.join(', ') },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         creature: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
             { key: 'size', label: 'Size' },
-            { key: 'alignment', label: 'Alignment' }
+            { key: 'alignment', label: 'Alignment' },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         hazard: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         item: [
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
-            { key: 'price', label: 'Price', formatter: (price: any) =>  formatCurrency(price)
-            },
-            { key: 'category', label: 'Category' },
-            { key: 'bulk', label: 'Bulk' }
+            { key: 'price', label: 'Price', formatter: (price: any) => formatCurrency(price) },
+            { key: 'item_categories', label: 'Categories', formatter: (categories: string[]) => categories.join(', ') },
+            { key: 'item_type', label: 'Type' },
+            { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
+            { key: 'runes', label: 'Runes', formatter: runeFormatter },
+            { key: 'consumable', label: 'Consumable', formatter: booleanFormatter },
+            { key: 'magical', label: 'Magical', formatter: booleanFormatter },
+            { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ]
+    };
+
+    const defaultColumns = {
+        class: ['name', 'rarity', 'hp', 'traditions'],
+        spell: ['name', 'rarity', 'rank', 'traditions'],
+        creature: ['name', 'rarity', 'level', 'size', 'alignment'],
+        hazard: ['name', 'rarity', 'level'],
+        item: ['name', 'rarity', 'level', 'price', 'item_categories', 'item_type', 'traits', 'runes', 'magical']
     };
 
     const pluralizations: Record<LibraryEntityType, string> = {
@@ -100,6 +119,39 @@
     let notification: string | null = null;
 
     let lockToCommonRange = false;
+
+    // Add these near the top with other state variables
+    let showColumnSelector = false;
+    let visibleColumns: Record<LibraryEntityType, Set<string>> = {
+        class: new Set(defaultColumns.class),
+        spell: new Set(defaultColumns.spell),
+        creature: new Set(defaultColumns.creature),
+        hazard: new Set(defaultColumns.hazard),
+        item: new Set(defaultColumns.item)
+    };
+
+    function toggleColumn(type: LibraryEntityType, columnKey: string) {
+        const newSet = new Set(visibleColumns[type]);
+        if (newSet.has(columnKey)) {
+            newSet.delete(columnKey);
+        } else {
+            newSet.add(columnKey);
+        }
+        visibleColumns[type] = newSet;
+    }
+
+    // Formatter function for boolean values
+    function booleanFormatter(value: boolean): string {
+        return value ? '✔️' : ''; // Checkmark for true, blank for false
+    }
+
+    // Formatter function for runes 
+    function runeFormatter(runes: Rune[]): string {
+        return runes.map(rune => {
+            let name = rune.property ? rune.property : rune.type;
+            return `${name} ${rune.potency}`;
+        }).join(', ');
+    }
 
     onMount(async () => {
         await fetchLibraryData(true);
@@ -218,8 +270,9 @@
                 limit: LIMIT.toString(),
                 ...(searchQuery && { name: searchQuery }),
                 ...(filterRarity && { rarity: filterRarity }),
-                ...(minLevel && { min_level: minLevel }),
-                ...(maxLevel && { max_level: maxLevel })
+                ...(minLevel && { min_level: minLevel.toString() }),
+                ...(maxLevel && { max_level: maxLevel.toString() }),
+                legacy: filterLegacy
             });
 
             const pluralType = pluralizations[activeTab];
@@ -247,7 +300,9 @@
 
     // Reset and refetch when filters change
     $: {
-        if (searchQuery !== undefined || filterRarity !== undefined || minLevel !== undefined || maxLevel !== undefined) {
+        if (searchQuery !== undefined || filterRarity !== undefined || 
+            minLevel !== undefined || maxLevel !== undefined || 
+            filterLegacy !== undefined) {
             fetchLibraryData(true);
         }
     }
@@ -354,6 +409,40 @@
                     {/if}
                 {/each}
             </select>
+
+            <select bind:value={filterLegacy} class="filter-select">
+                <option value="remaster">Remastered</option>
+                <option value="all">All Versions</option>
+                <option value="legacy_only">Legacy Only</option>
+                <option value="remaster_only">Remastered Only</option>
+            </select>
+        </div>
+
+        <div class="column-selector-container">
+            <button 
+                class="column-selector-toggle"
+                on:click={() => showColumnSelector = !showColumnSelector}
+            >
+                {showColumnSelector ? 'Hide' : 'Show'} Column Selector
+            </button>
+
+            {#if showColumnSelector}
+                <div class="column-selector" transition:slide>
+                    <h4>Toggle Visible Columns</h4>
+                    <div class="column-options">
+                        {#each columns[activeTab] as column}
+                            <label class="column-option">
+                                <input
+                                    type="checkbox"
+                                    checked={visibleColumns[activeTab].has(column.key)}
+                                    on:change={() => toggleColumn(activeTab, column.key)}
+                                />
+                                {column.label}
+                            </label>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
         </div>
 
     </div>
@@ -364,7 +453,9 @@
                 <tr>
                     <th></th> <!-- Column for expand/collapse -->
                     {#each columns[activeTab] as column}
-                        <th>{column.label}</th>
+                        {#if visibleColumns[activeTab].has(column.key)}
+                            <th>{column.label}</th>
+                        {/if}
                     {/each}
                     {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
                         <th>Experience</th>
@@ -391,13 +482,19 @@
                             </button>
                         </td>
                         {#each columns[activeTab] as column}
-                            <td>
-                                {#if column.formatter}
-                                    {@html column.formatter(entity[column.key as keyof typeof entity])}
-                                {:else}
-                                    {entity[column.key as keyof typeof entity]}
-                                {/if}
-                            </td>
+                            {#if visibleColumns[activeTab].has(column.key)}
+                                <td>
+                                    {#if column.key === 'rarity'}
+                                        <span class="rarity-label {entity[column.key as keyof typeof entity]}">
+                                            {entity[column.key as keyof typeof entity]}
+                                        </span>
+                                    {:else if column.formatter}
+                                        {@html column.formatter(entity[column.key as keyof typeof entity])}
+                                    {:else}
+                                        {entity[column.key as keyof typeof entity]}
+                                    {/if}
+                                </td>
+                            {/if}
                         {/each}
                         {#if isEncounterMode && activeTab === 'creature'}
                             <td>
@@ -483,7 +580,7 @@
 <style>
     .library-page {
         padding: 2rem;
-        max-width: 1400px;
+        max-width: 1600px;
         margin: 0 auto;
     }
 
@@ -853,5 +950,83 @@
 
     .table-container tr:nth-child(odd) {
         background-color: white; /* Default background for odd rows */
+    }
+
+    .column-selector-container {
+        margin-bottom: 1rem;
+    }
+
+    .column-selector-toggle {
+        background: #f3f4f6;
+        color: #111827;
+        border: 1px solid #d1d5db;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .column-selector-toggle:hover {
+        background: #e5e7eb;
+    }
+
+    .column-selector {
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .column-selector h4 {
+        margin: 0 0 0.75rem 0;
+        color: #374151;
+    }
+
+    .column-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .column-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #374151;
+        cursor: pointer;
+    }
+
+    .column-option input {
+        cursor: pointer;
+    }
+
+    .rarity-label {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: white;
+    }
+
+    .rarity-label.common {
+        background-color: #9ca3af; /* Grey */
+    }
+
+    .rarity-label.uncommon {
+        background-color: #fbbf24; /* Yellow */
+    }
+
+    .rarity-label.rare {
+        background-color: #3b82f6; /* Blue */
+    }
+
+    .rarity-label.unique {
+        background-color: #8b5cf6; /* Purple */
     }
 </style> 
