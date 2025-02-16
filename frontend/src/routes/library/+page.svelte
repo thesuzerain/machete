@@ -11,7 +11,10 @@
 
         getFullUrl,
 
-        type Rune
+        type Rune,
+
+        formatAlignment
+
 
 
 
@@ -90,12 +93,20 @@
         ]
     };
 
-    const defaultColumns = {
+    const defaultColumns: Record<LibraryEntityType, string[]> = {
         class: ['name', 'rarity', 'hp', 'traditions'],
         spell: ['name', 'rarity', 'rank', 'traditions'],
         creature: ['name', 'rarity', 'level', 'size', 'alignment'],
         hazard: ['name', 'rarity', 'level'],
         item: ['name', 'rarity', 'level', 'price', 'item_categories', 'item_type', 'traits', 'runes', 'magical']
+    };
+
+    const ignoredColumns: Record<LibraryEntityType, string[]> = {
+        class: ['id', 'url', 'description', 'remastering_alt_id'],
+        spell: ['id', 'url', 'description', 'remastering_alt_id'],
+        creature: ['id', 'url', 'description', 'remastering_alt_id'],
+        hazard: ['id', 'url', 'description', 'remastering_alt_id'],
+        item: ['id', 'url', 'description', 'remastering_alt_id']
     };
 
     const pluralizations: Record<LibraryEntityType, string> = {
@@ -330,6 +341,14 @@
     function toggleCommonRange() {
         lockToCommonRange = !lockToCommonRange;
     }
+
+    function formatDetailLabel(key: string): string {
+        return key
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
 </script>
 
 <div class="library-page">
@@ -412,6 +431,7 @@
 
             <select bind:value={filterLegacy} class="filter-select">
                 <option value="remaster">Remastered</option>
+                <option value="remaster">Legacy</option>
                 <option value="all">All Versions</option>
                 <option value="legacy_only">Legacy Only</option>
                 <option value="remaster_only">Remastered Only</option>
@@ -521,13 +541,41 @@
                             <td colspan={columns[activeTab].length + (isEncounterMode && activeTab === 'creature' ? 1 : 0) + 2}>
                                 <div class="entity-details">
                                     {#if entity.description}
-                                        <div class="description">
+                                        <div class="detail-section">
                                             <h4>Description</h4>
                                             <p>{entity.description}</p>
                                         </div>
                                     {/if}
+
+                                    <div class="detail-section detail-grid">
+                                        {#each Object.entries(entity) as [key, value]}
+                                            {#if !ignoredColumns[activeTab as keyof typeof ignoredColumns]?.includes(key) && value !== undefined && value !== null}
+                                                <div class="detail-item">
+                                                    <span class="detail-label">{formatDetailLabel(key)}</span>
+                                                    <span class="detail-value">
+                                                        {#if key === 'alignment'}
+                                                            {formatAlignment(value)}
+                                                        {:else if key === 'price'}
+                                                            {formatCurrency(value)}
+                                                        {:else if key === 'rarity'}
+                                                            <span class="rarity-label {value}">{value}</span>
+                                                        {:else if Array.isArray(value)}
+                                                            {value.join(', ')}
+                                                        {:else if typeof value === 'boolean'}
+                                                            {value ? '✔️' : '❌'}
+                                                        {:else if key === 'runes' && value.length > 0}
+                                                            {value.map(rune => `${rune.property || rune.type} ${rune.potency}`).join(', ')}
+                                                        {:else}
+                                                            {value}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                            {/if}
+                                        {/each}
+                                    </div>
+
                                     {#if entity.url}
-                                        <div class="external-link">
+                                        <div class="detail-section">
                                             <a href={getFullUrl(entity.url)} target="_blank" rel="noopener noreferrer">
                                                 View More Details ↗
                                             </a>
@@ -744,19 +792,39 @@
     }
 
     .entity-details {
-        padding: 1rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 0.5rem;
+    }
+
+    .detail-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .detail-grid {
         display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 1rem;
     }
 
-    .description h4 {
-        margin: 0 0 0.5rem 0;
-        color: #374151;
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
     }
 
-    .description p {
+    .detail-label {
+        font-weight: 500;
         color: #4b5563;
-        line-height: 1.5;
+        font-size: 0.875rem;
+    }
+
+    .detail-value {
+        color: #111827;
     }
 
     .external-link a {

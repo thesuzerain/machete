@@ -15,7 +15,9 @@ pub struct LibraryCreature {
     pub tags: Vec<String>,
     pub alignment: Alignment,
     pub size: Size,
+    pub traits: Vec<String>,
     pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
 
     pub url: Option<String>,
     pub description: String,
@@ -23,24 +25,24 @@ pub struct LibraryCreature {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub enum Alignment {
-    #[serde(rename = "lg")]
+    #[serde(rename = "LG")]
     LawfulGood,
-    #[serde(rename = "ng")]
+    #[serde(rename = "NG")]
     NeutralGood,
-    #[serde(rename = "cg")]
+    #[serde(rename = "CG")]
     ChaoticGood,
-    #[serde(rename = "ln")]
+    #[serde(rename = "LN")]
     LawfulNeutral,
-    #[serde(rename = "n")]
+    #[serde(rename = "N")]
     #[default]
     TrueNeutral,
-    #[serde(rename = "cn")]
+    #[serde(rename = "CN")]
     ChaoticNeutral,
-    #[serde(rename = "le")]
+    #[serde(rename = "LE")]
     LawfulEvil,
-    #[serde(rename = "ne")]
+    #[serde(rename = "NE")]
     NeutralEvil,
-    #[serde(rename = "ce")]
+    #[serde(rename = "CE")]
     ChaoticEvil,
     #[serde(other)]
     None,
@@ -117,16 +119,16 @@ impl FromStr for Alignment {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Lawful Good" => Ok(Alignment::LawfulGood),
-            "Neutral Good" => Ok(Alignment::NeutralGood),
-            "Chaotic Good" => Ok(Alignment::ChaoticGood),
-            "Lawful Neutral" => Ok(Alignment::LawfulNeutral),
-            "True Neutral" => Ok(Alignment::TrueNeutral),
-            "Chaotic Neutral" => Ok(Alignment::ChaoticNeutral),
-            "Lawful Evil" => Ok(Alignment::LawfulEvil),
-            "Neutral Evil" => Ok(Alignment::NeutralEvil),
-            "Chaotic Evil" => Ok(Alignment::ChaoticEvil),
+        match s.to_lowercase().as_str() {
+            "lawful good" | "lg" => Ok(Alignment::LawfulGood),
+            "neutral good" | "ng" => Ok(Alignment::NeutralGood),
+            "chaotic good" | "cg" => Ok(Alignment::ChaoticGood),
+            "lawful neutral" | "ln" => Ok(Alignment::LawfulNeutral),
+            "true neutral" | "tn" => Ok(Alignment::TrueNeutral),
+            "chaotic neutral" | "cn" => Ok(Alignment::ChaoticNeutral),
+            "lawful evil" | "le" => Ok(Alignment::LawfulEvil),
+            "neutral evil" | "ne" => Ok(Alignment::NeutralEvil),
+            "chaotic evil" | "ce" => Ok(Alignment::ChaoticEvil),
             _ => Err(()),
         }
     }

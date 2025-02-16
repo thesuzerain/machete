@@ -60,11 +60,11 @@ pub async fn get_characters(
         .into_iter()
         .map(|row| {
             Ok(Character {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 level: row.level as u8,
                 player: row.player,
-                class: InternalId(row.class as u64),
+                class: InternalId(row.class as u32),
             })
         })
         .collect::<Result<Vec<Character>, sqlx::Error>>()?;
@@ -95,11 +95,11 @@ pub async fn get_chracter_id(
     );
 
     let character = query.fetch_optional(exec).await?.map(|row| Character {
-        id: InternalId(row.id as u64),
+        id: InternalId(row.id as u32),
         name: row.name,
         level: row.level as u8,
         player: row.player,
-        class: InternalId(row.class as u64),
+        class: InternalId(row.class as u32),
     });
     Ok(character)
 }
@@ -119,7 +119,7 @@ pub async fn edit_character(
         "#,
         character.name,
         character.player,
-        character.class.as_ref().map(|c| c.0 as i64),
+        character.class.as_ref().map(|c| c.0 as i32),
         character_id.0 as i32,
     );
 

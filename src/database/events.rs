@@ -69,9 +69,9 @@ pub async fn get_events(
         .into_iter()
         .map(|row| {
             Ok(Event {
-                id: InternalId(row.id as u64),
-                log: row.log.map(|l| InternalId(l as u64)),
-                character: row.character.map(|c| InternalId(c as u64)),
+                id: InternalId(row.id as u32),
+                log: row.log.map(|l| InternalId(l as u32)),
+                character: row.character.map(|c| InternalId(c as u32)),
                 timestamp: row.timestamp.and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
@@ -104,7 +104,7 @@ pub async fn get_owned_events_ids(
     .fetch_all(exec)
     .await?
     .into_iter()
-    .map(|row| InternalId(row.id as u64))
+    .map(|row| InternalId(row.id as u32))
     .collect();
 
     Ok(query)
@@ -141,9 +141,9 @@ pub async fn get_events_ids(
         .into_iter()
         .map(|row| {
             Ok(Event {
-                id: InternalId(row.id as u64),
-                log: row.log.map(|l| InternalId(l as u64)),
-                character: row.character.map(|c| InternalId(c as u64)),
+                id: InternalId(row.id as u32),
+                log: row.log.map(|l| InternalId(l as u32)),
+                character: row.character.map(|c| InternalId(c as u32)),
                 timestamp: row.timestamp.and_utc(),
                 event_type: serde_json::from_value(row.event_data)?,
             })
@@ -223,7 +223,7 @@ pub async fn edit_event(
         "#,
         event_type,
         // TODO: Ensure no bad conversions with these
-        new_event.character.map(|c| c.0 as i64),
+        new_event.character.map(|c| c.0 as i32),
         event_id.0 as i32,
         owner.0 as i32,
     )

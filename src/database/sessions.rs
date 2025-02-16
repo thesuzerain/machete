@@ -98,14 +98,14 @@ pub async fn get_sessions(
                 character_rewards
                     .into_iter()
                     .fold(HashMap::new(), |mut acc, row| {
-                        let character_id = InternalId(row.character_id as u64);
+                        let character_id = InternalId(row.character_id as u32);
                         acc.insert(
                             character_id,
                             CampaignSessionCharacterRewards {
                                 items: row
                                     .item_rewards
                                     .iter()
-                                    .map(|e| InternalId(*e as u64))
+                                    .map(|e| InternalId(*e as u32))
                                     .collect(),
                                 gold: row.gold_rewards,
                             },
@@ -116,11 +116,11 @@ pub async fn get_sessions(
                 .encounter_ids
                 .unwrap_or_default()
                 .iter()
-                .map(|e| InternalId(*e as u64))
+                .map(|e| InternalId(*e as u32))
                 .collect::<Vec<InternalId>>();
 
             Ok(CampaignSession {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 description: row.description,
                 session_order: row.session_order as u32,
@@ -131,7 +131,7 @@ pub async fn get_sessions(
                 unassigned_item_rewards: row
                     .unassigned_item_rewards
                     .iter()
-                    .map(|e| InternalId(*e as u64))
+                    .map(|e| InternalId(*e as u32))
                     .collect(),
                 total_experience: row.total_experience.map(|e| e as u64).unwrap_or_default(),
                 total_treasure_value: row.total_treasure_value.unwrap_or_default(),
@@ -263,7 +263,7 @@ pub async fn get_owned_session_ids(
     .fetch_all(exec)
     .await?
     .iter()
-    .map(|row| InternalId(row.id as u64))
+    .map(|row| InternalId(row.id as u32))
     .collect();
 
     Ok(query)
@@ -357,7 +357,7 @@ pub async fn unlink_encounter_from_session(
     .await?;
 
     let mut gold: f64 = res.treasure_currency.unwrap_or_default();
-    let mut items: Vec<i64> = res.treasure_items;
+    let mut items: Vec<i32> = res.treasure_items;
 
     let gold_copy = gold;
     let items_copy = items.clone();
@@ -374,7 +374,7 @@ pub async fn unlink_encounter_from_session(
     .fetch_one(&mut **tx)
     .await?;
     let mut unassigned_gold_rewards: f64 = res.unassigned_gold_rewards;
-    let mut unassigned_item_rewards: Vec<i64> = res.unassigned_item_rewards;
+    let mut unassigned_item_rewards: Vec<i32> = res.unassigned_item_rewards;
 
     // Remove as much gold and items as the encounter contributed as possible from unassigned rewards
     remove_contributions_from_character(
@@ -399,7 +399,7 @@ pub async fn unlink_encounter_from_session(
 
     // Exit early if all gold and items were removed
     if gold == 0.0 && items.is_empty() {
-        return Ok(Some(InternalId(session_id as u64)));
+        return Ok(Some(InternalId(session_id as u32)));
     }
 
     // Fetch total gold and items per character
@@ -459,19 +459,19 @@ pub async fn unlink_encounter_from_session(
             .values()
             .flat_map(|(_, items)| items)
             .copied()
-            .collect::<Vec<i64>>();
+            .collect::<Vec<i32>>();
         return Err(crate::ServerError::InternalError(format!("Could not unlink successfully: inconsistent number of items. {:?} items in characters/unassigned, {:?} items in encounter.", character_items, items_copy)));
     }
 
-    Ok(Some(InternalId(session_id as u64)))
+    Ok(Some(InternalId(session_id as u32)))
 }
 
 // TODO: This function could be made more efficient- or perhaps moved entirely into Postgres
 fn remove_contributions_from_character(
     remove_gold: &mut f64,
-    remove_items: &mut Vec<i64>,
+    remove_items: &mut Vec<i32>,
     character_gold: &mut f64,
-    character_items: &mut Vec<i64>,
+    character_items: &mut Vec<i32>,
 ) {
     // Remove as much gold as possible
     if remove_gold <= character_gold {
@@ -526,7 +526,7 @@ pub async fn edit_encounter_session_character_assignments(
             session_id.0 as i32,
             character_id.0 as i64,
             update.gold,
-            &update.items.iter().map(|e| e.0 as i64).collect::<Vec<i64>>(),
+            &update.items.iter().map(|e| e.0 as i32).collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;

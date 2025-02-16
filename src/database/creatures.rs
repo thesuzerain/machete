@@ -1,3 +1,4 @@
+use super::check_library_requested_ids;
 use super::LegacyStatus;
 use super::DEFAULT_MAX_LIMIT;
 use crate::models::ids::InternalId;
@@ -94,6 +95,25 @@ impl From<CreatureFiltering> for CreatureSearch {
     }
 }
 
+// TODO: 'Filterable' is kind of a mess
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertLibraryCreature {
+    pub requested_id: Option<InternalId>,
+    pub name: String,
+    pub game_system: GameSystem,
+    pub rarity: Rarity,
+    pub level: i8,
+    pub tags: Vec<String>,
+    pub alignment: Alignment,
+    pub size: Size,
+    pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
+    pub traits: Vec<String>,
+
+    pub url: Option<String>,
+    pub description: String,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -162,7 +182,9 @@ pub async fn get_creatures_search(
                 alignment,
                 size,
                 ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
-                lc.legacy
+                lo.legacy,
+                lo.remastering_alt_id,
+                traits
             FROM library_objects lo
             INNER JOIN library_creatures lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -179,22 +201,13 @@ pub async fn get_creatures_search(
                 AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
                 AND ($9::int[] IS NULL OR lo.id = ANY($9))
                 AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
-                AND NOT (NOT $13::bool AND lc.legacy = FALSE)
-                AND NOT (NOT $14::bool AND lc.legacy = TRUE)
-
-                -- TODO: Do some tests on this, this might be a bad pattern
-                -- Or at least- maybe requires a WHERE = name + index?
-                AND (NOT $15::bool OR NOT lc.legacy OR
-                    lo.name NOT IN (
-                        SELECT name
-                        FROM library_objects inner_lo
-                        INNER JOIN library_creatures inner_lc ON inner_lo.id = inner_lc.id
-                        WHERE inner_lc.legacy = TRUE
-                    )
-                )
+                AND NOT (NOT $13::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $14::bool AND lo.legacy = TRUE)
+                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
 
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $16 OFFSET $17
+            LIMIT $17 OFFSET $18
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -213,6 +226,7 @@ pub async fn get_creatures_search(
         search.legacy.include_remaster(),
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
+        search.legacy.favor_legacy(),
         limit as i64,
         offset as i64,
     );
@@ -231,7 +245,7 @@ pub async fn get_creatures_search(
         .fold(hm, |mut map, row| {
             let query = row.query;
             let creature = LibraryCreature {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
@@ -242,6 +256,8 @@ pub async fn get_creatures_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
                 legacy: row.legacy,
+                remastering_alt_id: row.remastering_alt_id.map(|id| InternalId(id as u32)),
+                traits: row.traits,
             };
 
             map.entry(query)
@@ -255,19 +271,31 @@ pub async fn get_creatures_search(
 
 pub async fn insert_creatures(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    creatures: &[LibraryCreature],
+    creatures: &[InsertLibraryCreature],
 ) -> crate::Result<()> {
     // TODO: we don't need two tables for this.
 
     if creatures.is_empty() {
         return Ok(());
     }
+    // First, check to make sure all requested ids are not already in use
+    let requested_ids = creatures
+        .iter()
+        .filter_map(|i| i.requested_id)
+        .map(|id| id.0 as i32)
+        .collect::<Vec<i32>>();
+    check_library_requested_ids(exec, &requested_ids).await?;
+
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system, url, description)
-        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
+        INSERT INTO library_objects (id, name, game_system, url, description, legacy, remastering_alt_id)
+        SELECT * FROM UNNEST ($1::int[], $2::text[], $3::int[], $4::text[], $5::text[], $6::bool[], $7::int[])
         RETURNING id  
     "#,
+        &creatures
+            .iter()
+            .map(|c| c.requested_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
         &creatures
             .iter()
             .map(|c| c.name.clone())
@@ -284,6 +312,14 @@ pub async fn insert_creatures(
             .iter()
             .map(|c| c.description.clone())
             .collect::<Vec<String>>(),
+        &creatures
+            .iter()
+            .map(|c| c.legacy)
+            .collect::<Vec<bool>>(),
+        &creatures
+            .iter()
+            .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
     )
     .fetch_all(exec)
     .await?
@@ -291,36 +327,23 @@ pub async fn insert_creatures(
     .map(|row| Ok(row.id))
     .collect::<Result<Vec<i32>, sqlx::Error>>()?;
 
-    // TODO: 'as i32' should be unnecessary- fix in models
-    sqlx::query!(
-        r#"
-        INSERT INTO library_creatures (id, rarity, level, alignment, size, legacy)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::int[], $5::int[], $6::bool[])
-        "#,
-        &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
-        &creatures
-            .iter()
-            .map(|c| c.rarity.as_i64() as i32)
-            .collect::<Vec<i32>>(),
-        &creatures
-            .iter()
-            .map(|c| c.level as i32)
-            .collect::<Vec<i32>>(),
-        &creatures
-            .iter()
-            .map(|c| c.alignment.as_i64() as i32)
-            .collect::<Vec<i32>>(),
-        &creatures
-            .iter()
-            .map(|c| c.size.as_i64() as i32)
-            .collect::<Vec<i32>>(),
-        &creatures
-            .iter()
-            .map(|c| c.legacy)
-            .collect::<Vec<bool>>(),
-    )
-    .execute(exec)
-    .await?;
+    // TODO: annoying no unnest thing
+    for (creature, id) in creatures.iter().zip(ids.iter()) {
+        sqlx::query!(
+            r#"
+            INSERT INTO library_creatures (id, rarity, level, alignment, size, traits)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+            id,
+            creature.rarity.as_i64() as i32,
+            creature.level as i32,
+            creature.alignment.as_i64() as i32,
+            creature.size.as_i64() as i32,
+            &creature.traits,
+        )
+        .execute(exec)
+        .await?;
+    }
 
     Ok(())
 }

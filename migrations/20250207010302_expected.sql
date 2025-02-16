@@ -1,21 +1,22 @@
 -- Extends library items with some more information useful for generating expected treasure
 ALTER TABLE library_items ALTER COLUMN price TYPE double precision;
 ALTER TABLE library_items ADD COLUMN item_categories varchar(64)[] NOT NULL DEFAULT '{}';
-ALTER TABLE library_items ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
-
 ALTER TABLE library_items ADD COLUMN consumable boolean NOT NULL DEFAULT FALSE;
 ALTER TABLE library_items ADD COLUMN magical boolean NOT NULL DEFAULT FALSE;
-
 ALTER TABLE library_items ADD COLUMN item_type varchar(16) ;
 ALTER TABLE library_items ADD COLUMN apex_stat varchar(27) ;
 
-ALTER TABLE library_items ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
-ALTER TABLE library_hazards ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
-ALTER TABLE library_spells ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
-ALTER TABLE library_creatures ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE library_creatures ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
+ALTER TABLE library_spells ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
+ALTER TABLE library_items ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
+
+ALTER TABLE library_objects ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
+
+-- Alternate item for pre/post remastering. If something was renamed, this connects them.
+ALTER TABLE library_objects ADD COLUMN remastering_alt_id int REFERENCES library_objects;
 
 CREATE TABLE library_items_skill_boosts (
-    item_id BIGINT REFERENCES library_items(id),
+    item_id INT REFERENCES library_items(id),
     skill VARCHAR(64), -- Null if unrecognized
     bonus SMALLINT NOT NULL
 );
@@ -31,7 +32,7 @@ VALUES
 
 CREATE TABLE runes (
     id SERIAL PRIMARY KEY,
-    item_id BIGINT NOT NULL REFERENCES library_items(id), -- Item of the rune
+    item_id INT NOT NULL REFERENCES library_items(id), -- Item of the rune
     name VARCHAR(64) NOT NULL,
     fundamental boolean NOT NULL DEFAULT FALSE,
     stat_boost_category_id SMALLINT REFERENCES stat_boost_category_types(id),
@@ -43,8 +44,8 @@ CREATE TABLE runes (
     UNIQUE(name, legacy, potency, applied_to_item_type)
 );
 CREATE TABLE library_items_runes (
-    item_id BIGINT NOT NULL REFERENCES library_items(id),
-    rune_id BIGINT NOT NULL REFERENCES runes(id)
+    item_id INT NOT NULL REFERENCES library_items(id),
+    rune_id INT NOT NULL REFERENCES runes(id)
 );
 
 

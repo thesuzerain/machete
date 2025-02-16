@@ -21,7 +21,7 @@ CREATE TABLE library_hazards (
 
 CREATE TABLE campaigns (
     id SERIAL PRIMARY KEY,
-    owner BIGINT REFERENCES users NOT NULL,
+    owner INT REFERENCES users NOT NULL,
     name VARCHAR(60) NOT NULL,
     description TEXT
 );
@@ -31,13 +31,13 @@ CREATE TABLE characters (
     name VARCHAR(60) NOT NULL,
     player VARCHAR(60),
     level INT NOT NULL,
-    campaign BIGINT REFERENCES campaigns NOT NULL,
-    class BIGINT REFERENCES library_classes NOT NULL
+    campaign INT REFERENCES campaigns NOT NULL,
+    class INT REFERENCES library_classes NOT NULL
 );
 
 CREATE TABLE event_groups (
     id SERIAL PRIMARY KEY,
-    campaign BIGINT REFERENCES campaigns NOT NULL,
+    campaign INT REFERENCES campaigns NOT NULL,
     name VARCHAR(60) NOT NULL,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description TEXT
@@ -45,9 +45,9 @@ CREATE TABLE event_groups (
 
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    event_group BIGINT REFERENCES event_groups,
-    campaign BIGINT REFERENCES campaigns NOT NULL,
-    character BIGINT REFERENCES characters,
+    event_group INT REFERENCES event_groups,
+    campaign INT REFERENCES campaigns NOT NULL,
+    character INT REFERENCES characters,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     event_data JSONB NOT NULL
 );
@@ -57,10 +57,10 @@ CREATE TABLE encounters (
     status SMALLINT NOT NULL,
     name VARCHAR(60) NOT NULL,
     description TEXT,
-    enemies BIGINT[] NOT NULL,
-    hazards BIGINT[] NOT NULL,
+    enemies INT[] NOT NULL,
+    hazards INT[] NOT NULL,
     party_level INT NOT NULL,
     party_size INT NOT NULL,
     treasure_currency INTEGER,
-    treasure_items BIGINT[] NOT NULL
+    treasure_items INT[] NOT NULL
 );

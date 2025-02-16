@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::query::CommaSeparatedVec;
 
-use super::{LegacyStatus, DEFAULT_MAX_LIMIT};
+use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct SpellFiltering {
@@ -79,6 +79,24 @@ impl From<SpellFiltering> for SpellSearch {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertLibrarySpell {
+    pub requested_id: Option<InternalId>,
+    pub name: String,
+    pub game_system: GameSystem,
+    pub rarity: Rarity,
+    pub rank: u8,
+    pub tags: Vec<String>,
+    pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
+    pub traits: Vec<String>,
+
+    pub traditions: Vec<String>,
+
+    pub url: Option<String>,
+    pub description: String,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -146,7 +164,9 @@ pub async fn get_spells_search(
                 rank,
                 traditions,
                 ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
-                legacy
+                legacy,
+                remastering_alt_id,
+                traits
             FROM library_objects lo
             INNER JOIN library_spells lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -161,22 +181,14 @@ pub async fn get_spells_search(
                 AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
                 AND ($7::int[] IS NULL OR lo.id = ANY($7))
                 AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
-                AND NOT (NOT $11::bool AND lc.legacy = FALSE)
-                AND NOT (NOT $12::bool AND lc.legacy = TRUE)
+                AND NOT (NOT $11::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $12::bool AND lo.legacy = TRUE)
+                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
 
-                -- TODO: Do some tests on this, this might be a bad pattern
-                -- Or at least- maybe requires a WHERE = name + index?
-                AND (NOT $13::bool OR NOT lc.legacy OR
-                    lo.name NOT IN (
-                        SELECT name
-                        FROM library_objects inner_lo
-                        INNER JOIN library_spells inner_lc ON inner_lo.id = inner_lc.id
-                        WHERE inner_lc.legacy = TRUE
-                    )
-                )
 
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $14 OFFSET $15
+            LIMIT $15 OFFSET $16
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -193,6 +205,7 @@ pub async fn get_spells_search(
         search.legacy.include_remaster(),
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
+        search.legacy.favor_legacy(),
         limit as i64,
         offset as i64,
     );
@@ -210,7 +223,7 @@ pub async fn get_spells_search(
         .fold(hm, |mut map, row| {
             let query = row.query;
             let spell = LibrarySpell {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
@@ -219,7 +232,8 @@ pub async fn get_spells_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
                 traditions: row.traditions,
-                legacy: row.legacy
+                legacy: row.legacy,
+                traits: row.traits,
             };
             map.entry(query)
                 .or_default()
@@ -231,19 +245,32 @@ pub async fn get_spells_search(
 
 pub async fn insert_spells(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    spells: &[LibrarySpell],
+    spells: &[InsertLibrarySpell],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 
     if spells.is_empty() {
         return Ok(());
     }
+
+    // First, check to make sure all requested ids are not already in use
+    let requested_ids = spells
+        .iter()
+        .filter_map(|i| i.requested_id)
+        .map(|id| id.0 as i32)
+        .collect::<Vec<i32>>();
+    check_library_requested_ids(exec, &requested_ids).await?;
+
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system, url, description)
-        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
+        INSERT INTO library_objects (id, name, game_system, url, description, legacy, remastering_alt_id)
+        SELECT * FROM UNNEST ($1::int[], $2::text[], $3::int[], $4::text[], $5::text[], $6::bool[], $7::int[])
         RETURNING id  
     "#,
+        &spells
+            .iter()
+            .map(|c| c.requested_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
         &spells
             .iter()
             .map(|c| c.name.clone())
@@ -260,6 +287,14 @@ pub async fn insert_spells(
             .iter()
             .map(|c| c.description.clone())
             .collect::<Vec<String>>(),
+        &spells
+            .iter()
+            .map(|c| c.legacy)
+            .collect::<Vec<bool>>(),
+        &spells
+            .iter()
+            .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _
     )
     .fetch_all(exec)
     .await?
@@ -275,14 +310,14 @@ pub async fn insert_spells(
     for (id, spell) in spells.iter().enumerate() {
         sqlx::query!(
             r#"
-            INSERT INTO library_spells (id, rarity, rank, traditions, legacy)
+            INSERT INTO library_spells (id, rarity, rank, traditions, traits)
             VALUES ($1, $2, $3, $4, $5)
         "#,
             ids[id] as i32,
             spell.rarity.as_i64() as i32,
             spell.rank as i32,
             &spell.traditions,
-            spell.legacy
+            &spell.traits
         )
         .execute(exec)
         .await?;

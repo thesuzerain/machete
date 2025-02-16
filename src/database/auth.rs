@@ -59,7 +59,7 @@ pub async fn insert_user(
     .fetch_one(exec)
     .await?;
 
-    Ok(InternalId(id.id as u64))
+    Ok(InternalId(id.id as u32))
 }
 
 pub async fn delete_user(
@@ -118,7 +118,7 @@ pub async fn get_user_for_session(
     );
 
     let user = query.fetch_optional(exec).await?.map(|row| User {
-        id: InternalId(row.id as u64),
+        id: InternalId(row.id as u32),
         username: row.username,
         is_admin: row.is_admin.unwrap_or(false),
     });

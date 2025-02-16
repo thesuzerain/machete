@@ -130,7 +130,7 @@ async fn login(
     Json(credentials): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, crate::ServerError> {
     if let Some(user) = database::auth::get_user_by_name(&pool, &credentials.username).await? {
-        let user_id = InternalId(user.id as u64);
+        let user_id = InternalId(user.id as u32);
         if !bcrypt::verify(credentials.password, &user.password_hash).unwrap() {
             return Err(crate::ServerError::Unauthorized);
         }

@@ -11,6 +11,7 @@ pub struct LibrarySpell {
     pub rank: u8,
     pub tags: Vec<String>,
     pub legacy: bool,
+    pub traits: Vec<String>,
 
     pub traditions: Vec<String>,
 
