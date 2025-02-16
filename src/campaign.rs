@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     auth::extract_user_from_cookies,
-    database::sessions::{
-        InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions,
+    database::{
+        import::ImportCampaign,
+        sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions},
     },
     models::ids::InternalId,
     AppState,
@@ -34,6 +35,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_campaigns))
         .route("/", post(insert_campaign))
+        .route("/import", post(import_campaign)) // TODO: Does this need to differ from generic 'insert'?
+        .route("/:id/export", get(export_campaign))
         .route("/:id/characters", get(get_characters))
         .route("/:id/characters", post(insert_characters))
         .route("/:id/characters/:id", put(edit_character))
@@ -69,6 +72,7 @@ async fn get_campaigns(
     State(pool): State<PgPool>,
     jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
+    println!("Jar: {:?}", jar);
     let user = extract_user_from_cookies(&jar, &pool).await?;
     let campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     Ok(Json(campaigns))
@@ -80,8 +84,12 @@ async fn insert_campaign(
     Json(campaign): Json<InsertCampaign>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    let campaign_id = database::campaigns::insert_campaign(&pool, &campaign, user.id).await?;
-    let owned_campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
+    let mut tx = pool.begin().await?;
+    let campaign_id =
+        database::campaigns::insert_campaign(&mut tx, &campaign, true, user.id).await?;
+    let owned_campaigns = database::campaigns::get_campaigns_owner(&mut *tx, user.id).await?;
+    tx.commit().await?;
+
     let campaign = owned_campaigns
         .into_iter()
         .find(|c| c.id == campaign_id)
@@ -125,7 +133,10 @@ async fn insert_characters(
         return Err(ServerError::NotFound);
     }
 
-    database::characters::insert_characters(&pool, id, &characters).await?;
+    let mut tx = pool.begin().await?;
+    database::characters::insert_characters(&mut tx, id, &characters).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -372,7 +383,10 @@ async fn insert_sessions(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::insert_sessions(&pool, id, &session).await?;
+    let mut tx = pool.begin().await?;
+    database::sessions::insert_sessions(&mut tx, id, &session).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -487,4 +501,43 @@ async fn unlink_session_encounters(
     tx.commit().await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn import_campaign(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Json(campaign): Json<ImportCampaign>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+    let mut tx = pool.begin().await?;
+
+    let campaign_id = database::import::import_with_functions(campaign, &mut tx, user.id).await?;
+    let owned_campaigns = database::campaigns::get_campaigns_owner(&mut *tx, user.id).await?;
+    tx.commit().await?;
+
+    let campaign = owned_campaigns
+        .into_iter()
+        .find(|c| c.id == campaign_id)
+        .ok_or(ServerError::NotFound)?;
+    Ok(Json(campaign))
+}
+
+async fn export_campaign(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Ensure owned
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let campaign = database::import::export(id, &pool, user.id).await?;
+
+    Ok(Json(campaign))
 }

@@ -26,6 +26,7 @@ pub struct CreatureFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
@@ -67,6 +68,7 @@ pub struct CreatureSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub page: Option<u64>,

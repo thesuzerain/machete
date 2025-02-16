@@ -11,6 +11,7 @@
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
     import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
+    import CampaignExportTab from '$lib/components/CampaignExportTab.svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import CampaignSessionsTab from '$lib/components/CampaignSessionsTab.svelte';
   import { encounterStore } from '$lib/stores/encounters';
@@ -20,7 +21,7 @@
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'summary' | 'sessions' | 'characters' | 'logs' | 'import' = 'summary';
+    let activeTab: 'summary' | 'sessions' | 'characters' | 'logs' | 'import' | 'export' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
@@ -132,6 +133,12 @@
         >
             Import
         </button>
+        <button 
+            class="tab-button {activeTab === 'export' ? 'active' : ''}"
+            on:click={() => activeTab = 'export'}
+        >
+            Export
+        </button>
     </div>
 
     {#if activeTab === 'summary'}
@@ -154,6 +161,10 @@
                 {characters}
                 {fetchLogs}
                 bind:error
+            />
+        {:else if activeTab === 'export'}
+            <CampaignExportTab
+                campaignId={selectedCampaignId}
             />
         {:else}
             <CampaignImportTab

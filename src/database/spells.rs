@@ -23,6 +23,7 @@ pub struct SpellFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -54,6 +55,7 @@ pub struct SpellSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,

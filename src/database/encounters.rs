@@ -30,7 +30,7 @@ impl EncounterFilters {
 #[derive(serde::Deserialize, Debug, Default)]
 pub struct InsertEncounter {
     pub name: String,
-    pub description: String,
+    pub description: Option<String>,
 
     pub session_id: Option<InternalId>,
 
@@ -58,7 +58,7 @@ pub enum InsertEncounterEnemy {
     Id(InternalId),
     IdAndLevelAdjustment {
         id: InternalId,
-        level_adjustment: i8,
+        level_adjustment: i16,
     },
 }
 
@@ -70,7 +70,7 @@ impl InsertEncounterEnemy {
         }
     }
 
-    pub fn to_level_adjustment(&self) -> Option<i8> {
+    pub fn to_level_adjustment(&self) -> Option<i16> {
         match self {
             InsertEncounterEnemy::Id(_) => None,
             InsertEncounterEnemy::IdAndLevelAdjustment {
@@ -279,7 +279,7 @@ pub async fn insert_encounters(
             RETURNING id
             "#,
             &encounter.name,
-            &encounter.description,
+            encounter.description.as_deref(),
             &encounter.enemies.iter().map(|e| e.to_id().0 as i32).collect::<Vec<i32>>(),
             &encounter.enemies.iter().map(|e| e.to_level_adjustment().unwrap_or(0) as i16).collect::<Vec<i16>>(),
             &encounter.hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
@@ -326,7 +326,7 @@ pub async fn edit_encounter(
     let enemy_level_adjustments = new_encounter.enemies.as_ref().map(|enemies| {
         enemies
             .iter()
-            .map(|e| e.to_level_adjustment().unwrap_or(0) as i16)
+            .map(|e| e.to_level_adjustment().unwrap_or(0))
             .collect::<Vec<i16>>()
     });
 
@@ -433,7 +433,7 @@ pub async fn insert_user_encounter_draft(
         RETURNING id
         "#,
         &encounter.name,
-        &encounter.description,
+        encounter.description.as_deref(),
         &encounter.enemies.iter().map(|e| e.to_id().0 as i32).collect::<Vec<i32>>(),
         &encounter.enemies.iter().map(|e| e.to_level_adjustment().unwrap_or(0) as i16).collect::<Vec<i16>>(),
         &encounter.hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),

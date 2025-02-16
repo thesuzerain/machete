@@ -34,6 +34,7 @@ pub struct EncounterEnemy {
     pub level_adjustment: i16,
 }
 
+// TODO: We may want to remove this
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub enum CompletionStatus {
     Draft,
