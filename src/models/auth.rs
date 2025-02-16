@@ -19,7 +19,7 @@ pub struct User {
 impl From<DatabaseUser> for User {
     fn from(user: DatabaseUser) -> Self {
         User {
-            id: InternalId(user.id as u64),
+            id: InternalId(user.id as u32),
             username: user.username,
             is_admin: user.is_admin,
         }

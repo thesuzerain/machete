@@ -53,7 +53,7 @@ pub async fn get_logs(
         .iter()
         .flat_map(|log| log.events.clone())
         .flatten()
-        .map(|id| InternalId(id as u64))
+        .map(|id| InternalId(id as u32))
         .collect::<Vec<_>>();
     let all_events = events::get_events_ids(exec, &all_event_ids).await?;
 
@@ -61,7 +61,7 @@ pub async fn get_logs(
         .into_iter()
         .map(|row| {
             let event_group = EventGroup {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 timestamp: row.timestamp.and_utc(),
                 description: row.description,
@@ -69,7 +69,7 @@ pub async fn get_logs(
                     .events
                     .unwrap_or_default()
                     .iter()
-                    .map(|id| InternalId(*id as u64))
+                    .map(|id| InternalId(*id as u32))
                     .collect(),
             };
             Log::from_log_events(event_group, &all_events)
@@ -102,7 +102,7 @@ pub async fn get_owned_logs_ids(
     .fetch_all(exec)
     .await?
     .iter()
-    .map(|row| InternalId(row.id as u64))
+    .map(|row| InternalId(row.id as u32))
     .collect();
 
     Ok(query)
@@ -133,12 +133,12 @@ pub async fn insert_log(
     events::insert_events(
         exec,
         campaign_id,
-        Some(InternalId(log_id as u64)),
+        Some(InternalId(log_id as u32)),
         &log.events,
     )
     .await?;
 
-    Ok(InternalId(log_id as u64))
+    Ok(InternalId(log_id as u32))
 }
 
 // InsertLog is used, but list of events is ignored
@@ -189,7 +189,7 @@ pub async fn delete_log(
     .fetch_all(exec)
     .await?
     .iter()
-    .map(|row| InternalId(row.id as u64))
+    .map(|row| InternalId(row.id as u32))
     .collect::<Vec<_>>();
 
     // Delete all events associated with the log

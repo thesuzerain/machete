@@ -6,7 +6,7 @@ CREATE TABLE library_objects (
     id SERIAL NOT NULL PRIMARY KEY,
     name VARCHAR(64) NOT NULL,
     game_system INT NOT NULL,
-    owner BIGINT REFERENCES users
+    owner INT REFERENCES users
 );
 
 CREATE TABLE library_items (

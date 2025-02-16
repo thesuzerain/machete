@@ -32,7 +32,7 @@ pub async fn get_campaigns_owner(
         .into_iter()
         .map(|row| {
             Ok(CampaignPartial {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 description: row.description,
             })
@@ -60,7 +60,7 @@ pub async fn get_owned_campaign_id(
     )
     .fetch_optional(exec)
     .await?
-    .map(|row| InternalId(row.id as u64));
+    .map(|row| InternalId(row.id as u32));
 
     Ok(query)
 }
@@ -100,7 +100,7 @@ pub async fn insert_campaign(
     .execute(exec)
     .await?;
 
-    Ok(InternalId(id as u64))
+    Ok(InternalId(id as u32))
 }
 
 pub async fn delete_campaign(

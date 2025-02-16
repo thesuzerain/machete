@@ -40,14 +40,16 @@ export interface LibrarySpell extends LibraryEntity {
     duration?: string;
     saving_throw?: string;
     legacy?: boolean;
+    traits?: string[];
 }
 
 export interface LibraryCreature extends LibraryEntity {
     family?: string;
     size: string;
-    alignment?: string;
+    alignment?: 'LG' | 'NG' | 'CG' | 'LN' | 'NN' | 'CN' | 'LE' | 'NE' | 'CE';
     type: string;
     legacy?: boolean;
+    traits?: string[];
 }
 
 export interface LibraryHazard extends LibraryEntity {
@@ -101,6 +103,31 @@ export function formatCurrency(currency: number): string {
     }
 
     return parts.join(' ');
+}
+
+export function formatAlignment(alignment: string): string {
+    switch (alignment) {
+        case 'LG':
+            return 'Lawful Good';
+        case 'NG':
+            return 'Neutral Good';
+        case 'CG':
+            return 'Chaotic Good';
+        case 'LN':
+            return 'Lawful Neutral';
+        case 'NN':
+            return 'Neutral Neutral';
+        case 'CN':
+            return 'Chaotic Neutral';
+        case 'LE':
+            return 'Lawful Evil';
+        case 'NE':
+            return 'Neutral Evil';
+        case 'CE':
+            return 'Chaotic Evil';
+        default:
+            return alignment;
+    }
 }
 
 export type LibraryEntityType = 'class' | 'spell' | 'creature' | 'hazard' | 'item';

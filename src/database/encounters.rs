@@ -21,9 +21,7 @@ pub struct EncounterFilters {
 impl EncounterFilters {
     pub fn from_ids(ids: &[InternalId]) -> Self {
         Self {
-            ids: Some(CommaSeparatedVec(
-                ids.iter().map(|id| id.0 as u32).collect(),
-            )),
+            ids: Some(CommaSeparatedVec(ids.iter().map(|id| id.0).collect())),
             ..Default::default()
         }
     }
@@ -159,32 +157,32 @@ pub async fn get_encounters(
         .into_iter()
         .map(|row| {
             Ok(Encounter {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 description: row.description,
-                session_id: row.session_id.map(|id| InternalId(id as u64)),
+                session_id: row.session_id.map(|id| InternalId(id as u32)),
                 status: CompletionStatus::from_i32(row.status as i32),
                 party_level: row.party_level as u32,
                 party_size: row.party_size as u32,
-                owner: InternalId(row.owner as u64),
+                owner: InternalId(row.owner as u32),
                 enemies: row
                     .enemies
                     .iter()
                     .zip(row.enemy_level_adjustments.iter())
                     .map(|(id, adj)| EncounterEnemy {
-                        id: InternalId(*id as u64),
+                        id: InternalId(*id as u32),
                         level_adjustment: *adj,
                     })
                     .collect(),
                 hazards: row
                     .hazards
                     .iter()
-                    .map(|id| InternalId(*id as u64))
+                    .map(|id| InternalId(*id as u32))
                     .collect(),
                 treasure_items: row
                     .treasure_items
                     .iter()
-                    .map(|id| InternalId(*id as u64))
+                    .map(|id| InternalId(*id as u32))
                     .collect(),
                 treasure_currency: row.treasure_currency.unwrap_or(0.0) as f32,
                 extra_experience: row.extra_experience,
@@ -219,7 +217,7 @@ pub async fn get_owned_encounter_ids(
     .fetch_all(exec)
     .await?
     .into_iter()
-    .map(|row| InternalId(row.id as u64))
+    .map(|row| InternalId(row.id as u32))
     .collect();
 
     Ok(ids)
@@ -282,10 +280,10 @@ pub async fn insert_encounters(
             "#,
             &encounter.name,
             &encounter.description,
-            &encounter.enemies.iter().map(|e| e.to_id().0 as i64).collect::<Vec<i64>>(),
+            &encounter.enemies.iter().map(|e| e.to_id().0 as i32).collect::<Vec<i32>>(),
             &encounter.enemies.iter().map(|e| e.to_level_adjustment().unwrap_or(0) as i16).collect::<Vec<i16>>(),
-            &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-            &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
+            &encounter.hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+            &encounter.treasure_items.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
             encounter.treasure_currency as f64,
             encounter.status.as_i32() as i64,
             encounter.party_size as i64,
@@ -302,13 +300,13 @@ pub async fn insert_encounters(
         if let Some(session_id) = encounter.session_id {
             super::sessions::link_encounter_to_session(
                 &mut *tx,
-                InternalId(encounter_id as u64),
+                InternalId(encounter_id as u32),
                 session_id,
             )
             .await?;
         }
 
-        ids.push(InternalId(encounter_id as u64));
+        ids.push(InternalId(encounter_id as u32));
     }
 
     Ok(ids)
@@ -322,8 +320,8 @@ pub async fn edit_encounter(
     let enemies = new_encounter.enemies.as_ref().map(|enemies| {
         enemies
             .iter()
-            .map(|e| e.to_id().0 as i64)
-            .collect::<Vec<i64>>()
+            .map(|e| e.to_id().0 as i32)
+            .collect::<Vec<i32>>()
     });
     let enemy_level_adjustments = new_encounter.enemies.as_ref().map(|enemies| {
         enemies
@@ -335,13 +333,13 @@ pub async fn edit_encounter(
     let hazards = new_encounter
         .hazards
         .as_ref()
-        .map(|hazards| hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>());
+        .map(|hazards| hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>());
 
     let treasure_items = new_encounter.treasure_items.as_ref().map(|treasure_items| {
         treasure_items
             .iter()
-            .map(|id| id.0 as i64)
-            .collect::<Vec<i64>>()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>()
     });
 
     // First, unlink the encounter from the session
@@ -436,10 +434,10 @@ pub async fn insert_user_encounter_draft(
         "#,
         &encounter.name,
         &encounter.description,
-        &encounter.enemies.iter().map(|e| e.to_id().0 as i64).collect::<Vec<i64>>(),
+        &encounter.enemies.iter().map(|e| e.to_id().0 as i32).collect::<Vec<i32>>(),
         &encounter.enemies.iter().map(|e| e.to_level_adjustment().unwrap_or(0) as i16).collect::<Vec<i16>>(),
-        &encounter.hazards.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
-        &encounter.treasure_items.iter().map(|id| id.0 as i64).collect::<Vec<i64>>(),
+        &encounter.hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
+        &encounter.treasure_items.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
         encounter.treasure_currency as f64,
         CompletionStatus::Draft.as_i32() as i64,
         encounter.party_size as i64,
@@ -451,7 +449,7 @@ pub async fn insert_user_encounter_draft(
     .await?
     .id;
 
-    Ok(InternalId(encounter_id as u64))
+    Ok(InternalId(encounter_id as u32))
 }
 
 pub async fn clear_user_encounter_draft(
@@ -507,30 +505,30 @@ pub async fn get_encounter_draft(
 
     if let Some(row) = encounter {
         Ok(Some(Encounter {
-            id: InternalId(row.id as u64),
+            id: InternalId(row.id as u32),
             name: row.name,
             description: row.description,
             status: CompletionStatus::from_i32(row.status as i32),
-            owner: InternalId(row.owner as u64),
+            owner: InternalId(row.owner as u32),
             session_id: None,
             enemies: row
                 .enemies
                 .iter()
                 .zip(row.enemy_level_adjustments.iter())
                 .map(|(id, adj)| EncounterEnemy {
-                    id: InternalId(*id as u64),
+                    id: InternalId(*id as u32),
                     level_adjustment: *adj,
                 })
                 .collect(),
             hazards: row
                 .hazards
                 .iter()
-                .map(|id| InternalId(*id as u64))
+                .map(|id| InternalId(*id as u32))
                 .collect(),
             treasure_items: row
                 .treasure_items
                 .iter()
-                .map(|id| InternalId(*id as u64))
+                .map(|id| InternalId(*id as u32))
                 .collect(),
             party_level: row.party_level as u32,
             party_size: row.party_size as u32,
@@ -572,7 +570,7 @@ async fn get_levels_enemies(
     enemies: &[InternalId],
     enemy_level_adjustments: &[i8],
 ) -> crate::Result<Vec<i8>> {
-    let ids = enemies.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
+    let ids = enemies.iter().map(|id| id.0).collect::<Vec<u32>>();
     let creatures = super::creatures::get_creatures(exec, &CreatureFiltering::from_ids(&ids))
         .await?
         .into_iter()
@@ -598,7 +596,7 @@ async fn get_levels_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     hazards: &[InternalId],
 ) -> crate::Result<Vec<i8>> {
-    let ids = hazards.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
+    let ids = hazards.iter().map(|id| id.0).collect::<Vec<u32>>();
     let hazards_fetched = super::hazards::get_hazards(exec, &HazardFiltering::from_ids(&ids))
         .await?
         .into_iter()
@@ -620,7 +618,7 @@ async fn get_values_items(
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
     // TODO: This needs to handle 'priceless' items better- currently just estimates as 0
-    let ids = items.iter().map(|id| id.0 as u32).collect::<Vec<u32>>();
+    let ids = items.iter().map(|id| id.0).collect::<Vec<u32>>();
     let items_fetched = super::items::get_items(exec, &ItemFiltering::from_ids(&ids))
         .await?
         .into_iter()

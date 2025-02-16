@@ -1,5 +1,8 @@
 use super::{GameSystem, Rarity};
-use crate::models::{characters::{Skill, Stat}, ids::InternalId};
+use crate::models::{
+    characters::{Skill, Stat},
+    ids::InternalId,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -17,7 +20,7 @@ pub struct LibraryItem {
     pub url: Option<String>,
     pub description: String,
 
-    pub item_categories : Vec<String>,
+    pub item_categories: Vec<String>,
     pub traits: Vec<String>,
 
     pub consumable: bool,
@@ -27,7 +30,7 @@ pub struct LibraryItem {
 
     pub item_type: RuneItemType,
     pub skill_boosts: Vec<SkillPotency>,
-    pub runes : Vec<Rune>,
+    pub runes: Vec<Rune>,
     pub apex_stat: Option<Stat>,
 }
 
@@ -42,24 +45,24 @@ pub struct SkillPotency {
 #[serde(tag = "type")]
 pub enum Rune {
     Resilient {
-        potency: i8
+        potency: i8,
     },
     ArmorPotency {
-        potency: i8
+        potency: i8,
     },
     Striking {
-        potency: i8
+        potency: i8,
     },
     WeaponPotency {
-        potency: i8
+        potency: i8,
     },
     ShieldPotency {
-        potency: i8
+        potency: i8,
     },
     PropertyRune {
         property: String,
         applied_to: RuneItemType, // The item type this rune is applied to
-        potency: i8 // For a property rune, the potency = the rune's level (to uniquely identify variant runes of the same name)
+        potency: i8, // For a property rune, the potency = the rune's level (to uniquely identify variant runes of the same name)
     },
 }
 
@@ -70,29 +73,43 @@ pub enum RuneItemType {
     Armor,
     Weapon,
     Shield,
-    None
+    None,
 }
 
 impl Rune {
     pub fn from_parts(s: &str, potency: i8, applied_to: RuneItemType) -> Self {
         match s {
-            "Resilient" => Self::Resilient{potency},
-            "Armor Potency" => Self::ArmorPotency{potency},
-            "Striking" => Self::Striking{potency},
-            "Weapon Potency" => Self::WeaponPotency{potency},
-            "Shield Potency" => Self::ShieldPotency{potency},
-            _ => Self::PropertyRune{property: s.to_string(), potency, applied_to},
+            "Resilient" => Self::Resilient { potency },
+            "Armor Potency" => Self::ArmorPotency { potency },
+            "Striking" => Self::Striking { potency },
+            "Weapon Potency" => Self::WeaponPotency { potency },
+            "Shield Potency" => Self::ShieldPotency { potency },
+            _ => Self::PropertyRune {
+                property: s.to_string(),
+                potency,
+                applied_to,
+            },
         }
     }
 
     pub fn to_parts(&self) -> (String, i8, RuneItemType) {
         match self {
-            Self::Resilient{potency: p} => ("Resilient".to_string(), *p, RuneItemType::Armor),
-            Self::ArmorPotency{potency: p} => ("Armor Potency".to_string(), *p, RuneItemType::Armor),
-            Self::Striking{potency: p} => ("Striking".to_string(), *p, RuneItemType::Weapon),
-            Self::WeaponPotency{potency: p} => ("Weapon Potency".to_string(), *p, RuneItemType::Weapon),
-            Self::ShieldPotency{potency: p} => ("Shield Potency".to_string(), *p, RuneItemType::Shield),
-            Self::PropertyRune{property: s, potency: p, applied_to: a} => (s.to_string(), *p, *a),
+            Self::Resilient { potency: p } => ("Resilient".to_string(), *p, RuneItemType::Armor),
+            Self::ArmorPotency { potency: p } => {
+                ("Armor Potency".to_string(), *p, RuneItemType::Armor)
+            }
+            Self::Striking { potency: p } => ("Striking".to_string(), *p, RuneItemType::Weapon),
+            Self::WeaponPotency { potency: p } => {
+                ("Weapon Potency".to_string(), *p, RuneItemType::Weapon)
+            }
+            Self::ShieldPotency { potency: p } => {
+                ("Shield Potency".to_string(), *p, RuneItemType::Shield)
+            }
+            Self::PropertyRune {
+                property: s,
+                potency: p,
+                applied_to: a,
+            } => (s.to_string(), *p, *a),
         }
     }
 
@@ -110,23 +127,27 @@ impl Rune {
         };
 
         match self {
-            Self::Resilient{potency: p} => format!("Resilient Rune {}", get_adjective(*p)),
-            Self::ArmorPotency{potency: p} => format!("Armor Potency Rune +{}", p),
-            Self::Striking{potency: p} => format!("Striking Rune {}", get_adjective(*p)),
-            Self::WeaponPotency{potency: p} => format!("Weapon Potency Rune +{}", p),
-            Self::ShieldPotency{potency: p} => format!("Shield Potency Rune +{}", p),
-            Self::PropertyRune{property: s, potency: p, ..} => format!("{} {}", s, get_adjective(*p)),
+            Self::Resilient { potency: p } => format!("Resilient Rune {}", get_adjective(*p)),
+            Self::ArmorPotency { potency: p } => format!("Armor Potency Rune +{}", p),
+            Self::Striking { potency: p } => format!("Striking Rune {}", get_adjective(*p)),
+            Self::WeaponPotency { potency: p } => format!("Weapon Potency Rune +{}", p),
+            Self::ShieldPotency { potency: p } => format!("Shield Potency Rune +{}", p),
+            Self::PropertyRune {
+                property: s,
+                potency: p,
+                ..
+            } => format!("{} {}", s, get_adjective(*p)),
         }
     }
 
     pub fn get_potency(&self) -> i8 {
         match self {
-            Self::Resilient{potency: p} => *p,
-            Self::ArmorPotency{potency: p} => *p,
-            Self::Striking{potency: p} => *p,
-            Self::WeaponPotency{potency: p} => *p,
-            Self::ShieldPotency{potency: p} => *p,
-            Self::PropertyRune{potency: p, ..} => *p,
+            Self::Resilient { potency: p } => *p,
+            Self::ArmorPotency { potency: p } => *p,
+            Self::Striking { potency: p } => *p,
+            Self::WeaponPotency { potency: p } => *p,
+            Self::ShieldPotency { potency: p } => *p,
+            Self::PropertyRune { potency: p, .. } => *p,
         }
     }
 }
@@ -151,6 +172,7 @@ impl RuneItemType {
             Self::Weapon => "Weapon",
             Self::Shield => "Shield",
             Self::None => "None",
-        }.to_string()
+        }
+        .to_string()
     }
 }

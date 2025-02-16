@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        classes::ClassSearch,
-        creatures::{CreatureFiltering, CreatureSearch},
-        hazards::{HazardFiltering, HazardSearch},
+        classes::{ClassSearch, InsertLibraryClass},
+        creatures::{CreatureFiltering, CreatureSearch, InsertLibraryCreature},
+        hazards::{HazardFiltering, HazardSearch, InsertLibraryHazard},
         items::{InsertLibraryItem, ItemFiltering, ItemSearch},
-        spells::{SpellFiltering, SpellSearch},
+        spells::{InsertLibrarySpell, SpellFiltering, SpellSearch},
         DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
     },
     models::library::{
@@ -95,7 +95,7 @@ async fn get_creature_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = CreatureFiltering::from_id(id);
-    let creature = database::creatures::get_creatures(&pool, &payload.into())
+    let creature = database::creatures::get_creatures(&pool, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -106,7 +106,7 @@ async fn insert_creatures(
     State(pool): State<PgPool>,
     jar: CookieJar,
     headers: HeaderMap,
-    Json(payload): Json<Vec<LibraryCreature>>,
+    Json(payload): Json<Vec<InsertLibraryCreature>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
     database::creatures::insert_creatures(&pool, &payload).await?;
@@ -151,7 +151,7 @@ async fn get_item_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = ItemFiltering::from_id(id);
-    let item = database::items::get_items(&pool, &payload.into())
+    let item = database::items::get_items(&pool, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -207,7 +207,7 @@ async fn get_spell_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = SpellFiltering::from_id(id);
-    let spell = database::spells::get_spells(&pool, &payload.into())
+    let spell = database::spells::get_spells(&pool, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -218,7 +218,7 @@ async fn insert_spells(
     State(pool): State<PgPool>,
     jar: CookieJar,
     headers: HeaderMap,
-    Json(payload): Json<Vec<LibrarySpell>>,
+    Json(payload): Json<Vec<InsertLibrarySpell>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
     database::spells::insert_spells(&pool, &payload).await?;
@@ -263,7 +263,7 @@ async fn get_hazard_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = HazardFiltering::from_id(id);
-    let hazard = database::hazards::get_hazards(&pool, &payload.into())
+    let hazard = database::hazards::get_hazards(&pool, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -274,7 +274,7 @@ async fn insert_hazards(
     State(pool): State<PgPool>,
     jar: CookieJar,
     headers: HeaderMap,
-    Json(payload): Json<Vec<LibraryHazard>>,
+    Json(payload): Json<Vec<InsertLibraryHazard>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
 
@@ -315,7 +315,7 @@ async fn insert_classes(
     State(pool): State<PgPool>,
     jar: CookieJar,
     headers: HeaderMap,
-    Json(payload): Json<Vec<LibraryClass>>,
+    Json(payload): Json<Vec<InsertLibraryClass>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
     database::classes::insert_classes(&pool, &payload).await?;

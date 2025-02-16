@@ -63,7 +63,8 @@ impl Stat {
             Self::Intelligence => "Intelligence",
             Self::Wisdom => "Wisdom",
             Self::Charisma => "Charisma",
-        }.to_string()
+        }
+        .to_string()
     }
 
     pub fn iter() -> impl Iterator<Item = Self> {
@@ -80,7 +81,6 @@ impl Stat {
 }
 
 impl Skill {
-
     pub fn to_string(&self) -> String {
         match self {
             Self::Acrobatics => "Acrobatics".to_string(),
@@ -113,7 +113,9 @@ impl Skill {
             "Deception" => Some(Self::Deception),
             "Diplomacy" => Some(Self::Diplomacy),
             "Intimidation" => Some(Self::Intimidation),
-            s if s.starts_with("Lore (") && s.ends_with(")") => Some(Self::Lore(Some(s[6..s.len() - 1].to_string()))),
+            s if s.starts_with("Lore (") && s.ends_with(")") => {
+                Some(Self::Lore(Some(s[6..s.len() - 1].to_string())))
+            }
             "Lore" => Some(Self::Lore(None)),
             "Medicine" => Some(Self::Medicine),
             "Nature" => Some(Self::Nature),

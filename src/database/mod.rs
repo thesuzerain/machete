@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+use crate::ServerError;
+
 pub mod auth;
 pub mod campaigns;
 pub mod characters;
@@ -26,13 +28,13 @@ pub async fn connect() -> Result<PgPool, sqlx::Error> {
     Ok(pool)
 }
 
-
 // todo: export to mod.rs, so all other routes that can use it
 // also add those- for spells, etc. should consider legacy items
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")] // TODO: Camelcase when everything is converted to camelcase
 pub enum LegacyStatus {
-    All, // Includes both (duplicates)
+    All,        // Includes both (duplicates)
+    Legacy,     // Includes legacy then remaster (but only where no duplicates)
     LegacyOnly, // Only legacy, no remaster
     #[default]
     Remaster, // Includes remaster then legacy (but only where no duplicates)
@@ -41,14 +43,47 @@ pub enum LegacyStatus {
 
 impl LegacyStatus {
     pub fn include_legacy(&self) -> bool {
-        matches!(self, Self::All | Self::LegacyOnly | Self::Remaster)
+        matches!(
+            self,
+            Self::All | Self::LegacyOnly | Self::Remaster | Self::Legacy
+        )
     }
 
     pub fn include_remaster(&self) -> bool {
-        matches!(self, Self::All | Self::Remaster | Self::RemasterOnly)
+        matches!(
+            self,
+            Self::All | Self::Remaster | Self::RemasterOnly | Self::Legacy
+        )
     }
 
     pub fn favor_remaster(&self) -> bool {
-        matches!(self, Self::Remaster)
+        matches!(self, Self::Remaster | Self::RemasterOnly)
     }
+
+    pub fn favor_legacy(&self) -> bool {
+        matches!(self, Self::Legacy | Self::LegacyOnly)
+    }
+}
+
+pub async fn check_library_requested_ids(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    requested_ids: &[i32],
+) -> Result<Vec<i32>, ServerError> {
+    let existing_ids = sqlx::query!(
+        r#"
+       SELECT id FROM library_objects WHERE id = ANY($1::int[])
+   "#,
+        &requested_ids.iter().map(|id| *id).collect::<Vec<i32>>(),
+    )
+    .fetch_all(exec)
+    .await?;
+
+    if !existing_ids.is_empty() {
+        return Err(ServerError::BadRequest(format!(
+            "Requested IDs already in use: {:?}",
+            existing_ids
+        )));
+    }
+
+    Ok(existing_ids.iter().map(|id| id.id).collect())
 }

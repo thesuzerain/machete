@@ -6,11 +6,12 @@ use crate::models::ids::InternalId;
 use crate::ServerError;
 use serde::{Deserialize, Serialize};
 
-use super::DEFAULT_MAX_LIMIT;
+use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct ClassFilters {
     pub name: Option<String>,
+    pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -27,6 +28,7 @@ pub struct ClassSearch {
     // Page needs to be kept separate from flattened structure.
     // https://github.com/serde-rs/serde/issues/1183
     pub name: Option<String>,
+    pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -42,6 +44,23 @@ impl From<ClassFilters> for ClassSearch {
             ..Default::default()
         }
     }
+}
+
+// TODO: 'Filterable' is kind of a mess
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertLibraryClass {
+    pub requested_id: Option<InternalId>,
+    pub name: String,
+    pub game_system: GameSystem,
+    pub hp: u32,
+    pub traditions: Vec<String>,
+    pub rarity: Rarity,
+    pub url: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+
+    pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -99,7 +118,9 @@ pub async fn get_classes_search(
                 rarity,
                 hp,
                 traditions,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags
+                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                legacy,
+                remastering_alt_id
             FROM library_objects lo
             INNER JOIN library_classes lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -107,8 +128,13 @@ pub async fn get_classes_search(
             WHERE 1=1
                 AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND (($4::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $3)
+                AND NOT (NOT $5::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $6::bool AND lo.legacy = TRUE)
+                AND NOT ($7::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND NOT ($8::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $5 OFFSET $6
+            LIMIT $9 OFFSET $10
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -116,6 +142,10 @@ pub async fn get_classes_search(
         &search.query,
         search.min_similarity.unwrap_or(0.0),
         search.favor_exact_start.unwrap_or(false),
+        search.legacy.include_remaster(),
+        search.legacy.include_legacy(),
+        search.legacy.favor_remaster(),
+        search.legacy.favor_legacy(),
         limit as i64,
         offset as i64,
     );
@@ -132,7 +162,7 @@ pub async fn get_classes_search(
         |mut acc: HashMap<String, Vec<(f32, LibraryClass)>>, row| {
             let query = row.query;
             let class = LibraryClass {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity as i64),
@@ -141,6 +171,8 @@ pub async fn get_classes_search(
                 url: row.url,
                 description: row.description.unwrap_or_default(),
                 traditions: row.traditions,
+                legacy: row.legacy,
+                remastering_alt_id: row.remastering_alt_id.map(|id| InternalId(id as u32)),
             };
 
             acc.entry(query)
@@ -154,19 +186,31 @@ pub async fn get_classes_search(
 
 pub async fn insert_classes(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    classes: &[LibraryClass],
+    classes: &[InsertLibraryClass],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 
     if classes.is_empty() {
         return Ok(());
     }
+    // First, check to make sure all requested ids are not already in use
+    let requested_ids = classes
+        .iter()
+        .filter_map(|i| i.requested_id)
+        .map(|id| id.0 as i32)
+        .collect::<Vec<i32>>();
+    check_library_requested_ids(exec, &requested_ids).await?;
+
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system, url, description)
-        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
+        INSERT INTO library_objects (id, name, game_system, url, description, legacy, remastering_alt_id)
+        SELECT * FROM UNNEST ($1::int[], $2::text[], $3::int[], $4::text[], $5::text[], $6::bool[], $7::int[])
         RETURNING id  
     "#,
+        &classes
+            .iter()
+            .map(|c| c.requested_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
         &classes
             .iter()
             .map(|c| c.name.clone())
@@ -183,6 +227,14 @@ pub async fn insert_classes(
             .iter()
             .map(|c| c.description.clone())
             .collect::<Vec<String>>(),
+        &classes
+            .iter()
+            .map(|c| c.legacy)
+            .collect::<Vec<bool>>(),
+        &classes
+            .iter()
+            .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
     )
     .fetch_all(exec)
     .await?

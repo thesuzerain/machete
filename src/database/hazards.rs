@@ -10,7 +10,7 @@ use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
 use serde::{Deserialize, Serialize};
 
-use super::{LegacyStatus, DEFAULT_MAX_LIMIT};
+use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct HazardFiltering {
@@ -92,6 +92,21 @@ impl From<HazardFiltering> for HazardSearch {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct InsertLibraryHazard {
+    pub requested_id: Option<InternalId>,
+    pub name: String,
+    pub game_system: GameSystem,
+    pub rarity: Rarity,
+    pub level: i8,
+    pub tags: Vec<String>,
+    pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
+
+    pub url: Option<String>,
+    pub description: String,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -157,7 +172,8 @@ pub async fn get_hazards_search(
                 rarity,
                 level,
                 ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
-                legacy
+                legacy,
+                remastering_alt_id
             FROM library_objects lo
             INNER JOIN library_hazards lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
@@ -172,22 +188,14 @@ pub async fn get_hazards_search(
                 AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
                 AND ($7::int[] IS NULL OR lo.id = ANY($7))
                 AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
-                AND NOT (NOT $11::bool AND lc.legacy = FALSE)
-                AND NOT (NOT $12::bool AND lc.legacy = TRUE)
+                AND NOT (NOT $11::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $12::bool AND lo.legacy = TRUE)
+                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
 
-                -- TODO: Do some tests on this, this might be a bad pattern
-                -- Or at least- maybe requires a WHERE = name + index?
-                AND (NOT $13::bool OR NOT lc.legacy OR
-                    lo.name NOT IN (
-                        SELECT name
-                        FROM library_objects inner_lo
-                        INNER JOIN library_hazards inner_lc ON inner_lo.id = inner_lc.id
-                        WHERE inner_lc.legacy = TRUE
-                    )
-                )
 
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $14 OFFSET $15
+            LIMIT $15 OFFSET $16
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -204,6 +212,7 @@ pub async fn get_hazards_search(
         search.legacy.include_remaster(),
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
+        search.legacy.favor_legacy(),
         limit as i64,
         offset as i64,
     );
@@ -221,7 +230,7 @@ pub async fn get_hazards_search(
         .fold(hm, |mut map, row| {
             let query = row.query;
             let hazard = LibraryHazard {
-                id: InternalId(row.id as u64),
+                id: InternalId(row.id as u32),
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
@@ -229,7 +238,7 @@ pub async fn get_hazards_search(
                 tags: row.tags.unwrap_or_default(),
                 url: row.url,
                 description: row.description.unwrap_or_default(),
-                legacy: row.legacy
+                legacy: row.legacy,
             };
             map.entry(query)
                 .or_default()
@@ -241,19 +250,32 @@ pub async fn get_hazards_search(
 
 pub async fn insert_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    hazards: &[LibraryHazard],
+    hazards: &[InsertLibraryHazard],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
 
     if hazards.is_empty() {
         return Ok(());
     }
+
+    // First, check to make sure all requested ids are not already in use
+    let requested_ids = hazards
+        .iter()
+        .filter_map(|i| i.requested_id)
+        .map(|id| id.0 as i32)
+        .collect::<Vec<i32>>();
+    check_library_requested_ids(exec, &requested_ids).await?;
+
     let ids = sqlx::query!(
         r#"
-        INSERT INTO library_objects (name, game_system, url, description)
-        SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[])
+        INSERT INTO library_objects (id, name, game_system, url, description, legacy, remastering_alt_id)
+        SELECT * FROM UNNEST ($1::int[], $2::text[], $3::int[], $4::text[], $5::text[], $6::bool[], $7::int[])
         RETURNING id  
     "#,
+        &hazards
+            .iter()
+            .map(|c| c.requested_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
         &hazards
             .iter()
             .map(|c| c.name.clone())
@@ -270,6 +292,14 @@ pub async fn insert_hazards(
             .iter()
             .map(|c| c.description.clone())
             .collect::<Vec<String>>(),
+        &hazards
+            .iter()
+            .map(|c| c.legacy)
+            .collect::<Vec<bool>>(),
+        &hazards
+            .iter()
+            .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
+            .collect::<Vec<Option<i32>>>() as _,
     )
     .fetch_all(exec)
     .await?
@@ -280,8 +310,8 @@ pub async fn insert_hazards(
     // TODO: as i32 should be unnecessary- fix in models
     sqlx::query!(
         r#"
-        INSERT INTO library_hazards (id, rarity, level, legacy)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::bool[])
+        INSERT INTO library_hazards (id, rarity, level)
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[])
     "#,
         &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
         &hazards
@@ -289,7 +319,6 @@ pub async fn insert_hazards(
             .map(|c| c.rarity.as_i64() as i32)
             .collect::<Vec<i32>>(),
         &hazards.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
-        &hazards.iter().map(|c| c.legacy).collect::<Vec<bool>>(),
     )
     .execute(exec)
     .await?;

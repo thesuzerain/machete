@@ -14,4 +14,7 @@ pub struct LibraryClass {
     pub url: Option<String>,
     pub description: String,
     pub tags: Vec<String>,
+
+    pub legacy: bool,
+    pub remastering_alt_id: Option<InternalId>,
 }
