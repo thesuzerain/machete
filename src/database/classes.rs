@@ -11,6 +11,7 @@ use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct ClassFilters {
     pub name: Option<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
@@ -28,6 +29,7 @@ pub struct ClassSearch {
     // Page needs to be kept separate from flattened structure.
     // https://github.com/serde-rs/serde/issues/1183
     pub name: Option<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,

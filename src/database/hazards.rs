@@ -26,6 +26,7 @@ pub struct HazardFiltering {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,
@@ -65,6 +66,7 @@ pub struct HazardSearch {
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub legacy: LegacyStatus,
 
     pub limit: Option<u64>,

@@ -11,6 +11,7 @@ pub mod creatures;
 pub mod encounters;
 pub mod events;
 pub mod hazards;
+pub mod import;
 pub mod items;
 pub mod logs;
 pub mod spells;

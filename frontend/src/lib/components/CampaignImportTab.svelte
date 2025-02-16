@@ -407,6 +407,9 @@
         <h2>Import Campaign Data</h2>
     </div>
 
+    <h2>Note: This is a work in progress and incomplete.</h2>
+    <h2>Currently, to import a campaign using 'exported' JSON, click 'New Campaign' and select 'Import'.</h2>
+
     {#if step === 'input'}
         <div class="import-form">
             <p class="help-text">

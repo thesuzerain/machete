@@ -170,13 +170,13 @@ pub async fn update_sessions(
 }
 
 pub async fn insert_sessions(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     campaign_id: InternalId,
     sessions: &[InsertSession],
-) -> crate::Result<()> {
+) -> crate::Result<Vec<InternalId>> {
     // TODO: Campaign needs to be checked for ownership
     if sessions.is_empty() {
-        return Ok(());
+        return Ok(vec![]);
     }
 
     let campaign_id = std::iter::once(campaign_id.0 as i32)
@@ -204,10 +204,11 @@ pub async fn insert_sessions(
         })
         .multiunzip();
 
-    sqlx::query!(
+    let ids = sqlx::query!(
         r#"
         INSERT INTO campaign_sessions (session_order, name, description, play_date, campaign_id)
         SELECT * FROM UNNEST ($1::int[], $2::varchar[], $3::varchar[], $4::timestamptz[], $5::int[])
+        RETURNING id
         "#,
         &session_orders as _,
         &names.as_ref() as &[Option<String>],
@@ -215,10 +216,13 @@ pub async fn insert_sessions(
         &play_dates as _,
         &campaign_id as _,
     )
-    .execute(exec)
-    .await?;
+    .fetch_all(&mut **tx)
+    .await?
+    .into_iter()
+    .map(|row| InternalId(row.id as u32))
+    .collect::<Vec<InternalId>>();
 
-    Ok(())
+    Ok(ids)
 }
 
 pub async fn delete_session(

@@ -45,7 +45,46 @@ function createCampaignStore() {
                 console.error('Error adding campaign:', e);
                 throw e;
             }
-        }
+        },
+        importCampaign: async (rawJsonString : string) : Promise<number> => {
+            try {
+                const jsonStructure = JSON.parse(rawJsonString);
+
+                const response = await fetch(`${API_URL}/campaign/import`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(jsonStructure),
+                });
+                if (!response.ok) throw new Error('Failed to import campaign');
+                
+                // Returned data id of the new campaign
+                const data = await response.json();
+                
+                // Refresh campaigns after adding
+                await campaignStore.fetchCampaigns();
+
+                return data.id;
+            } catch (e) {
+                console.error('Error importing campaign:', e);
+                throw e;
+            }
+        },
+        exportCampaign: async (id: number) : Promise<any> => {
+            try {
+                const response = await fetch(`${API_URL}/campaign/${id}/export`, {
+                    credentials: 'include',
+                });
+                if (!response.ok) throw new Error('Failed to export campaign');
+                
+                return await response.json();
+            } catch (e) {
+                console.error('Error exporting campaign:', e);
+                throw e;
+            }
+        },
     };
 }
 

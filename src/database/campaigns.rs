@@ -66,8 +66,9 @@ pub async fn get_owned_campaign_id(
 }
 
 pub async fn insert_campaign(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     insert: &InsertCampaign,
+    include_session_zero: bool,
     owner: InternalId,
 ) -> crate::Result<InternalId> {
     let id = sqlx::query!(
@@ -80,7 +81,7 @@ pub async fn insert_campaign(
         owner.0 as i32,
         insert.description.as_ref(),
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?
     .into_iter()
     .next()
@@ -90,34 +91,16 @@ pub async fn insert_campaign(
     .id;
 
     // New campaign- also, create a single session zero for it.
-    sqlx::query!(
-        r#"
-        INSERT INTO campaign_sessions (session_order, name, play_date, campaign_id)
-        VALUES (10000, 'Campaign start', NOW(), $1)
-        "#,
-        id as i32,
-    )
-    .execute(exec)
-    .await?;
-
+    if include_session_zero {
+        sqlx::query!(
+            r#"
+            INSERT INTO campaign_sessions (session_order, name, play_date, campaign_id)
+            VALUES (10000, 'Campaign start', NOW(), $1)
+            "#,
+            id as i32,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
     Ok(InternalId(id as u32))
-}
-
-pub async fn delete_campaign(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
-    campaign_id: InternalId,
-    owner: InternalId,
-) -> crate::Result<()> {
-    sqlx::query!(
-        r#"
-        DELETE FROM campaigns
-        WHERE id = $1 AND owner = $2
-        "#,
-        campaign_id.0 as i32,
-        owner.0 as i32,
-    )
-    .execute(exec)
-    .await?;
-
-    Ok(())
 }

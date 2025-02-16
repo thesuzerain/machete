@@ -13,6 +13,7 @@
     let editingCampaign: Campaign | null = null;
 
     $: campaigns = $campaignStore;
+    $: selectedCampaign = $selectedCampaignStore ? $campaignStore.get($selectedCampaignStore) : null;
 
     onMount(async () => {
         await campaignStore.fetchCampaigns();
@@ -37,6 +38,14 @@
                 <option value={id}>{campaign.name}</option>
             {/each}
         </select>
+        {#if $selectedCampaignStore}
+            <button class="new-campaign-btn" on:click={() => {
+                editingCampaign = selectedCampaign ? selectedCampaign : null
+                showNewCampaignModal = true
+            }}>
+                Edit Campaign
+            </button>
+        {/if}
         <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
             New Campaign
         </button>

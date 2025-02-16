@@ -10,8 +10,10 @@
 
     const dispatch = createEventDispatcher();
 
+    let activeTab: 'create' | 'import' = 'create';
     let name = '';
     let description = '';
+    let importJson = '';
     let error: string | null = null;
 
     // Reset form when modal opens or editingCampaign changes
@@ -19,48 +21,57 @@
         if (editingCampaign) {
             name = editingCampaign.name;
             description = editingCampaign.description || '';
+            activeTab = 'create'; // Force create tab when editing
         } else {
             name = '';
             description = '';
+            importJson = '';
         }
     }
 
     async function handleSubmit() {
         try {
-            const campaignData = {
-                name,
-                description
-            };
+            if (activeTab === 'create') {
+                const campaignData = {
+                    name,
+                    description
+                };
 
-            const url = editingCampaign 
-                ? `${API_URL}/campaign/${editingCampaign.id}`
-                : `${API_URL}/campaign`;
+                const url = editingCampaign 
+                    ? `${API_URL}/campaign/${editingCampaign.id}`
+                    : `${API_URL}/campaign`;
 
-            const response = await fetch(url, {
-                method: editingCampaign ? 'PUT' : 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(campaignData),
-            });
+                const response = await fetch(url, {
+                    method: editingCampaign ? 'PUT' : 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(campaignData),
+                });
 
-            if (!response.ok) throw new Error('Failed to save campaign');
-
-            // Get campaigns
-            await campaignStore.fetchCampaigns();
-            
-            // Get id 
-            const data = await response.json();
-
-            // TODO: Switch active modal to use new campaign
-            dispatch('saved', data.id);
-
-            closeModal();
+                if (!response.ok) throw new Error('Failed to save campaign');
+                const data = await response.json();
+                await handleSuccess(data.id);
+            } else {
+                try {
+                    JSON.parse(importJson);
+                    let id = await campaignStore.importCampaign(importJson);
+                    await handleSuccess(id);
+                } catch (e) {
+                    throw new Error('Invalid JSON format');
+                }
+            }
         } catch (e) {
             console.error('Error saving campaign:', e);
             error = e instanceof Error ? e.message : 'An error occurred';
         }
+    }
+
+    async function handleSuccess(id: number) {
+        await campaignStore.fetchCampaigns();
+        dispatch('saved', id);
+        closeModal();
     }
 
     function closeModal() {
@@ -75,36 +86,72 @@
         <div class="modal-content" on:click|stopPropagation>
             <h2>{editingCampaign ? 'Edit' : 'New'} Campaign</h2>
             
+            {#if !editingCampaign}
+                <div class="tabs">
+                    <button 
+                        class="tab-button" 
+                        class:active={activeTab === 'create'}
+                        on:click={() => activeTab = 'create'}
+                    >
+                        Create New
+                    </button>
+                    <button 
+                        class="tab-button" 
+                        class:active={activeTab === 'import'}
+                        on:click={() => activeTab = 'import'}
+                    >
+                        Import
+                    </button>
+                </div>
+            {/if}
+            
             {#if error}
                 <div class="error-message">{error}</div>
             {/if}
 
             <form on:submit|preventDefault={handleSubmit}>
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input 
-                        type="text" 
-                        id="name" 
-                        bind:value={name}
-                        required
-                    />
-                </div>
+                {#if activeTab === 'create'}
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            bind:value={name}
+                            required
+                        />
+                    </div>
 
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea 
-                        id="description" 
-                        bind:value={description}
-                        rows="4"
-                    ></textarea>
-                </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea 
+                            id="description" 
+                            bind:value={description}
+                            rows="4"
+                        ></textarea>
+                    </div>
+                {:else}
+                    <div class="form-group">
+                        <label for="import">Campaign JSON</label>
+                        <textarea 
+                            id="import" 
+                            bind:value={importJson}
+                            rows="10"
+                            placeholder="Paste your campaign JSON here..."
+                            required
+                        ></textarea>
+                    </div>
+                {/if}
 
                 <div class="modal-actions">
                     <button type="button" class="cancel-btn" on:click={closeModal}>
                         Cancel
                     </button>
                     <button type="submit" class="save-btn">
-                        {editingCampaign ? 'Save' : 'Create'} Campaign
+                        {#if activeTab === 'create'}
+                            {editingCampaign ? 'Save' : 'Create'} Campaign
+                        {:else}
+                            Import Campaign
+                        {/if}
                     </button>
                 </div>
             </form>
@@ -181,5 +228,39 @@
         padding: 1rem;
         border-radius: 0.375rem;
         margin-bottom: 1rem;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+    }
+
+    .tab-button {
+        padding: 0.5rem 1rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #6b7280;
+        border-radius: 0.375rem;
+        transition: all 0.2s;
+    }
+
+    .tab-button:hover {
+        background: #f3f4f6;
+        color: #111827;
+    }
+
+    .tab-button.active {
+        background: #3b82f6;
+        color: white;
+    }
+
+    textarea#import {
+        font-family: monospace;
+        font-size: 0.875rem;
     }
 </style> 

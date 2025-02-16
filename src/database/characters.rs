@@ -129,13 +129,13 @@ pub async fn edit_character(
 }
 
 pub async fn insert_characters(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     campaign_id: InternalId,
     characters: &[InsertCharacter],
-) -> crate::Result<()> {
+) -> crate::Result<Vec<InternalId>> {
     // TODO: Campaign needs to be checked for ownership
     if characters.is_empty() {
-        return Ok(());
+        return Ok(vec![]);
     }
 
     let campaign_id = std::iter::once(campaign_id.0 as i32)
@@ -150,10 +150,11 @@ pub async fn insert_characters(
         })
         .unzip();
 
-    sqlx::query!(
+    let ids = sqlx::query!(
         r#"
         INSERT INTO characters (name, player, campaign, class, level)
         SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], $3::int[], $4::int[], $5::int[])
+        RETURNING id
         "#,
         &names,
         &players as _,
@@ -167,10 +168,13 @@ pub async fn insert_characters(
             .map(|c| c.level as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
-    .await?;
+    .fetch_all(&mut **tx)
+    .await?
+    .into_iter()
+    .map(|row| InternalId(row.id as u32))
+    .collect();
 
-    Ok(())
+    Ok(ids)
 }
 
 pub async fn delete_character(
