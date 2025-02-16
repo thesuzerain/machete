@@ -72,7 +72,6 @@ async fn get_campaigns(
     State(pool): State<PgPool>,
     jar: CookieJar,
 ) -> Result<impl IntoResponse, ServerError> {
-    println!("Jar: {:?}", jar);
     let user = extract_user_from_cookies(&jar, &pool).await?;
     let campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     Ok(Json(campaigns))
