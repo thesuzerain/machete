@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM campaign_session_character_items WHERE session_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1db0e6ca244e8d39be61608a0540a082d6a61c8e5f66e585911f0a6187bdc107"
+}

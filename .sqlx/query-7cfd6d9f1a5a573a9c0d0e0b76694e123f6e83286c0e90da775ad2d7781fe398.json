@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE campaign_sessions\n        SET\n            unassigned_gold_rewards = COALESCE(teg.total_encounter_gold,0) - COALESCE(tcg.total_characters_gold,0),\n            unassigned_item_rewards = COALESCE(items_agg.items, '{}')\n        FROM (\n            SELECT SUM(e.treasure_currency) as total_encounter_gold\n              FROM encounters e\n              WHERE session_id = $1\n        ) teg,\n        (\n            SELECT SUM(csc.gold_rewards) as total_characters_gold\n            FROM campaign_session_characters csc\n            WHERE session_id = $1\n        ) tcg,\n       (\n            SELECT ARRAY_AGG(item_reward) as items \n            FROM (\n                SELECT eti.item as item_reward\n                FROM encounter_treasure_items eti\n                INNER JOIN encounters e ON eti.encounter = e.id\n                WHERE session_id = $1\n\n                EXCEPT\n                    \n                SELECT item_id as item_reward\n                FROM campaign_session_character_items\n                WHERE session_id = $1\n            ) all_remaining_items\n        ) items_agg\n        WHERE campaign_sessions.id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7cfd6d9f1a5a573a9c0d0e0b76694e123f6e83286c0e90da775ad2d7781fe398"
+}

@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT csc.character_id, csc.gold_rewards, ARRAY_AGG(item_id) filter (where item_id is not null) as item_rewards\n        FROM campaign_session_characters csc\n        LEFT JOIN campaign_session_character_items csci ON csc.character_id = csci.character_id AND csc.session_id = csci.session_id\n        WHERE csc.session_id = $1\n        GROUP BY csc.character_id, csc.session_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "character_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gold_rewards",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "item_rewards",
+        "type_info": "Int4Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "4a88874410af80810c41c3673313194138ee5c69ab9c65e7a62bfcb54d848142"
+}

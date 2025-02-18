@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO library_spells (id, rarity, rank, traditions, traits)\n            VALUES ($1, $2, $3, $4, $5)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "VarcharArray",
+        "VarcharArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8986be3ebd7940d69e4ea10bd46a515b052968e25c77213a46830a5f24bddfc6"
+}

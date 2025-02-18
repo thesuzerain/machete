@@ -6,9 +6,9 @@
     "parameters": {
       "Left": [
         "Jsonb",
-        "Int8",
         "Int4",
-        "Int8"
+        "Int4",
+        "Int4"
       ]
     },
     "nullable": []

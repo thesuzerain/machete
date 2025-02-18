@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM encounter_treasure_items\n            WHERE encounter = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "94845f9caa36ebf3a60d45a943cebde3ada47c2836079e638add09ec05487e2f"
+}

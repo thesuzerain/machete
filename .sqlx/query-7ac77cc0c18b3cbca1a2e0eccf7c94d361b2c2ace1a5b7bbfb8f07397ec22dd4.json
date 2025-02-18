@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO library_items_skill_boosts (item_id, skill, bonus)\n            SELECT $1, skill, bonus FROM UNNEST ($2::text[], $3::int[]) skill_boosts(skill, bonus)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7ac77cc0c18b3cbca1a2e0eccf7c94d361b2c2ace1a5b7bbfb8f07397ec22dd4"
+}

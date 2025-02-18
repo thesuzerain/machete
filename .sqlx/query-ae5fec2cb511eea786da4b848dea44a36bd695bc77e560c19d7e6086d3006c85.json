@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            c.*, query as \"query!\"\n        FROM UNNEST($2::text[]) query\n        CROSS JOIN LATERAL (\n            SELECT \n                -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.\n                CASE\n                    WHEN $4::bool THEN \n                        CASE\n                            WHEN lo.name ILIKE query || '%' THEN 1.01\n                            WHEN lo.name ILIKE '%' || query || '%' THEN 1.0\n                            ELSE SIMILARITY(lo.name, query)\n                        END\n                    ELSE SIMILARITY(lo.name, query)\n                END AS similarity,\n                CASE WHEN $4::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,\n                lo.id,\n                lo.name,\n                lo.game_system,\n                lo.url,\n                lo.description,\n                rarity,\n                hp,\n                traditions,\n                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,\n                legacy,\n                remastering_alt_id\n            FROM library_objects lo\n            INNER JOIN library_classes lc ON lo.id = lc.id\n            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n            LEFT JOIN tags t ON lot.tag_id = t.id\n            WHERE 1=1\n                AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')\n                AND (($4::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $3)\n                AND NOT (NOT $5::bool AND lo.legacy = FALSE)\n                AND NOT (NOT $6::bool AND lo.legacy = TRUE)\n                AND NOT ($7::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)\n                AND NOT ($8::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)\n\n            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name\n            LIMIT $9 OFFSET $10\n        ) c\n        ORDER BY similarity DESC, favor_exact_start_length, c.name \n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "similarity",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "favor_exact_start_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "game_system",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "rarity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "hp",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "traditions",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 10,
+        "name": "tags",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "legacy",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "remastering_alt_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "query!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Float4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "ae5fec2cb511eea786da4b848dea44a36bd695bc77e560c19d7e6086d3006c85"
+}

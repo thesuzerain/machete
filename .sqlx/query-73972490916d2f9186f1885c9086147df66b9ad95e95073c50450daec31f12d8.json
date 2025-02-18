@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM encounter_enemies\n            WHERE encounter = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "73972490916d2f9186f1885c9086147df66b9ad95e95073c50450daec31f12d8"
+}

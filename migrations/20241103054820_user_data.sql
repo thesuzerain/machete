@@ -57,10 +57,26 @@ CREATE TABLE encounters (
     status SMALLINT NOT NULL,
     name VARCHAR(60) NOT NULL,
     description TEXT,
-    enemies INT[] NOT NULL,
-    hazards INT[] NOT NULL,
     party_level INT NOT NULL,
     party_size INT NOT NULL,
-    treasure_currency INTEGER,
-    treasure_items INT[] NOT NULL
+    treasure_currency INTEGER
 );
+
+CREATE TABLE encounter_enemies (
+    encounter INT REFERENCES encounters,
+    enemy INT NOT NULL REFERENCES library_creatures
+);
+
+CREATE TABLE encounter_hazards (
+    encounter INT REFERENCES encounters,
+    hazard INT NOT NULL REFERENCES library_hazards
+);
+
+CREATE TABLE encounter_treasure_items (
+    encounter INT REFERENCES encounters,
+    item INT NOT NULL REFERENCES library_items
+);
+
+CREATE INDEX ON encounter_enemies (encounter);
+CREATE INDEX ON encounter_hazards (encounter);
+CREATE INDEX ON encounter_treasure_items (encounter);

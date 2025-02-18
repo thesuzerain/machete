@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            c.*, query as \"query!\"\n        FROM UNNEST($8::text[]) query\n        CROSS JOIN LATERAL (\n            SELECT \n                -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.\n                CASE\n                    WHEN $10::bool THEN \n                        CASE\n                            WHEN lo.name ILIKE query || '%' THEN 1.01\n                            WHEN lo.name ILIKE '%' || query || '%' THEN 1.0\n                            ELSE SIMILARITY(lo.name, query)\n                        END\n                    ELSE SIMILARITY(lo.name, query)\n                END AS similarity,\n                CASE WHEN $10::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,\n                lo.id,\n                lo.name,\n                lo.game_system,\n                lo.url,\n                lo.description,\n                rarity,\n                level,\n                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,\n                legacy,\n                remastering_alt_id\n            FROM library_objects lo\n            INNER JOIN library_hazards lc ON lo.id = lc.id\n            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n            LEFT JOIN tags t ON lot.tag_id = t.id\n\n            WHERE 1=1\n                AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')\n                AND ($2::int IS NULL OR rarity = $2)\n                AND ($3::int IS NULL OR game_system = $3)\n                AND ($4::int IS NULL OR level >= $4)\n                AND ($5::int IS NULL OR level <= $5)\n                AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')\n                AND ($7::int[] IS NULL OR lo.id = ANY($7))\n                AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)\n                AND NOT (NOT $11::bool AND lo.legacy = FALSE)\n                AND NOT (NOT $12::bool AND lo.legacy = TRUE)\n                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)\n                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)\n\n\n            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name\n            LIMIT $15 OFFSET $16\n        ) c\n        ORDER BY similarity DESC, favor_exact_start_length, c.name \n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "similarity",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "favor_exact_start_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "game_system",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "rarity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "tags",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 10,
+        "name": "legacy",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "remastering_alt_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "query!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4Array",
+        "TextArray",
+        "Float4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "d0515198be2a08a622b1cec95873ce7418d53785781210f2ad9f581c72817bfb"
+}

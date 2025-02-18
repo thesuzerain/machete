@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards)\n            VALUES ($1, $2, $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "21cfc2c9c23d644e9b28bdb7e61d457402f0f2d3ae547deb72bd813fe2218c4f"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE campaigns\n        SET total_experience = campaigns.total_experience - e.total_experience\n        FROM (SELECT * FROM encounters WHERE id = $1) e\n        WHERE campaigns.id = (SELECT campaign_id FROM campaign_sessions WHERE id = $2)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e8f57b8c0d9c61e7279032d6b9d357027efd9a81e5f792933e3a801e18b27e2c"
+}

@@ -18,7 +18,9 @@ pub async fn get_campaigns_owner(
         SELECT 
             ca.id,
             ca.name,
-            description
+            description,
+            total_experience,
+            level
         FROM campaigns ca
         WHERE 
             ca.owner = $1
@@ -35,6 +37,8 @@ pub async fn get_campaigns_owner(
                 id: InternalId(row.id as u32),
                 name: row.name,
                 description: row.description,
+                total_experience: row.total_experience as u64,
+                level: row.level as u8,
             })
         })
         .collect::<Result<Vec<CampaignPartial>, sqlx::Error>>()?;

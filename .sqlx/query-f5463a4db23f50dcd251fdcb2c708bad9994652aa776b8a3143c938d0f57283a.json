@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT session_id, treasure_currency, ARRAY_AGG(item) filter (where item is not null) as treasure_items\n        FROM encounters e\n        LEFT JOIN encounter_treasure_items eti ON e.id = eti.encounter\n        WHERE id = $1\n        GROUP BY e.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "session_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "treasure_currency",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "treasure_items",
+        "type_info": "Int4Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "f5463a4db23f50dcd251fdcb2c708bad9994652aa776b8a3143c938d0f57283a"
+}

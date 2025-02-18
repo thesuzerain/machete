@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO encounters (name, description, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_items_value, owner)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Float8",
+        "Int2",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "df011e07883f97c4f4cce357348c5efa800df4883ed5081679479412eb663d40"
+}

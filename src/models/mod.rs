@@ -7,3 +7,4 @@ pub mod ids;
 pub mod library;
 pub mod log;
 pub mod query;
+pub mod stats;

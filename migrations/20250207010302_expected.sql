@@ -1,3 +1,10 @@
+ALTER TABLE encounters RENAME COLUMN total_treasure_value TO total_items_value;
+
+-- Drop 'level' from characters- move to campaign
+ALTER TABLE characters DROP COLUMN level;
+ALTER TABLE campaigns ADD COLUMN total_experience INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE campaigns ADD COLUMN level SMALLINT NOT NULL GENERATED ALWAYS AS (1 + FLOOR(total_experience / 1000)) STORED;
+
 -- Extends library items with some more information useful for generating expected treasure
 ALTER TABLE library_items ALTER COLUMN price TYPE double precision;
 ALTER TABLE library_items ADD COLUMN item_categories varchar(64)[] NOT NULL DEFAULT '{}';

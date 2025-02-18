@@ -19,7 +19,7 @@
             let ary = [];
             let sum = 0;
             for (let i = 0; i < campaignSessions.length; i++) {
-                sum += campaignSessions[i].total_treasure_value;
+                sum += campaignSessions[i].total_combined_treasure_value;
                 ary.push({ x: i, y: sum });
             }
             return [{

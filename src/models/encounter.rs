@@ -25,7 +25,7 @@ pub struct Encounter {
 
     // Derived values
     pub total_experience: i32,
-    pub total_treasure_value: i32,
+    pub total_items_value: i32,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]

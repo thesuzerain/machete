@@ -37,6 +37,7 @@ pub fn router() -> Router<AppState> {
         .route("/", post(insert_campaign))
         .route("/import", post(import_campaign)) // TODO: Does this need to differ from generic 'insert'?
         .route("/:id/export", get(export_campaign))
+        .route("/:id/stats", get(get_stats))
         .route("/:id/characters", get(get_characters))
         .route("/:id/characters", post(insert_characters))
         .route("/:id/characters/:id", put(edit_character))
@@ -539,4 +540,23 @@ async fn export_campaign(
     let campaign = database::import::export(id, &pool, user.id).await?;
 
     Ok(Json(campaign))
+}
+
+async fn get_stats(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Ensure owned
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let stats = database::stats::get_campaign_stats(&pool, user.id, id).await?;
+    Ok(Json(stats))
 }

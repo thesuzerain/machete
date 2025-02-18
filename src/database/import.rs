@@ -73,6 +73,7 @@ use super::{campaigns::InsertCampaign, sessions::UpdateCharacterSessions};
 #[derive(Serialize, Debug, Deserialize)]
 pub struct ImportCampaign {
     pub name: String,
+    pub level: u8,
     pub description: Option<String>,
     pub characters: Vec<ImportCharacter>,
     pub sessions: Vec<ImportSession>,
@@ -83,7 +84,6 @@ pub struct ImportCampaign {
 pub struct ImportCharacter {
     pub name: String,
     pub player: Option<String>,
-    pub level: u32,
     pub class: InternalId,
 }
 
@@ -124,141 +124,6 @@ pub struct ImportEncounterEnemy {
     pub level_adjustment: i16,
 }
 
-// TODO: Probably can make this function more efficient- unnests, etc
-pub async fn import(
-    campaign: ImportCampaign,
-    pool: &PgPool,
-    owner: u32,
-) -> Result<(), ServerError> {
-    let mut conn = pool.begin().await?;
-
-    // Throw error if two characters have the same name
-    let mut character_names = Vec::new();
-    for character in &campaign.characters {
-        if character_names.contains(&character.name) {
-            return Err(ServerError::BadRequest(
-                "Duplicate character names".to_string(),
-            ));
-        }
-        character_names.push(character.name.clone());
-    }
-
-    // Insert campaign
-    let campaign_id = sqlx::query!(
-        r#"
-        INSERT INTO campaigns (name, description, owner)
-        VALUES ($1, $2, $3)
-        RETURNING id
-        "#,
-        campaign.name,
-        campaign.description,
-        owner as i32
-    )
-    .fetch_one(&mut *conn)
-    .await?
-    .id;
-
-    let mut character_name_to_id = HashMap::new();
-    for character in &campaign.characters {
-        let character = sqlx::query!(
-            r#"
-            INSERT INTO characters (campaign, name, player, level, class)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, name
-            "#,
-            campaign_id,
-            character.name,
-            character.player,
-            character.level as i32,
-            character.class.0 as i32
-        )
-        .fetch_one(&mut *conn)
-        .await?;
-
-        character_name_to_id.insert(character.name, character.id);
-    }
-
-    let mut session_ids_in_order = Vec::new();
-    for (i, session) in campaign.sessions.iter().enumerate() {
-        let session_id = sqlx::query!(
-            r#"
-            INSERT INTO campaign_sessions (campaign_id, name, description, play_date, session_order)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id
-            "#,
-            campaign_id,
-            session.name,
-            session.description,
-            session.date,
-            (i * 1000) as i32
-        )
-        .fetch_one(&mut *conn)
-        .await?
-        .id;
-        session_ids_in_order.push(session_id);
-
-        for (character_name, rewards) in &session.compiled_rewards {
-            let character_id =
-                character_name_to_id
-                    .get(character_name)
-                    .ok_or(ServerError::BadRequest(format!(
-                        "Character {} not found in 'characters'",
-                        character_name
-                    )))?;
-
-            sqlx::query!(
-                r#"
-                INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards, item_rewards)
-                VALUES ($1, $2, $3, $4)
-                "#,
-                session_id,
-                character_id,
-                rewards.gold as f64,
-                &rewards.items.iter().map(|id| id.0 as i32).collect::<Vec<i32>>()
-            )
-            .execute(&mut *conn)
-            .await?;
-        }
-    }
-
-    for encounter in &campaign.encounters {
-        let session_id =
-            session_ids_in_order
-                .get(encounter.session_ix)
-                .ok_or(ServerError::BadRequest(format!(
-                    "Session index {} not found in 'sessions'",
-                    encounter.session_ix
-                )))?;
-        let encounter_id = sqlx::query!(
-            r#"
-            INSERT INTO encounters (status, name, description, session_id, enemies, hazards, party_size, party_level, extra_experience, total_experience, total_treasure_value, owner)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id
-            "#,
-            CompletionStatus::Prepared.as_i32() as i16,
-            encounter.name,
-            encounter.description,
-            session_id,
-            &encounter.enemies.iter().map(|enemy| enemy.id.0 as i32).collect::<Vec<i32>>(),
-            &encounter.hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
-            encounter.party_size as i32,
-            encounter.party_level as i32,
-            encounter.extra_experience,
-            0, // TODO: Calculate total experience
-            0.0, // TODO: Calculate total treasure value
-            owner as i32
-
-        )
-        .fetch_one(&mut *conn)
-        .await?
-        .id;
-    }
-
-    conn.commit().await?;
-
-    Ok(())
-}
-
 pub async fn import_with_functions(
     campaign: ImportCampaign,
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
@@ -297,7 +162,6 @@ pub async fn import_with_functions(
             .map(|c| InsertCharacter {
                 name: c.name.clone(),
                 player: c.player.clone(),
-                level: c.level as u8,
                 class: c.class,
             })
             .collect_vec(),
@@ -350,8 +214,8 @@ pub async fn import_with_functions(
             treasure_currency: e.treasure_currency,
             extra_experience: e.extra_experience,
 
-            total_experience: None,     // TODO: Calculate total experience
-            total_treasure_value: None, // TODO: Calculate total treasure value
+            total_experience: None,  // TODO: Calculate total experience
+            total_items_value: None, // TODO: Calculate total treasure value
         })
         .collect_vec();
     super::encounters::insert_encounters(&mut *tx, owner, &insert_encounters).await?;
@@ -461,13 +325,13 @@ pub async fn export(
         .map(|c| ImportCharacter {
             name: c.name,
             player: c.player,
-            level: c.level as u32,
             class: c.class,
         })
         .collect();
 
     let campaign = ImportCampaign {
         name: campaign.name.clone(),
+        level: campaign.level,
         description: campaign.description.clone(),
         characters,
         sessions,
