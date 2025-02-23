@@ -31,6 +31,9 @@ import { statsStore } from '$lib/stores/stats';
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
     $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
     $: stats = selectedCampaignId ? $statsStore.get(selectedCampaignId) : null;
+    $: console.log('xxx', $statsStore);
+    $: console.log('before', stats);
+    $: console.log('selectedCampaignId', selectedCampaignId);
     async function fetchLogs() {
         if (!selectedCampaignId) return;
         

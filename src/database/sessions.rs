@@ -102,14 +102,11 @@ pub async fn get_sessions(
                 session_id: i32,
             }
 
-            println!("Row ch: {:?}", &row.character_rewards);
-
             let character_rewards: Vec<RowCharacterRewards> = row
                 .character_rewards
                 .and_then(|x| serde_json::from_value(x).unwrap())
                 .unwrap_or_default();
 
-            println!("Character rewards: {:?}", &character_rewards);
             let compiled_rewards: HashMap<InternalId, CampaignSessionCharacterRewards> =
                 character_rewards
                     .into_iter()
@@ -129,7 +126,7 @@ pub async fn get_sessions(
                         );
                         acc
                     });
-            println!("Compiled rewards: {:?}", &compiled_rewards);
+
             let encounter_ids = row
                 .encounter_ids
                 .unwrap_or_default()
@@ -223,11 +220,6 @@ pub async fn insert_sessions(
             )
         })
         .multiunzip();
-
-    println!(
-        "Inserting campaign sessions with data: {:?}, {:?}, {:?}, {:?}, {:?}",
-        &session_orders, &names, &descriptions, &play_dates, &campaign_id
-    );
 
     let ids = sqlx::query!(
         r#"
@@ -586,11 +578,6 @@ pub async fn edit_encounter_session_character_assignments(
 ) -> crate::Result<()> {
     // Pre-select as fast insertion/deletion can cause inconsistency here. We lock on the session to prevent this.
     // TODO: Slow down the calls to this route on the front end to prevent this from happening
-    log::info!(
-        "\n\nMaking the following updates {}: {:?}",
-        session_id.0,
-        updates.compiled_rewards
-    );
     sqlx::query!(
         "SELECT 1 as one FROM campaign_sessions WHERE id = $1 FOR UPDATE",
         session_id.0 as i32
@@ -651,8 +638,6 @@ pub async fn edit_encounter_session_character_assignments(
     // Sets the unassigned gold and item rewards for the session to be
     // the difference between the total gold and item rewards from the encounters
     // and the total gold and item rewards assigned to characters
-
-    println!("Session ID: {}", session_id.0 as i32);
     sqlx::query!(
         r#"
         UPDATE campaign_sessions

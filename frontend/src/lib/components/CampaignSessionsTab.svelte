@@ -105,8 +105,6 @@
         let session = campaignSessions.find(s => s.id === selectedSessionId);
         if (!session) return;
 
-            console.log("Doing update with session", session);
-
         compiledItemRewardsWithIds = {};
         compiledGoldRewards = {};
 
@@ -141,7 +139,6 @@
         });
 
             // snapshot
-        console.log('compiledItemRewardsWithIds', $state.snapshot(compiledItemRewardsWithIds)); 
     }
 
     async function updateSessionName() {

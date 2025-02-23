@@ -318,6 +318,8 @@ async fn insert_classes(
     Json(payload): Json<Vec<InsertLibraryClass>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-    database::classes::insert_classes(&pool, &payload).await?;
+    database::classes::insert_classes(&pool, &payload)
+        .await
+        .unwrap();
     Ok(StatusCode::NO_CONTENT)
 }

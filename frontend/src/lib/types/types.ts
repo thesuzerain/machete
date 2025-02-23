@@ -3,6 +3,7 @@
 export interface Campaign {
     id: number;
     name: string;
+    level: number;
     description?: string;
 }
 
@@ -46,7 +47,6 @@ export interface InsertCampaignSessionEncounterLinksMetadata {
 export interface Character {
     id: number;
     name: string;
-    level: number;
     experience: number;
     class: number;
     class_name: string;

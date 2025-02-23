@@ -4,6 +4,9 @@
     import CharacterModal from '$lib/components/CharacterModal.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
+    import { statsStore } from '$lib/stores/stats';
+    import type { CharacterStats } from '$lib/types/stats';
+    import { campaignStore } from '$lib/stores/campaigns';
 
     export let selectedCampaignId: number;
     export let error: string | null;
@@ -12,6 +15,37 @@
     let editingCharacter: Character | null = null;
     $: characters = $characterStore.get(selectedCampaignId) || [];
     $: classes = $classStore;
+    $: campaign = $campaignStore.get(selectedCampaignId);
+
+    $: stats = $statsStore.get(selectedCampaignId);
+    $: characterStats = stats?.character_stats || {};
+
+    function getCharacterStats(characterId: number): CharacterStats | undefined {
+        return stats?.character_stats[characterId];
+    }
+
+    function getEquityStats(character) {
+        const charStats = characterStats[character.id];
+        if (!charStats) return null;
+
+        const expectedGoldShare = (stats?.total_expected_combined_treasure || 0) / (characters.length || 1);
+        
+        return {
+            goldShare: charStats.total_combined_treasure,
+            expectedGoldShare,
+            goldPercent: ((charStats.total_combined_treasure / expectedGoldShare) * 100).toFixed(1),
+            permanentItems: charStats.total_permanent_items.length,
+            expectedPermanentItems: Object.values(charStats.expected_boosts || {}).length,
+            availableBoosts: charStats.available_boosts,
+            expectedBoosts: charStats.expected_boosts,
+            missingBoosts: charStats.expected_boosts.filter(expected => 
+                !charStats.available_boosts.some(available => 
+                    available.boost_category_id === expected.boost_category_id && 
+                    available.potency === expected.potency
+                )
+            )
+        };
+    }
 
     async function handleCharacterDelete(id: number) {
         try {
@@ -32,64 +66,84 @@
 
     <div class="character-list">
         {#each characters as character}
-        
-                    <div class="character-row" transition:fade>
-                    <div class="character-main">
-                            <div class="character-identity">
-                                <h3>{character.name}</h3>
-                                <div class="character-subtitle">
-                                    Level {character.level} {classes.entities.get(character.class)?.name}
-                                </div>
-                            </div>
-                            <div class="character-actions">
-                                <button class="edit-btn" on:click={() => {
-                                    editingCharacter = character;
-                                    showNewCharacterModal = true;
-                                }}>Edit</button>
-                                <button class="delete-btn" on:click={() => handleCharacterDelete(character.id)}>
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="character-content">
-                            <div class="content-section">
-                                <h4>Experience</h4>
-                                <div class="xp-display">
-                                    <div class="xp-bar" style="--progress: {(character.experience % 1000) / 1000 * 100}%">
-                                        <span class="xp-text">{character.experience} / 1000 XP</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="content-section">
-                                <h4>Recent Activity</h4>
-                                <!-- Placeholder for activity graph -->
-                                <div class="activity-placeholder">
-                                    Activity graph coming soon
-                                </div>
-                            </div>
-
-                            <div class="content-section">
-                                <h4>Statistics</h4>
-                                <div class="stats-grid">
-                                    <div class="stat-item">
-                                        <span class="stat-label">Sessions</span>
-                                        <span class="stat-value">12</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Enemies Defeated</span>
-                                        <span class="stat-value">47</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Gold Earned</span>
-                                        <span class="stat-value">1,234</span>
-                                    </div>
-                                </div>
-                            </div>
+            {@const equity = getEquityStats(character)}
+            <div class="character-row" transition:fade>
+                <div class="character-main">
+                    <div class="character-identity">
+                        <h3>{character.name}</h3>
+                        <div class="character-subtitle">
+                            Level {campaign?.level || '?'} {classes.entities.get(character.class)?.name}
                         </div>
                     </div>
-                {/each}
+                    <div class="character-actions">
+                        <button class="edit-btn" on:click={() => {
+                            editingCharacter = character;
+                            showNewCharacterModal = true;
+                        }}>Edit</button>
+                        <button class="delete-btn" on:click={() => handleCharacterDelete(character.id)}>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+
+                <div class="character-content">
+
+
+                    <div class="content-section">
+                        <h4>Treasure & Items</h4>
+                        {#if equity}
+                            <div class="equity-stats">
+                                <div class="equity-stat" class:deficit={equity.goldShare < equity.expectedGoldShare}
+                                                  class:surplus={equity.goldShare >= equity.expectedGoldShare}>
+                                    <span class="stat-label">Gold Share</span>
+                                    <span class="stat-value">{equity.goldShare.toFixed(1)}</span>
+                                    <span class="stat-subtext">({equity.goldPercent}% of expected {equity.expectedGoldShare.toFixed(1)})</span>
+                                </div>
+                                <div class="equity-stat" class:deficit={equity.permanentItems < equity.expectedPermanentItems}
+                                                  class:surplus={equity.permanentItems >= equity.expectedPermanentItems}>
+                                    <span class="stat-label">Permanent Items</span>
+                                    <span class="stat-value">{equity.permanentItems}/{equity.expectedPermanentItems}</span>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <div class="content-section">
+                        <h4>Boosts</h4>
+                        {#if equity}
+                            <div class="boosts-grid">
+                                <div class="boost-section">
+                                    <h5>Available Boosts</h5>
+                                    {#if equity.availableBoosts.length}
+                                        {#each equity.availableBoosts as boost}
+                                            <div class="boost-item">
+                                                <span class="boost-name">{boost.boost_category_name}</span>
+                                                <span class="boost-potency">+{boost.potency}</span>
+                                            </div>
+                                        {/each}
+                                    {:else}
+                                        <div class="empty-state">No boosts available</div>
+                                    {/if}
+                                </div>
+                                <div class="boost-section">
+                                    <h5>Missing Boosts</h5>
+                                    {#if equity.missingBoosts.length}
+                                        {#each equity.missingBoosts as boost}
+                                            <div class="boost-item missing">
+                                                <span class="boost-name">{boost.boost_category_name}</span>
+                                                <span class="boost-potency">+{boost.potency}</span>
+                                            </div>
+                                        {/each}
+                                    {:else}
+                                        <div class="empty-state">No missing boosts</div>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        {/each}
     </div>
 </div>
 
@@ -214,40 +268,76 @@
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
-    .stats-grid {
+    .equity-stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
     }
 
-    .stat-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+    .equity-stat {
+        padding: 0.75rem;
+        background: white;
+        border-radius: 0.375rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
     .stat-label {
         font-size: 0.75rem;
         color: #64748b;
-        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     .stat-value {
         font-size: 1.25rem;
         font-weight: 600;
-        color: #1e293b;
+        margin: 0.25rem 0;
     }
 
-    .activity-placeholder {
-        height: 100px;
-        background: #e2e8f0;
-        border-radius: 0.375rem;
+    .stat-subtext {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .boosts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .boost-section h5 {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin: 0 0 0.75rem 0;
+    }
+
+    .boost-item {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        background: white;
+        border-radius: 0.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .boost-item.missing {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .deficit .stat-value {
+        color: #ef4444;
+    }
+
+    .surplus .stat-value {
+        color: #22c55e;
+    }
+
+    .empty-state {
         color: #64748b;
         font-size: 0.875rem;
+        text-align: center;
+        padding: 1rem;
     }
 
     .add-character-btn {

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::models::ids::InternalId;
-use crate::models::stats::{AssignedBoost, AssignedRewardsSession, CharacterStats, EncounterStats};
 use crate::models::stats::CampaignStats;
+use crate::models::stats::{AssignedBoost, AssignedRewardsSession, CharacterStats, EncounterStats};
 
 use serde::Deserialize;
 
@@ -136,11 +136,7 @@ pub async fn get_campaign_stats(
                 session_id: InternalId(r.session_id),
                 treasure_gold: r.treasure_gold,
                 treasure_item_value: r.treasure_item_value,
-                treasure_items_group: r
-                    .treasure_items_group
-                    .into_iter()
-                    .map(InternalId)
-                    .collect(),
+                treasure_items_group: r.treasure_items_group.into_iter().map(InternalId).collect(),
             })
             .collect();
         (
@@ -196,13 +192,22 @@ pub async fn get_campaign_stats(
                                 'encounter_id', e.id,
                                 'total_experience', e.total_experience,
                                 'total_items_value', e.total_items_value,
-                                'treasure_currency', e.treasure_currency
+                                'treasure_currency', e.treasure_currency,
+                                'calculated_expected_total_treasure', ex.total_value,
+                                'pf_expected_total_treasure', 
+                                    CASE
+                                        WHEN e.total_experience < 40 THEN ex.encounter_low
+                                        WHEN e.total_experience < 80 THEN ex.encounter_moderate
+                                        WHEN e.total_experience < 120 THEN ex.encounter_severe
+                                        ELSE ex.encounter_extreme
+                                    END
                         ) ORDER BY cs.session_order, cs.id, e.id -- TODO: Encounter ordering within a session?
                 ) AS stats_by_encounter,
                 COUNT(DISTINCT e.id) as num_encounters,
                 COUNT(DISTINCT cs.id) as num_sessions
             FROM campaign_sessions cs
             LEFT JOIN encounters e ON e.session_id = cs.id
+            INNER JOIN expected_treasures_by_level ex ON ex.level = c.level
             WHERE cs.campaign_id = c.id
         ) by_encounter ON true
         LEFT JOIN LATERAL (
@@ -277,6 +282,8 @@ pub async fn get_campaign_stats(
             pub total_experience: u32,
             pub treasure_currency: f32,
             pub total_items_value: f32,
+            pub calculated_expected_total_treasure: f32,
+            pub pf_expected_total_treasure: f32,
         }
         let encounters : Vec<OneEncounter> = serde_json::from_value(r.stats_by_encounter.unwrap_or_default()).unwrap_or_default();
         let mut acc = 0;
@@ -288,7 +295,8 @@ pub async fn get_campaign_stats(
                 accumulated_items_treasure: e.total_items_value,
                 accumulated_gold_treasure: e.treasure_currency,
                 accumulated_xp: e.total_experience,
-                expected_total_treasure: 0.0, // TODO
+                calculated_expected_total_treasure: e.calculated_expected_total_treasure,
+                pf_expected_total_treasure: e.pf_expected_total_treasure,
             };
             acc += 1;
             stats

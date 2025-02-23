@@ -73,5 +73,6 @@ pub struct EncounterStats {
     pub accumulated_items_treasure: f32,
     pub accumulated_gold_treasure: f32,
     pub accumulated_xp: u32,
-    pub expected_total_treasure: f32,
+    pub calculated_expected_total_treasure: f32,
+    pub pf_expected_total_treasure: f32,
 }
