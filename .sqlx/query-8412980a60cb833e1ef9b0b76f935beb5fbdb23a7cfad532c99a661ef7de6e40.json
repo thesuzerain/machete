@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO characters (name, player, campaign, class)\n        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], $3::int[], $4::int[])\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray",
+        "Int4Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8412980a60cb833e1ef9b0b76f935beb5fbdb23a7cfad532c99a661ef7de6e40"
+}

@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            s.id,\n            s.session_order,\n            s.name,\n            s.description,\n            s.play_date,\n            ARRAY_AGG(e.id) filter (where e.id is not null) as encounter_ids,\n            unassigned_gold_rewards,\n            unassigned_item_rewards,\n            JSONB_AGG(\n                JSONB_BUILD_OBJECT(\n                    'session_id', csc.session_id,\n                    'character_id', csc.character_id,\n                    'gold_rewards', csc.gold_rewards,\n                    'item_rewards', csc.item_rewards\n                )\n            ) filter (where csc.session_id is not null) as character_rewards,\n            SUM(e.total_items_value + e.treasure_currency) as total_combined_treasure_value,\n            SUM(e.total_experience) as total_experience\n        FROM campaign_sessions s\n        LEFT JOIN campaigns ca ON s.campaign_id = ca.id\n        LEFT JOIN encounters e ON s.id = e.session_id\n\n        LEFT JOIN LATERAL (\n            SELECT \n                csc.session_id,\n                csc.character_id,\n                csc.gold_rewards,\n                ARRAY_AGG(item_id) FILTER (WHERE item_id IS NOT NULL) as item_rewards\n            FROM campaign_session_characters csc\n            LEFT JOIN campaign_session_character_items csci ON csci.character_id = csc.character_id AND csci.session_id = csc.session_id\n            GROUP BY csc.session_id, csc.character_id\n        ) csc ON s.id = csc.session_id\n\n        WHERE \n            ca.id = $1\n            AND ca.owner = $2\n        GROUP BY s.id\n        ORDER BY s.session_order, s.id ASC\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "session_order",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "play_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "encounter_ids",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 6,
+        "name": "unassigned_gold_rewards",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "unassigned_item_rewards",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 8,
+        "name": "character_rewards",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "total_combined_treasure_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 10,
+        "name": "total_experience",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b5a045e79da83a088ea2519466a8ebdc407742dcae56e8608bc539f5df078918"
+}

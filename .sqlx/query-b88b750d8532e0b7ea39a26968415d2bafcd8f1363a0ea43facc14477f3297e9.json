@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            ch.id,\n            ch.name,\n            ch.player,\n            ch.class\n        FROM characters ch\n        LEFT JOIN campaigns ca ON ch.campaign = ca.id\n        WHERE \n            ch.id = $1\n            AND ca.owner = $2\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "player",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "class",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "b88b750d8532e0b7ea39a26968415d2bafcd8f1363a0ea43facc14477f3297e9"
+}

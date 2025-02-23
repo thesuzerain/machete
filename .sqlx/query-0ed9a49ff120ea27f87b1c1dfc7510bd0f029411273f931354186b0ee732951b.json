@@ -6,7 +6,7 @@
     "parameters": {
       "Left": [
         "Float8",
-        "Int8Array",
+        "Int4Array",
         "Int4"
       ]
     },

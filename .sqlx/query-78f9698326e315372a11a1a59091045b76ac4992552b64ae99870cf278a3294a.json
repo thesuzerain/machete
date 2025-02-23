@@ -1,0 +1,165 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            c.*, query as \"query!\"\n        FROM UNNEST($10::text[]) query\n        CROSS JOIN LATERAL (\n            SELECT \n                -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.\n                CASE\n                    WHEN $12::bool THEN \n                        CASE\n                            WHEN lo.name ILIKE query || '%' THEN 1.01\n                            WHEN lo.name ILIKE '%' || query || '%' THEN 1.0\n                            ELSE SIMILARITY(lo.name, query)\n                        END\n                    ELSE SIMILARITY(lo.name, query)\n                END AS similarity,\n                CASE WHEN $12::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,\n                lo.id,\n                lo.name,\n                lo.game_system,\n                lo.url,\n                lo.description,\n                li.rarity,\n                li.level,\n                li.price,\n                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,\n                li.item_categories,\n                li.traits,\n                li.consumable,\n                li.magical,\n                li.item_type,\n                li.apex_stat,\n                lo.legacy,\n                lo.remastering_alt_id,\n                JSON_AGG(JSON_BUILD_OBJECT('name', r.name, 'potency', r.potency)) FILTER (WHERE r.potency IS NOT NULL) AS runes,\n                JSON_AGG(JSON_BUILD_OBJECT('skill', sb.skill, 'bonus', sb.bonus)) FILTER (WHERE sb.bonus IS NOT NULL) AS skill_boosts\n            FROM library_objects lo\n            INNER JOIN library_items li ON lo.id = li.id\n            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id\n            LEFT JOIN tags t ON lot.tag_id = t.id\n            LEFT JOIN library_items_runes lir ON lo.id = lir.item_id\n            LEFT JOIN runes r ON lir.rune_id = r.id\n            LEFT JOIN library_items_skill_boosts sb ON lo.id = sb.item_id\n\n            WHERE\n                ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')\n                AND ($2::int IS NULL OR rarity = $2)\n                AND ($3::int IS NULL OR game_system = $3)\n                AND ($4::int IS NULL OR level >= $4)\n                AND ($5::int IS NULL OR level <= $5)\n                AND ($6::int IS NULL OR price >= $6)\n                AND ($7::int IS NULL OR price <= $7)\n                AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')\n                AND ($9::int[] IS NULL OR lo.id = ANY($9))\n                AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)\n                AND NOT (NOT $13::bool AND lo.legacy = FALSE)\n                AND NOT (NOT $14::bool AND lo.legacy = TRUE)\n                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)\n                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)\n\n            GROUP BY lo.id, li.id ORDER BY similarity DESC, favor_exact_start_length, lo.name\n            LIMIT $17 OFFSET $18\n        ) c\n        ORDER BY similarity DESC, favor_exact_start_length, c.name \n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "similarity",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "favor_exact_start_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "game_system",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "rarity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "price",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 10,
+        "name": "tags",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "item_categories",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 12,
+        "name": "traits",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 13,
+        "name": "consumable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "magical",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "item_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 16,
+        "name": "apex_stat",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 17,
+        "name": "legacy",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 18,
+        "name": "remastering_alt_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 19,
+        "name": "runes",
+        "type_info": "Json"
+      },
+      {
+        "ordinal": 20,
+        "name": "skill_boosts",
+        "type_info": "Json"
+      },
+      {
+        "ordinal": 21,
+        "name": "query!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int4Array",
+        "TextArray",
+        "Float4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "78f9698326e315372a11a1a59091045b76ac4992552b64ae99870cf278a3294a"
+}

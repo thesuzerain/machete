@@ -38,15 +38,15 @@
         xp: number;
         currency: number;
         items: Record<number, number[]>;
-        total_treasure_value: number;
+        total_items_value: number;
     }
     let totalSessionRewards = $derived(sessionEncounters.reduce((acc, encounter) => {
         acc.xp += encounter.total_experience;
         acc.currency += encounter.treasure_currency;
         acc.items[encounter.id]= encounter.treasure_items;
-        acc.total_treasure_value += encounter.total_treasure_value;
+        acc.total_items_value += encounter.total_items_value;
         return acc;
-    }, { xp: 0, currency: 0, items: {}, total_treasure_value: 0 } as TotalRewards));
+    }, { xp: 0, currency: 0, items: {}, total_items_value: 0 } as TotalRewards));
     
     // character -> items and character -> gold
     // -1 -> unassigned
@@ -137,6 +137,8 @@
             compiledItemRewardsWithIds[c.id] = compiledItemRewardsWithIds[c.id] || [];
             compiledGoldRewards[c.id] = compiledGoldRewards[c.id] || 0;
         });
+
+            // snapshot
     }
 
     async function updateSessionName() {
@@ -364,10 +366,11 @@
                 <div class="reward-details">
                     <p>Experience: {totalSessionRewards.xp} XP</p>
                     <p>Gold: {totalSessionRewards.currency}g</p>
-                    <p>Total treasure value: {totalSessionRewards.total_treasure_value}</p>
+                    <p>Total item treasure value: {totalSessionRewards.total_items_value}</p>
                 </div>
             </div>
 
+            frack {compiledGoldTotal} {compiledItemRewardsTotal}
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">

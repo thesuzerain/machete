@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            c.level,\n            by_encounter.num_encounters,\n            by_encounter.num_sessions,\n            by_encounter.stats_by_encounter,\n            by_encounter.total_item_treasure_value,\n            by_encounter.total_treasure_currency_value,\n            by_encounter.total_combined_treasure_value,\n            items.total_treasure_items_value,\n            by_encounter.total_experience,\n            (by_encounter.total_experience % 1000) as experience_this_level,\n            items_2.consumable_items_by_level,\n            items_2.permanent_items_by_level,\n            expected_consumable.expected_consumable_items_by_end_of_level,\n            expected_permanent.expected_permanent_items_by_end_of_level,\n            expected_combined_total_treasure_value_start_of_level,\n            expected_combined_total_treasure_value_end_of_level,\n            (expected_combined_total_treasure_value_end_of_level - expected_combined_total_treasure_value_start_of_level)*((by_encounter.total_experience % 1000)::float/1000.0) + expected_combined_total_treasure_value_start_of_level\n                as expected_combined_total_treasure_value\n        FROM campaigns c\n        LEFT JOIN LATERAL (\n            SELECT\n                SUM(e.total_items_value) AS total_item_treasure_value,\n                SUM(e.treasure_currency) AS total_treasure_currency_value,\n                SUM(e.total_items_value + e.treasure_currency) AS total_combined_treasure_value,\n                SUM(e.total_experience) AS total_experience,\n                JSONB_AGG(\n                        json_build_object(\n                                'session_id', cs.id,\n                                'encounter_id', e.id,\n                                'total_experience', e.total_experience,\n                                'total_items_value', e.total_items_value,\n                                'treasure_currency', e.treasure_currency,\n                                'calculated_expected_total_treasure', ex.total_value,\n                                'pf_expected_total_treasure', \n                                    CASE\n                                        WHEN e.total_experience < 40 THEN ex.encounter_low\n                                        WHEN e.total_experience < 80 THEN ex.encounter_moderate\n                                        WHEN e.total_experience < 120 THEN ex.encounter_severe\n                                        ELSE ex.encounter_extreme\n                                    END\n                        ) ORDER BY cs.session_order, cs.id, e.id -- TODO: Encounter ordering within a session?\n                ) AS stats_by_encounter,\n                COUNT(DISTINCT e.id) as num_encounters,\n                COUNT(DISTINCT cs.id) as num_sessions\n            FROM campaign_sessions cs\n            LEFT JOIN encounters e ON e.session_id = cs.id\n            INNER JOIN expected_treasures_by_level ex ON ex.level = c.level\n            WHERE cs.campaign_id = c.id\n        ) by_encounter ON true\n        LEFT JOIN LATERAL (\n            SELECT\n                SUM(li.price) total_treasure_items_value\n            FROM encounter_treasure_items eti\n            INNER JOIN encounters e ON eti.encounter = e.id\n            INNER JOIN campaign_sessions cs ON e.session_id = cs.id\n            INNER JOIN library_objects lo ON lo.id = eti.item\n            INNER JOIN library_items li ON li.id = eti.item\n            WHERE cs.campaign_id = c.id\n        ) items ON true\n        LEFT JOIN LATERAL (\n            SELECT\n            jsonb_object_agg(level, total) FILTER (WHERE consumable) AS consumable_items_by_level,\n            jsonb_object_agg(level, total) FILTER (WHERE NOT consumable) AS permanent_items_by_level\n            FROM (\n            SELECT\n                li.level::text AS level,\n                li.consumable,\n                COUNT(*) AS total\n            FROM campaign_session_character_items csci\n            JOIN characters ch ON csci.character_id = ch.id\n            JOIN library_objects lo ON lo.id = csci.item_id\n            JOIN library_items li ON li.id = csci.item_id\n            WHERE ch.campaign = c.id\n            GROUP BY li.level, li.consumable\n            ) s\n        ) items_2 ON true\n        LEFT JOIN LATERAL (\n            SELECT jsonb_object_agg(key, total) AS expected_consumable_items_by_end_of_level\n            FROM (\n            SELECT key, SUM(value::int) AS total\n            FROM expected_treasures_by_level etbl,\n                LATERAL jsonb_each(etbl.consumable_items_by_level)\n            WHERE etbl.level <= c.level\n            GROUP BY key\n        ) s) expected_consumable ON true\n        LEFT JOIN LATERAL (\n                SELECT jsonb_object_agg(key, total) AS expected_permanent_items_by_end_of_level\n                FROM (\n                SELECT key, SUM(value::int) AS total\n                FROM expected_treasures_by_level etbl,\n                    LATERAL jsonb_each(etbl.permanent_items_by_level)\n                WHERE etbl.level <= c.level\n                GROUP BY key\n        ) s) expected_permanent ON true\n        LEFT JOIN LATERAL (\n            SELECT\n                SUM(total_value + charcount_diff*currency_per_additional_player) filter ( where etbl.level < c.level ) AS expected_combined_total_treasure_value_start_of_level, \n                SUM(total_value + charcount_diff*currency_per_additional_player) AS expected_combined_total_treasure_value_end_of_level\n            FROM expected_treasures_by_level etbl,\n            (\n                SELECT COUNT(*)-4 AS charcount_diff FROM characters ch WHERE ch.campaign = c.id\n            ) cd\n            WHERE etbl.level <= c.level\n        ) expected ON true\n        WHERE c.owner = $1 AND c.id = $2    \n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "level",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "num_encounters",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "num_sessions",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "stats_by_encounter",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_item_treasure_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "total_treasure_currency_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "total_combined_treasure_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "total_treasure_items_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "total_experience",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "experience_this_level",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "consumable_items_by_level",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 11,
+        "name": "permanent_items_by_level",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 12,
+        "name": "expected_consumable_items_by_end_of_level",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 13,
+        "name": "expected_permanent_items_by_end_of_level",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 14,
+        "name": "expected_combined_total_treasure_value_start_of_level",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 15,
+        "name": "expected_combined_total_treasure_value_end_of_level",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 16,
+        "name": "expected_combined_total_treasure_value",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e801c3daa734c31294210f6e56316fb75cd243d1c1431373969a46a7fe61a07a"
+}

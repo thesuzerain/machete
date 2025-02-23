@@ -16,6 +16,7 @@
     import CampaignSessionsTab from '$lib/components/CampaignSessionsTab.svelte';
   import { encounterStore } from '$lib/stores/encounters';
   import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
+import { statsStore } from '$lib/stores/stats';
 
     let loading = true;
     let error: string | null = null;
@@ -29,7 +30,7 @@
     $: campaigns = $campaignStore;
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
     $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
-
+    $: stats = selectedCampaignId ? $statsStore.get(selectedCampaignId) : null;
     async function fetchLogs() {
         if (!selectedCampaignId) return;
         
@@ -51,6 +52,7 @@
             campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
             encounterStore.fetchEncounters(),
             fetchLogs(),
+            statsStore.fetchStats(selectedCampaignId),
         ]).catch(e => {
             error = e instanceof Error ? e.message : 'An error occurred';
         });
@@ -79,25 +81,39 @@
 </script>
 
 <div class="campaigns-page">
-    {#if selectedCampaignId}
+    {#if selectedCampaignId && stats}
         <div class="campaign-metadata" transition:fade>
             <div class="metadata-item">
-                <span class="label">Total Sessions</span>
-                <!-- <span class="value">{metadata.total_sessions}</span> -->
+                <div class="metadata-content">
+                    <span class="label">Campaign Level</span>
+                    <div class="value-group">
+                        <span class="value">{stats.level}</span>
+                        <div class="mini-progress-bar">
+                            <div class="progress" style="width: {(stats.experience_this_level / 1000) * 100}%"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="metadata-item">
-                <span class="label">Average Level</span>
-                <!-- <span class="value">{metadata.average_level.toFixed(1)}</span> -->
+                <div class="metadata-content">
+                    <span class="label">Sessions</span>
+                    <div class="value-group">
+                        <span class="value">{stats.num_sessions}</span>
+                        <span class="subtext">({stats.num_encounters} encounters)</span>
+                    </div>
+                </div>
             </div>
             <div class="metadata-item">
-                <span class="label">Total XP</span>
-                <!-- <span class="value">{metadata.total_experience}</span> -->
-            </div>
-            <div class="metadata-item">
-                <span class="label">Last Session</span>
-                <span class="value">
-                    <!-- {metadata.last_session ? new Date(metadata.last_session).toLocaleDateString() : 'Never'} -->
-                </span>
+                <div class="metadata-content">
+                    <span class="label">Treasure Balance</span>
+                    <div class="value-group">
+                        <span class="value" class:deficit={stats.total_combined_treasure < stats.total_expected_combined_treasure}
+                                      class:surplus={stats.total_combined_treasure >= stats.total_expected_combined_treasure}>
+                            {((stats.total_combined_treasure / stats.total_expected_combined_treasure) * 100).toFixed(1)}%
+                        </span>
+                        <span class="subtext">of expected</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -202,8 +218,8 @@
     .campaign-metadata {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        padding: 1.5rem;
+        gap: 1rem;
+        padding: 1rem;
         background: white;
         border-radius: 0.5rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -211,22 +227,62 @@
     }
 
     .metadata-item {
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        background: #f8fafc;
+    }
+
+    .metadata-content {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
+        gap: 0.5rem;
     }
 
     .metadata-item .label {
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         color: #64748b;
-        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .value-group {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
     }
 
     .metadata-item .value {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         font-weight: 600;
         color: #1e293b;
+    }
+
+    .metadata-item .subtext {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .mini-progress-bar {
+        width: 40px;
+        height: 3px;
+        background: #e2e8f0;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 0.25rem;
+    }
+
+    .mini-progress-bar .progress {
+        height: 100%;
+        background: #3b82f6;
+        transition: width 0.3s ease;
+    }
+
+    .deficit {
+        color: #ef4444;
+    }
+
+    .surplus {
+        color: #22c55e;
     }
 
     .new-campaign-btn {

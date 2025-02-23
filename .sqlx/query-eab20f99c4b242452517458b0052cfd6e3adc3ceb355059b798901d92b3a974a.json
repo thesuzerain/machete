@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            ch.id,\n            items.total_treasure_item_value,\n            items.consumable_items,\n            items.permanent_items,\n            gold.total_gold,\n            owned_boosts.assigned_boosts,\n            expected_boosts.expected_boosts,\n            reward_by_session.reward_by_session\n        FROM characters ch\n        INNER JOIN campaigns c ON ch.campaign = c.id\n        LEFT JOIN LATERAL (\n            SELECT\n                SUM(csc.gold_rewards) AS total_gold\n            FROM campaign_session_characters csc\n            WHERE csc.character_id = ch.id\n\n        ) gold ON true\n        LEFT JOIN LATERAL (\n            SELECT \n                ARRAY_AGG(item_id) filter (where consumable) consumable_items,\n                ARRAY_AGG(item_id) filter (where NOT consumable) permanent_items,\n                SUM(li.price) as total_treasure_item_value\n            FROM campaign_session_character_items csci\n            INNER JOIN campaign_sessions cs ON csci.session_id = cs.id\n            INNER JOIN library_objects lo ON lo.id = csci.item_id\n            INNER JOIN library_items li ON li.id = csci.item_id\n            WHERE csci.character_id = ch.id\n        ) items ON true\n        LEFT JOIN LATERAL (\n            SELECT\n                JSONB_AGG(json_build_object(\n                    'session_id', cs.id,\n                    'treasure_gold', csc.gold_rewards,\n                    'treasure_item_value', COALESCE(s.price_sum, 0),\n                    'treasure_items_group', COALESCE(s.items_group, '{}')\n                  ) ORDER BY cs.session_order) filter (WHERE cs.id is not null) as reward_by_session\n            FROM  campaign_session_characters csc\n            INNER JOIN campaign_sessions cs ON csc.session_id = cs.id\n            LEFT JOIN LATERAL (\n                SELECT SUM(li.price) as price_sum, ARRAY_AGG(csci.item_id) as items_group\n                FROM campaign_session_character_items csci\n                LEFT JOIN library_objects lo ON lo.id = csci.item_id\n                LEFT JOIN library_items li ON li.id = csci.item_id\n                WHERE csci.character_id = ch.id AND csci.session_id = cs.id\n                GROUP BY csci.session_id\n            ) s ON true\n            WHERE csc.character_id = ch.id\n        ) reward_by_session ON true\n        LEFT JOIN LATERAL (\n            SELECT json_agg(\n                    json_build_object(\n                    'boost_category_id', sbct.id,\n                    'boost_category_name', sbct.name,\n                    'potency', r.potency\n                    )\n                ) AS assigned_boosts\n            FROM campaign_session_character_items csci\n            INNER JOIN library_items li ON csci.item_id = li.id\n            INNER JOIN library_objects lo ON li.id = lo.id\n            INNER JOIN library_items_runes lir ON li.id = lir.item_id\n            INNER JOIN runes r ON lir.rune_id = r.id\n            INNER JOIN stat_boost_category_types sbct ON r.stat_boost_category_id = sbct.id\n            WHERE csci.character_id = ch.id\n        ) owned_boosts ON true\n        LEFT JOIN LATERAL (\n            SELECT json_agg(\n                    json_build_object(\n                    'boost_category_id', etsb.stat_boost_category_id,\n                    'boost_category_name', sbct.name,\n                    'potency', etsb.amount\n                    )\n                ) AS expected_boosts\n                FROM expected_treasure_stats_boosts_at_levels etsb\n                INNER JOIN stat_boost_category_types sbct ON etsb.stat_boost_category_id = sbct.id\n            WHERE etsb.level <= c.level\n        ) expected_boosts ON true\n        WHERE c.owner = $1 AND c.id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_treasure_item_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "consumable_items",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 3,
+        "name": "permanent_items",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_gold",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "assigned_boosts",
+        "type_info": "Json"
+      },
+      {
+        "ordinal": 6,
+        "name": "expected_boosts",
+        "type_info": "Json"
+      },
+      {
+        "ordinal": 7,
+        "name": "reward_by_session",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "eab20f99c4b242452517458b0052cfd6e3adc3ceb355059b798901d92b3a974a"
+}

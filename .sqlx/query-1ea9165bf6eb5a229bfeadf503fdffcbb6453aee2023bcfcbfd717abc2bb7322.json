@@ -21,7 +21,7 @@
       {
         "ordinal": 3,
         "name": "log?",
-        "type_info": "Int8"
+        "type_info": "Int4"
       },
       {
         "ordinal": 4,

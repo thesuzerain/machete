@@ -3,7 +3,7 @@ CREATE EXTENSION pg_trgm;
 ALTER TABLE encounters ADD COLUMN extra_experience INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE encounters ADD COLUMN total_experience INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE encounters ADD COLUMN total_treasure_value double precision NOT NULL DEFAULT 0;
-ALTER TABLE encounters ADD COLUMN enemy_level_adjustments SMALLINT[] NOT NULL DEFAULT '{}'; -- Assumed to be alongside 'enemies' array
+ALTER TABLE encounter_enemies ADD COLUMN level_adjustment SMALLINT NOT NULL DEFAULT 0;
 
 ALTER TABLE encounters ALTER COLUMN treasure_currency TYPE double precision;
 ALTER TABLE library_items ALTER COLUMN price TYPE double precision;
@@ -30,12 +30,17 @@ ALTER TABLE encounters ADD COLUMN session_id INTEGER NULL REFERENCES campaign_se
 CREATE TABLE campaign_session_characters (
     session_id INTEGER NOT NULL REFERENCES campaign_sessions(id),
     character_id INTEGER NOT NULL REFERENCES characters(id),
-
     gold_rewards double precision NOT NULL DEFAULT 0,
-    item_rewards integer[] NOT NULL DEFAULT '{}',
-
     PRIMARY KEY (session_id, character_id)
 );
+
+CREATE TABLE campaign_session_character_items (
+    session_id INTEGER NOT NULL REFERENCES campaign_sessions(id),
+    character_id INTEGER NOT NULL REFERENCES characters(id),
+    item_id INTEGER NOT NULL REFERENCES library_items(id)
+);
+CREATE INDEX ON campaign_session_character_items (session_id, character_id);
+
 
 ALTER TABLE event_groups ADD COLUMN session_id INTEGER NOT NULL DEFAULT 0 REFERENCES campaign_sessions(id);
 ALTER TABLE events ADD COLUMN session_id INTEGER NOT NULL DEFAULT 0 REFERENCES campaign_sessions(id);

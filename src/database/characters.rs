@@ -8,12 +8,11 @@ pub struct CharacterFilters {
     pub name: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct InsertCharacter {
     pub name: String,
     pub player: Option<String>,
     pub class: InternalId,
-    pub level: u8,
 }
 
 #[derive(serde::Deserialize)]
@@ -40,7 +39,6 @@ pub async fn get_characters(
             ch.id,
             ch.name,
             ch.player,
-            ch.level,
             ch.class
         FROM characters ch
         LEFT JOIN campaigns ca ON ch.campaign = ca.id
@@ -62,7 +60,6 @@ pub async fn get_characters(
             Ok(Character {
                 id: InternalId(row.id as u32),
                 name: row.name,
-                level: row.level as u8,
                 player: row.player,
                 class: InternalId(row.class as u32),
             })
@@ -82,7 +79,6 @@ pub async fn get_chracter_id(
             ch.id,
             ch.name,
             ch.player,
-            ch.level,
             ch.class
         FROM characters ch
         LEFT JOIN campaigns ca ON ch.campaign = ca.id
@@ -97,7 +93,6 @@ pub async fn get_chracter_id(
     let character = query.fetch_optional(exec).await?.map(|row| Character {
         id: InternalId(row.id as u32),
         name: row.name,
-        level: row.level as u8,
         player: row.player,
         class: InternalId(row.class as u32),
     });
@@ -152,8 +147,8 @@ pub async fn insert_characters(
 
     let ids = sqlx::query!(
         r#"
-        INSERT INTO characters (name, player, campaign, class, level)
-        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], $3::int[], $4::int[], $5::int[])
+        INSERT INTO characters (name, player, campaign, class)
+        SELECT * FROM UNNEST ($1::varchar[], $2::varchar[], $3::int[], $4::int[])
         RETURNING id
         "#,
         &names,
@@ -162,10 +157,6 @@ pub async fn insert_characters(
         &characters
             .iter()
             .map(|c| c.class.0 as i32)
-            .collect::<Vec<i32>>(),
-        &characters
-            .iter()
-            .map(|c| c.level as i32)
             .collect::<Vec<i32>>(),
     )
     .fetch_all(&mut **tx)

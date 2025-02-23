@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO encounter_treasure_items (encounter, item)\n            SELECT $1, item\n            FROM UNNEST($2::int[]) AS t(item)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "93ae0865a4f07efdb931c8c28a4c0fb0dd0098857a6ed399e3728270e76e5859"
+}

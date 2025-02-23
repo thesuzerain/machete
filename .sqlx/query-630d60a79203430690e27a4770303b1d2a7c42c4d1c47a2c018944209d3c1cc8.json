@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO runes (item_id, name, fundamental, stat_boost_category_id, legacy, potency, applied_to_item_type)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Bool",
+        "Int2",
+        "Bool",
+        "Int2",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "630d60a79203430690e27a4770303b1d2a7c42c4d1c47a2c018944209d3c1cc8"
+}

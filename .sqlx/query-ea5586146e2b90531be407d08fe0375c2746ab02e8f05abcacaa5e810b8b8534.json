@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO campaign_session_character_items (session_id, character_id, item_id)\n            SELECT $1, $2, item_id\n            FROM UNNEST($3::int[]) as item_id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ea5586146e2b90531be407d08fe0375c2746ab02e8f05abcacaa5e810b8b8534"
+}

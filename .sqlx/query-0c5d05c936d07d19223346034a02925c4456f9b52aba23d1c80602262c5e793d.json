@@ -12,7 +12,7 @@
     "parameters": {
       "Left": [
         "Int4Array",
-        "Int8"
+        "Int4"
       ]
     },
     "nullable": [

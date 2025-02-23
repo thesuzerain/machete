@@ -35,6 +35,8 @@ pub struct CampaignPartial {
     pub id: InternalId,
     pub name: String,
     pub description: Option<String>,
+    pub level: u8,
+    pub total_experience: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,7 +50,7 @@ pub struct CampaignSession {
 
     // Aggregation of encounter rewards, for easy reference.
     pub total_experience: u64,
-    pub total_treasure_value: f64,
+    pub total_combined_treasure_value: f64,
 
     // These are reward assignments from the encounters linked to this session.
     // Their encounter information is not considered here- it's fungible.

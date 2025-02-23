@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO encounter_enemies (encounter, enemy, level_adjustment)\n                VALUES ($1, $2, $3)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cbe31754f8ae59e8485bebd1cbf9f9e8844732fa63c5c5838f92a21bdf09dc42"
+}

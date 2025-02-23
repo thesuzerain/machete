@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO encounter_enemies (encounter, enemy, level_adjustment)\n            SELECT $1, enemy, level_adjustment\n            FROM UNNEST($2::int[], $3::smallint[]) AS t(enemy, level_adjustment)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4Array",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "45f8fa13bbacace61d933de60130873e8b7ec5b232625ca6679eb2ec9c7419fb"
+}

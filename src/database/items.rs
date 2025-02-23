@@ -427,6 +427,7 @@ pub async fn insert_items(
             .await?;
         } else {
             // Insert any runes that this may have!
+            // We do so by matching names + potency. We also match equivalent legacy status if possible.
             sqlx::query!(
                 r#"
                 INSERT INTO library_items_runes (item_id, rune_id)
@@ -435,16 +436,24 @@ pub async fn insert_items(
                     r.id as rune_id
                 FROM UNNEST($2::text[], $3::int[]) insertion(name, potency)
                 CROSS JOIN LATERAL (
-                    SELECT r.id
+                    SELECT DISTINCT ON (r.name) r.id
                     FROM runes r, library_objects lo
-                    WHERE lower(r.name) = lower(insertion.name) AND lo.id = $1 AND lo.legacy = r.legacy
+                    WHERE lower(r.name) = lower(insertion.name) AND lo.id = $1
                     AND r.potency = insertion.potency
+                    ORDER BY r.name, r.legacy != lo.legacy  -- Prefer matching legacy status
                 ) r
             "#,
                 *id as i32,
-                &item.runes.iter().map(|r| r.to_parts().0).collect::<Vec<String>>(),
-                &item.runes.iter().map(|r| r.to_parts().1 as i32).collect::<Vec<i32>>(),
-
+                &item
+                    .runes
+                    .iter()
+                    .map(|r| r.to_parts().0)
+                    .collect::<Vec<String>>(),
+                &item
+                    .runes
+                    .iter()
+                    .map(|r| r.to_parts().1 as i32)
+                    .collect::<Vec<i32>>(),
             )
             .fetch_all(exec)
             .await?;

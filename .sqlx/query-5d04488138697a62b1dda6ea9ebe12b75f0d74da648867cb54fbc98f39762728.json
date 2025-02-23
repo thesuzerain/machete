@@ -11,7 +11,7 @@
       {
         "ordinal": 1,
         "name": "unassigned_item_rewards",
-        "type_info": "Int8Array"
+        "type_info": "Int4Array"
       }
     ],
     "parameters": {

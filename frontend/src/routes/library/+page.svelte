@@ -559,12 +559,12 @@
                                                             {formatCurrency(value)}
                                                         {:else if key === 'rarity'}
                                                             <span class="rarity-label {value}">{value}</span>
+                                                        {:else if key === 'runes' && value.length > 0}
+                                                                {runeFormatter(value)}
                                                         {:else if Array.isArray(value)}
                                                             {value.join(', ')}
                                                         {:else if typeof value === 'boolean'}
                                                             {value ? '✔️' : '❌'}
-                                                        {:else if key === 'runes' && value.length > 0}
-                                                            {value.map(rune => `${rune.property || rune.type} ${rune.potency}`).join(', ')}
                                                         {:else}
                                                             {value}
                                                         {/if}

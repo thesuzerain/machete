@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO library_items_runes (item_id, rune_id)\n                SELECT\n                    $1::int as item_id,\n                    r.id as rune_id\n                FROM UNNEST($2::text[], $3::int[]) insertion(name, potency)\n                CROSS JOIN LATERAL (\n                    SELECT DISTINCT ON (r.name) r.id\n                    FROM runes r, library_objects lo\n                    WHERE lower(r.name) = lower(insertion.name) AND lo.id = $1\n                    AND r.potency = insertion.potency\n                    ORDER BY r.name, r.legacy != lo.legacy  -- Prefer matching legacy status\n                ) r\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f45aa3aa867cd8a45ac05a83e11ed135ef3c7f54bd431368e446741847685189"
+}

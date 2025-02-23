@@ -3,6 +3,7 @@
 export interface Campaign {
     id: number;
     name: string;
+    level: number;
     description?: string;
 }
 
@@ -16,7 +17,7 @@ export interface CampaignSession {
 
     // Derived values for aggregation. Not modified directly.
     total_experience: number;
-    total_treasure_value: number;
+    total_combined_treasure_value: number;
 
     // Character-specific awards
     // These are assumed to be correct, and are derived values.
@@ -46,7 +47,6 @@ export interface InsertCampaignSessionEncounterLinksMetadata {
 export interface Character {
     id: number;
     name: string;
-    level: number;
     experience: number;
     class: number;
     class_name: string;

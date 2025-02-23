@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE encounters SET session_id = NULL WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e14fd4c72f02bc1a4bcf9c63f8eccd4b4af242ea179809d55f09a1ed1624ed13"
+}
