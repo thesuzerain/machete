@@ -146,6 +146,7 @@ pub async fn import_with_functions(
         &InsertCampaign {
             name: campaign.name.clone(),
             description: campaign.description.clone(),
+            initialization: None,
         },
         false,
         owner,
@@ -201,6 +202,7 @@ pub async fn import_with_functions(
             session_id: session_ids_in_order.get(e.session_ix).cloned(),
             party_level: e.party_level as u8,
             party_size: e.party_size as u8,
+            initialization_encounter: None,
             enemies: e
                 .enemies
                 .iter()

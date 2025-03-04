@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Campaign } from '$lib/types/types';
+import type { Campaign, InsertInitialCampaignData } from '$lib/types/types';
 import { API_URL } from '$lib/config';
 import { auth } from './auth';
 
@@ -27,7 +27,7 @@ function createCampaignStore() {
             }
         },
         reset: () => set(new Map()),
-        addCampaign: async (campaign: Campaign) => {
+        addCampaign: async (campaign: Omit<Campaign, "id">, initialData: InsertInitialCampaignData | null = null) => {
             try {
                 const response = await fetch(`${API_URL}/campaign`, {
                     method: 'POST',
@@ -35,12 +35,14 @@ function createCampaignStore() {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(campaign),
+                    body: JSON.stringify({initialization: initialData, ...campaign}),
                 });
                 if (!response.ok) throw new Error('Failed to create campaign');
                 
                 // Refresh campaigns after adding
                 await campaignStore.fetchCampaigns();
+
+                return await response.json();
             } catch (e) {
                 console.error('Error adding campaign:', e);
                 throw e;

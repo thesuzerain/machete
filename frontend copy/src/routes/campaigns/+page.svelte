@@ -112,7 +112,7 @@ import { statsStore } from '$lib/stores/stats';
                     <div class="value-group">
                         <span class="value" class:deficit={stats.total_combined_treasure < stats.total_expected_combined_treasure}
                                       class:surplus={stats.total_combined_treasure >= stats.total_expected_combined_treasure}>
-                            {((stats.total_combined_treasure / stats.total_expected_combined_treasure) * 100).toFixed(1)}%
+                            {((stats.total_combined_treasure / stats.total_expected_combined_treasure || 0) * 100).toFixed(1)}%
                         </span>
                         <span class="subtext">of expected</span>
                     </div>

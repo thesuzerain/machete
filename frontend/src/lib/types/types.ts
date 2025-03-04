@@ -3,8 +3,19 @@
 export interface Campaign {
     id: number;
     name: string;
-    level: number;
+    experience: number;
     description?: string;
+}
+
+export interface InsertInitialCampaignData {
+    gold: number;
+    items: number[];
+    characters: {
+        name: string;
+        class: number;
+        gold: number;
+        items: number[];
+    }[];
 }
 
 export interface CampaignSession {

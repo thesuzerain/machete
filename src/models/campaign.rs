@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 pub struct Campaign {
     pub id: InternalId,
     pub name: String,
+    pub description: Option<String>,
+    pub level: u8,
+    pub total_experience: u64,
+
     pub party: Vec<Character>,
     pub log: EventLog,
     pub sessions: Vec<CampaignSession>,
@@ -25,6 +29,9 @@ impl Default for Campaign {
             party: vec![],
             log: EventLog::default(),
             sessions: vec![],
+            description: None,
+            level: 1,
+            total_experience: 0,
         }
     }
 }
