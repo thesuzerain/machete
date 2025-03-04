@@ -35,6 +35,9 @@ pub struct InsertEncounter {
 
     pub session_id: Option<InternalId>,
 
+    // TODO: Should be a part of encounter 'type', delete when that is implemented
+    pub initialization_encounter: Option<bool>,
+
     pub enemies: Vec<InsertEncounterEnemy>,
     pub hazards: Vec<InternalId>,
 
@@ -93,6 +96,8 @@ pub struct ModifyEncounter {
     pub treasure_currency: Option<f32>,
     pub extra_experience: Option<i32>,
 
+    pub initialization_encounter: Option<bool>,
+
     pub party_level: Option<u8>,
     pub party_size: Option<u8>,
 
@@ -138,6 +143,7 @@ pub async fn get_encounters(
             en.extra_experience as "extra_experience!",
             en.total_experience,
             en.total_items_value,
+            en.initialization_encounter,
             en.owner
         FROM encounters en
         LEFT JOIN encounter_enemies ee ON en.id = ee.encounter
@@ -170,6 +176,7 @@ pub async fn get_encounters(
                 party_level: row.party_level as u32,
                 party_size: row.party_size as u32,
                 owner: InternalId(row.owner as u32),
+                initialization_encounter: row.initialization_encounter,
                 enemies: row
                     .enemies
                     .unwrap_or_default()
@@ -418,10 +425,11 @@ pub async fn edit_encounter(
         party_size = COALESCE($5, party_size),
         party_level = COALESCE($6, party_level),
         extra_experience = COALESCE($7, extra_experience),
+        initialization_encounter = COALESCE($8, initialization_encounter),
         
-        total_experience = COALESCE($8, total_experience),
-        total_items_value = COALESCE($9, total_items_value)
-        WHERE id = $10
+        total_experience = COALESCE($9, total_experience),
+        total_items_value = COALESCE($10, total_items_value)
+        WHERE id = $11
         "#,
         new_encounter.name.as_deref(),
         new_encounter.description.as_deref(),
@@ -430,6 +438,7 @@ pub async fn edit_encounter(
         new_encounter.party_size.map(|s| s as i32),
         new_encounter.party_level.map(|l| l as i32),
         new_encounter.extra_experience.map(|e| e as i32),
+        new_encounter.initialization_encounter.map(|e| e as bool),
         new_encounter.total_experience.map(|e| e as i32),
         new_encounter.total_items_value.map(|e| e as f64),
         encounter_id.0 as i64,
@@ -684,6 +693,7 @@ pub async fn get_encounter_draft(
             en.extra_experience as "extra_experience!",
             en.total_experience,
             en.total_items_value,
+            initialization_encounter,
             en.owner
         FROM encounters en
         LEFT JOIN encounter_enemies ee ON en.id = ee.encounter
@@ -707,6 +717,7 @@ pub async fn get_encounter_draft(
             status: CompletionStatus::from_i32(row.status as i32),
             owner: InternalId(row.owner as u32),
             session_id: None,
+            initialization_encounter: row.initialization_encounter,
             enemies: row
                 .enemies
                 .unwrap_or_default()
@@ -747,6 +758,7 @@ pub async fn get_encounter_draft(
                     description: Some("".to_string()),
                     session_id: None,
                     owner,
+                    initialization_encounter: false,
                     status: CompletionStatus::Draft,
                     enemies: vec![],
                     hazards: vec![],

@@ -11,6 +11,9 @@ pub struct Encounter {
 
     pub session_id: Option<InternalId>,
 
+    // TODO: This should be bundled with encounter 'type' when more types are added
+    pub initialization_encounter: bool,
+
     pub owner: InternalId,
 
     pub party_level: u32,
