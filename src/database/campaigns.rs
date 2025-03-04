@@ -148,8 +148,7 @@ pub async fn insert_campaign(
                 extra_experience: experience,
                 treasure_currency: gold,
                 treasure_items,
-    
-                // This encounter shouldn't be used in time series data.
+
                 // TODO: Come back to this
                 initialization_encounter: Some(true),
                 enemies: Vec::new(),
@@ -157,7 +156,7 @@ pub async fn insert_campaign(
                 party_level: 1,
                 party_size: 1,
                 status: CompletionStatus::Archived,
-                
+
                 // We can safely leave these None here, as they are calculated from the characters and items.
                 total_experience: None,
                 total_items_value: None,
