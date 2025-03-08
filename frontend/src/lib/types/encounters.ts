@@ -1,4 +1,6 @@
 export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed';
+export type EncounterType = 'combat' | 'reward'  | 'rewrdInitialization' | 'subsystem';
+export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'social' | 'other';
 
 export interface Encounter {
     id: number;
@@ -6,30 +8,64 @@ export interface Encounter {
     status: EncounterStatus;
     name: string;
     description: string;
-    enemies: EncounterEnemy[];
-    enemy_level_adjustments: number[];
-    hazards: number[];
+
+    encounter_type: EncounterType;
+    
+    // Combat encounter fields
+    enemies?: EncounterEnemy[];
+    enemy_level_adjustments?: number[];
+    hazards?: number[];
+    
+    // Reward fields (used by all encounter types)
     treasure_items: number[];
     treasure_currency: number;
+    
+    // Common fields
     party_level: number;
     party_size: number;
     extra_experience: number;
+    
+    // Subsystem fields
+    subsystem_category?: SubsystemCategory;
+    victory_points_threshold?: number
+    victory_points_achieved?: number;
+    skill_checks?: SkillCheck[];
 
     // Derived fields
     total_experience: number;
     total_items_value: number;
 }
 
+export interface SkillCheck {
+    skill: string;
+    dc: number;
+    result: number;
+    victory_points: number;
+}
+
 export interface CreateOrReplaceEncounter {
     name: string;
     description: string;
-    enemies: EncounterEnemy[];
-    hazards: number[];
+    encounter_type: EncounterType;
+    
+    // Combat fields
+    enemies?: EncounterEnemy[];
+    hazards?: number[];
+    
+    // Reward fields
     treasure_items: number[];
     treasure_currency: number;
     extra_experience: number;
+    
+    // Common fields
     party_level: number;
     party_size: number;
+    
+    // Subsystem fields
+    subsystem_type?: SubsystemCategory;
+    victory_points_threshold?: number;
+    victory_points_achieved?: number;
+    skill_checks?: SkillCheck[];
 
     status: EncounterStatus;
 } 

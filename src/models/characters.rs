@@ -39,6 +39,8 @@ pub enum Skill {
     Stealth,
     Survival,
     Thievery,
+    #[serde(other)]
+    Unknown,
 }
 
 impl Stat {
@@ -100,6 +102,7 @@ impl Skill {
             Self::Stealth => "Stealth".to_string(),
             Self::Survival => "Survival".to_string(),
             Self::Thievery => "Thievery".to_string(),
+            Self::Unknown => "Unknown".to_string(),
         }
     }
 
@@ -125,6 +128,7 @@ impl Skill {
             "Stealth" => Some(Self::Stealth),
             "Survival" => Some(Self::Survival),
             "Thievery" => Some(Self::Thievery),
+            "Unknown" => Some(Self::Unknown),
             _ => None,
         }
     }

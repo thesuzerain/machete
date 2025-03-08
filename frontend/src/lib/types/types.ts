@@ -4,6 +4,7 @@ export interface Campaign {
     id: number;
     name: string;
     experience: number;
+    level: number;
     description?: string;
 }
 

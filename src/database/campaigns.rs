@@ -1,3 +1,4 @@
+use crate::models::encounter::EncounterType;
 use crate::models::ids::InternalId;
 use crate::models::{campaign::CampaignPartial, encounter::CompletionStatus};
 use crate::ServerError;
@@ -150,9 +151,7 @@ pub async fn insert_campaign(
                 treasure_items,
 
                 // TODO: Come back to this
-                initialization_encounter: Some(true),
-                enemies: Vec::new(),
-                hazards: Vec::new(),
+                encounter_type: EncounterType::RewardInitialization,
                 party_level: 1,
                 party_size: 1,
                 status: CompletionStatus::Archived,

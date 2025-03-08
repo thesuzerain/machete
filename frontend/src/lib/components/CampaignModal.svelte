@@ -223,6 +223,14 @@
                             rows="4"
                         ></textarea>
                     </div>
+                    <button 
+                    type="button"
+                    class="finish-btn"
+                    on:click={handleSubmit}
+                >
+                    Initialize Campaign
+                </button>
+
                 {:else if activeTab === 'import'}
                     <div class="form-group">
                         <label for="import">Campaign JSON</label>
@@ -234,6 +242,14 @@
                             required
                         ></textarea>
                     </div>
+                    <button 
+                    type="button"
+                    class="finish-btn"
+                    on:click={handleSubmit}
+                >
+                    Initialize Campaign
+                </button>
+
                 {:else if activeTab === 'initialize'}
                     <!-- Initialize Existing Campaign Wizard -->
                     <div class="wizard-container">
