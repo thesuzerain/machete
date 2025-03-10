@@ -35,6 +35,7 @@
   import { characterStore } from '$lib/stores/characters';
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { goto } from '$app/navigation';
+  import { skills } from '$lib/types/types';
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -64,7 +65,7 @@
     let wipEncounter: CreateOrReplaceEncounter = $state({
         name: '',
         description: '',
-        encounter_type: 'combat' as EncounterType,
+        encounter_type: 'combat',
         enemies: [],
         hazards: [],
         treasure_items: [],
@@ -73,10 +74,8 @@
         party_level: 1,
         party_size: 4,
         status: 'Draft',
-        subsystem_type: 'chase' as SubsystemCategory,
-        victory_points_threshold: 10,
-        victory_points_achieved: 0,
-        skill_checks: []
+        subsystem_type: 'chase',
+        subsystem_checks: []
     });
 
     $effect(() => {
@@ -97,13 +96,11 @@
             party_size: encounter.party_size,
             status: encounter.status,
             subsystem_type: encounter.subsystem_type || 'chase',
-            victory_points_threshold: encounter.victory_points_threshold || 10,
-            victory_points_achieved: encounter.victory_points_achieved || 0,
-            skill_checks: encounter.skill_checks || []
+            subsystem_checks: encounter.subsystem_checks || []
         };
         
         // Update local skillChecks for UI
-        skillChecks = encounter.skill_checks || [];
+        skillChecks = encounter.subsystem_checks || [];
     }
     if (editingEncounter) {
         setWipEncounterAs(editingEncounter);
@@ -300,9 +297,7 @@
                     party_size: 4,
                     status: 'Draft',
                     subsystem_type: 'chase',
-                    victory_points_threshold: 10,
-                    victory_points_achieved: 0,
-                    skill_checks: []
+                    subsystem_checks: []
                 };
                 
                 skillChecks = [];
@@ -329,9 +324,7 @@
                     party_size: 4,
                     status: 'Draft',
                     subsystem_type: 'chase',
-                    victory_points_threshold: 10,
-                    victory_points_achieved: 0,
-                    skill_checks: []
+                    subsystem_checks: []
                 };
                 
                 skillChecks = [];
@@ -498,61 +491,39 @@
             wipEncounter.hazards = [];
         }
         
-        if (!wipEncounter.subsystem_type || !wipEncounter.skill_checks || !wipEncounter.victory_points_threshold || !wipEncounter.victory_points_achieved) {
+        if (!wipEncounter.subsystem_type || !wipEncounter.subsystem_checks || !wipEncounter.party_level || !wipEncounter.party_size) {
             skillChecks = [];
             wipEncounter.subsystem_type = 'chase';
-            wipEncounter.victory_points_threshold = 10;
-            wipEncounter.victory_points_achieved = 0;
+            wipEncounter.subsystem_checks = [];
         }
         
         // Save the draft with the new encounter type
         encounterStore.updateDraft(wipEncounter);
     }
     
-    // Add skill check to subsystem encounter
+    // Update addSkillCheck function
     function addSkillCheck() {
-        const newSkillCheck = { 
-            skill: 'Acrobatics', 
-            dc: 15, 
-            result: 0, 
-            victory_points: 1 
+        const newSkillCheck: SkillCheck = {
+            name: `Check ${(wipEncounter.subsystem_checks?.length || 0) + 1}`,
+            roll_options: [{
+                skill: 'Acrobatics',
+                dc: 15
+            }],
+            vp: 5
         };
         
-        skillChecks = [...skillChecks, newSkillCheck];
-        wipEncounter.skill_checks = skillChecks;
-        updateVictoryPoints();
+        wipEncounter.subsystem_checks = [...(wipEncounter.subsystem_checks || []), newSkillCheck];
     }
-    
-    // Remove skill check at index
-    function removeSkillCheck(index: number) {
-        skillChecks = skillChecks.filter((_, i) => i !== index);
-        wipEncounter.skill_checks = skillChecks;
-        updateVictoryPoints();
-    }
-    
-    // Update skill check at index
-    function updateSkillCheck(index: number, field: keyof SkillCheck, value: any) {
-        if (!wipEncounter.skill_checks || !skillChecks[index]) return;
-        if (skillChecks[index] === undefined) {
-            skillChecks[index] = {};
-        }
-        skillChecks[index].field = value;
-        wipEncounter.skill_checks = [...skillChecks];
+
+    // Update addRollOption function
+    function addRollOption(checkIndex: number) {
+        if (!wipEncounter.subsystem_checks?.[checkIndex]) return;
         
-        if (field === 'result' || field === 'dc' || field === 'victory_points') {
-            updateVictoryPoints();
-        }
-    }
-    
-    // Calculate total victory points
-    function updateVictoryPoints() {
-        let total = 0;
-        for (const check of skillChecks) {
-            if (check.result >= check.dc) {
-                total += check.victory_points;
-            }
-        }
-        wipEncounter.victory_points_achieved = total;
+        wipEncounter.subsystem_checks[checkIndex].roll_options = [
+            ...wipEncounter.subsystem_checks[checkIndex].roll_options,
+            { skill: 'Acrobatics', dc: 15 }
+        ];
+        wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks];
     }
 </script>
 
@@ -674,120 +645,96 @@
                 </div>
                 
                 {#if subsystemSectionOpen}
+                    <h2> TODO: Experience is not provided by subsystems, but will be added as accomplishments are added (either simulatenously, or as accomplishments directly). </h2>
+
                     <div class="section-content" transition:fade>
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label for="subsystemCategory">Challenge Type</label>
-                                <select 
-                                    id="subsystemCategory" 
-                                    bind:value={wipEncounter.subsystem_type}
-                                >
-                                    <option value="chase">Chase</option>
-                                    <option value="infiltration">Infiltration</option>
-                                    <option value="research">Research</option>
-                                    <option value="social">Social</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="victoryPointsThreshold">Victory Points Needed</label>
-                                <input 
-                                    type="number" 
-                                    id="victoryPointsThreshold" 
-                                    bind:value={wipEncounter.victory_points_threshold}
-                                    min="1"
-                                />
-                            </div>
+                        <div class="form-group">
+                            <label for="subsystemCategory">Challenge Type</label>
+                            <select 
+                                id="subsystemCategory" 
+                                bind:value={wipEncounter.subsystem_type}
+                            >
+                                <option value="chase">Chase</option>
+                                <option value="infiltration">Infiltration</option>
+                                <option value="research">Research</option>
+                            </select>
                         </div>
                         
-                        <div class="victory-points-summary">
-                            <div class="vp-progress-container">
-                                <div class="vp-label">
-                                    Victory Points: {wipEncounter.victory_points_achieved} / {wipEncounter.victory_points_threshold}
-                                </div>
-                                <div class="vp-progress-bar">
-                                    <div 
-                                        class="vp-progress" 
-                                        style="width: {Math.min((wipEncounter.victory_points_achieved / wipEncounter.victory_points_threshold) * 100, 100)}%"
-                                    ></div>
-                                </div>
-                            </div>
-                            <div class="vp-status">
-                                {#if wipEncounter.victory_points_achieved >= wipEncounter.victory_points_threshold}
-                                    <span class="success">Success</span>
-                                {:else}
-                                    <span class="incomplete">Incomplete</span>
-                                {/if}
-                            </div>
-                        </div>
-                        
-                        <h4>Skill Checks</h4>
                         <div class="skill-checks-list">
-                            {#each skillChecks as check, index}
-                                <div class="skill-check-row" class:success={check.result >= check.dc}>
-                                    <div class="skill-select">
-                                        <select 
-                                            bind:value={check.skill}
-                                            on:change={() => updateSkillCheck(index, 'skill', check.skill)}
+                            {#each wipEncounter.subsystem_checks || [] as check, checkIndex}
+                                <div class="skill-check-container">
+                                    <div class="skill-check-header">
+                                        <input 
+                                            type="text"
+                                            class="check-name-input"
+                                            bind:value={check.name}
+                                            placeholder="Check name"
+                                        />
+                                        <div class="vp-input-container">
+                                            <label for="vp-{checkIndex}">Victory Points:</label>
+                                            <input 
+                                                type="number"
+                                                id="vp-{checkIndex}"
+                                                class="vp-input"
+                                                bind:value={check.vp}
+                                                min="0"
+                                            />
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            class="remove-button"
+                                            on:click={() => {
+                                                wipEncounter.subsystem_checks = wipEncounter.subsystem_checks?.filter((_, i) => i !== checkIndex);
+                                            }}
                                         >
-                                            <option value="Acrobatics">Acrobatics</option>
-                                            <option value="Arcana">Arcana</option>
-                                            <option value="Athletics">Athletics</option>
-                                            <option value="Crafting">Crafting</option>
-                                            <option value="Deception">Deception</option>
-                                            <option value="Diplomacy">Diplomacy</option>
-                                            <option value="Intimidation">Intimidation</option>
-                                            <option value="Lore">Lore</option>
-                                            <option value="Medicine">Medicine</option>
-                                            <option value="Nature">Nature</option>
-                                            <option value="Occultism">Occultism</option>
-                                            <option value="Performance">Performance</option>
-                                            <option value="Religion">Religion</option>
-                                            <option value="Society">Society</option>
-                                            <option value="Stealth">Stealth</option>
-                                            <option value="Survival">Survival</option>
-                                            <option value="Thievery">Thievery</option>
-                                        </select>
+                                            Remove Check
+                                        </button>
                                     </div>
                                     
-                                    <div class="check-field">
-                                        <label>DC</label>
-                                        <input 
-                                            type="number" 
-                                            bind:value={check.dc}
-                                            min="1"
-                                            on:change={() => updateSkillCheck(index, 'dc', check.dc)}
-                                        />
+                                    <div class="roll-options-list">
+                                        {#each check.roll_options as option, optionIndex}
+                                            <div class="roll-option">
+                                                <select 
+                                                    class="skill-select"
+                                                    bind:value={option.skill}
+                                                >
+                                                    {#each skills as skill}
+                                                        <option value={skill}>{skill}</option>
+                                                    {/each}
+                                                </select>
+                                                
+                                                <div class="dc-input-container">
+                                                    <label for="dc-{checkIndex}-{optionIndex}">DC:</label>
+                                                    <input 
+                                                        type="number"
+                                                        id="dc-{checkIndex}-{optionIndex}"
+                                                        class="dc-input"
+                                                        bind:value={option.dc}
+                                                        min="1"
+                                                    />
+                                                </div>
+                                                
+                                                <button 
+                                                    type="button"
+                                                    class="remove-button"
+                                                    on:click={() => {
+                                                        check.roll_options = check.roll_options.filter((_, i) => i !== optionIndex);
+                                                        wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks || []];
+                                                    }}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        {/each}
+                                        
+                                        <button 
+                                            type="button"
+                                            class="add-roll-option-btn"
+                                            on:click={() => addRollOption(checkIndex)}
+                                        >
+                                            Add Roll Option
+                                        </button>
                                     </div>
-                                    
-                                    <div class="check-field">
-                                        <label>Result</label>
-                                        <input 
-                                            type="number" 
-                                            bind:value={check.result}
-                                            min="1"
-                                            on:change={() => updateSkillCheck(index, 'result', check.result)}
-                                        />
-                                    </div>
-                                    
-                                    <div class="check-field">
-                                        <label>VP</label>
-                                        <input 
-                                            type="number" 
-                                            bind:value={check.victory_points}
-                                            min="0"
-                                            on:change={() => updateSkillCheck(index, 'victory_points', check.victory_points)}
-                                        />
-                                    </div>
-                                    
-                                    <button 
-                                        type="button"
-                                        class="remove-button"
-                                        on:click={() => removeSkillCheck(index)}
-                                    >
-                                        Remove
-                                    </button>
                                 </div>
                             {/each}
                             
@@ -841,7 +788,7 @@
                                         type="button" 
                                         class="remove-button"
                                         on:click={() => {
-                                            wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
+                                            if (wipEncounter.enemies) wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -858,7 +805,7 @@
                                 id: id,
                                 level_adjustment: 0
                             };
-                            wipEncounter.enemies = [...wipEncounter.enemies, newEnemy];
+                            wipEncounter.enemies = [...wipEncounter.enemies || [], newEnemy];
                         }}
                         placeholder="Search for enemies..."
                         initialIds={wipEncounter.enemies.map(e => e.id)}
@@ -875,17 +822,19 @@
         </div>
 
         <div class="section collapsible">
+            {#if wipEncounter.hazards}
             <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
                 <h3>
                     Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
                     <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
+            {/if}
             
             {#if hazardsSectionOpen}
                 <div class="section-content" transition:fade>
                     <div class="list-items">
-                        {#each wipEncounter.hazards as hazardId}
+                        {#each wipEncounter.hazards || [] as hazardId}
                             {#if getHazardDetails(hazardId)}
                                 <div class="list-item">
                                     <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
@@ -899,7 +848,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
+                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
                                         }}
                                     >
                                         Remove
@@ -912,7 +861,7 @@
                     <LibrarySelector
                         entityType="hazard"
                         onSelect={(id) => {
-                            wipEncounter.hazards = [...wipEncounter.hazards, id];
+                            wipEncounter.hazards = [...wipEncounter.hazards || [], id];
                         }}
                         placeholder="Search for hazards..."
                         initialIds={wipEncounter.hazards}
@@ -986,7 +935,7 @@
                     </div>
                     <div class="library-selector-container">
                     <LibrarySelector
-                        entityType="equipment"
+                        entityType="item"
                         onSelect={(id) => {
                             wipEncounter.treasure_items = [...wipEncounter.treasure_items, id];
                         }}
@@ -1018,7 +967,7 @@
         {/if}
 
         <!-- Submit button -->
-        <button type="submit" class="create-button" on:click={createEncounter}>
+        <button type="submit" class="create-button">
             {editingEncounter ? 'Update' : 'Create'} Encounter
         </button>
     </form>
@@ -1573,103 +1522,122 @@
     .skill-checks-list {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
+        gap: 1rem;
+        margin-top: 1rem;
     }
 
-    .skill-check-row {
+    .skill-check-container {
+        background: #f8f8f8;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .skill-check-header {
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr auto;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        background: white;
-        border-radius: 0.375rem;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
         align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
     }
 
-    .skill-check-row.success {
-        background: #ecfdf5;
-        border: 1px solid #10b981;
-    }
-
-    .skill-select select {
+    .check-name-input {
+        font-size: 1rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
         width: 100%;
     }
 
-    .check-field {
+    .vp-input-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .vp-input {
+        width: 5rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+
+    .roll-options-list {
         display: flex;
         flex-direction: column;
+        gap: 0.75rem;
     }
 
-    .check-field label {
-        font-size: 0.75rem;
-        color: #6b7280;
-        margin-bottom: 0.25rem;
+    .roll-option {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+        align-items: center;
+        background: white;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e5e7eb;
     }
 
-    .check-field input {
+    .skill-select {
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
         width: 100%;
-        padding: 0.375rem;
+    }
+
+    .dc-input-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .dc-input {
+        width: 5rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+
+    .add-roll-option-btn {
+        background: #4b5563;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-weight: 500;
+        margin-top: 0.5rem;
+        width: fit-content;
     }
 
     .add-skill-check-btn {
         background: #3b82f6;
         color: white;
         border: none;
-        padding: 0.5rem;
+        padding: 0.75rem 1rem;
         border-radius: 0.375rem;
         cursor: pointer;
         font-weight: 500;
+        margin-top: 1rem;
+        width: 100%;
     }
 
-    .victory-points-summary {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem;
-        background: #f9fafb;
+    .remove-button {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
         border-radius: 0.375rem;
-        margin-bottom: 1rem;
-    }
-
-    .vp-progress-container {
-        flex: 1;
-    }
-
-    .vp-label {
-        margin-bottom: 0.5rem;
+        cursor: pointer;
         font-weight: 500;
+        white-space: nowrap;
     }
 
-    .vp-progress-bar {
-        height: 0.75rem;
-        background: #e5e7eb;
-        border-radius: 9999px;
-        overflow: hidden;
-    }
-
-    .vp-progress {
-        height: 100%;
-        background: #3b82f6;
-    }
-
-    .vp-status {
-        margin-left: 1rem;
-        font-weight: 600;
-    }
-
-    .vp-status .success {
-        color: #10b981;
-    }
-
-    .vp-status .incomplete {
-        color: #f59e0b;
-    }
-
-    .form-group-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 1rem;
+    button:hover {
+        opacity: 0.9;
     }
 </style> 

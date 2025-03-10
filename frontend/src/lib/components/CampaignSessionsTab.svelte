@@ -10,6 +10,7 @@
     import { onMount } from 'svelte';
     import RangeSlider from 'svelte-range-slider-pips';
     import { compile } from 'svelte/compiler';
+    import EncounterViewer from './EncounterViewer.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -277,6 +278,16 @@
         await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId, selectedSession.id,
         { ...selectedSession, compiled_rewards: compiledRewards });
     }
+
+    // Add these state variables
+    let viewingEncounter = $state(null);
+    let showEncounterViewer = $state(false);
+
+    // Add this function
+    function viewEncounter(encounter) {
+        viewingEncounter = encounter;
+        showEncounterViewer = true;
+    }
 </script>
 
 <div class="characters-section" transition:fade>
@@ -345,6 +356,9 @@
                             <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
                         </div>
                         <div class="encounter-actions">
+                            <button class="view-button" on:click={() => viewEncounter(encounter)}>
+                                View
+                            </button>
                             <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
                                 Edit
                             </button>
@@ -438,6 +452,11 @@
         </div>
     </div>
 {/if}
+
+<EncounterViewer 
+    encounter={viewingEncounter}
+    bind:show={showEncounterViewer}
+/>
 
 <style>
     .session-selector {
@@ -635,6 +654,19 @@
 
     .reward-assignments-header {
         margin-bottom: 1rem;
+    }
+
+    .view-button {
+        background: #4b5563;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .view-button:hover {
+        background: #374151;
     }
 
 </style> 

@@ -163,3 +163,6 @@ export interface Enemy {
     type: 'enemy' | 'hazard';
     level?: number;  // Add this
 }
+
+export type Skill = 'Acrobatics' | 'Arcana' | 'Athletics' | 'Crafting' | 'Deception' | 'Diplomacy' | 'Intimidation' | 'Lore' | 'Medicine' | 'Nature' | 'Occultism' | 'Performance' | 'Religion' | 'Society' | 'Stealth' | 'Survival' | 'Thievery' | 'Unknown';
+export const skills: Skill[] = ['Acrobatics', 'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy', 'Intimidation', 'Lore', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Religion', 'Society', 'Stealth', 'Survival', 'Thievery', 'Unknown'];

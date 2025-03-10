@@ -1,6 +1,8 @@
-export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed';
-export type EncounterType = 'combat' | 'reward'  | 'rewrdInitialization' | 'subsystem';
-export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'social' | 'other';
+import type { Skill } from "./types";
+
+export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed' | 'Archived' | 'Success' | 'Failure';
+export type EncounterType = 'combat' | 'reward' | 'rewardInitialization' | 'subsystem' | 'unknown';
+export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'unknown';
 
 export interface Encounter {
     id: number;
@@ -26,21 +28,27 @@ export interface Encounter {
     extra_experience: number;
     
     // Subsystem fields
-    subsystem_category?: SubsystemCategory;
-    victory_points_threshold?: number
-    victory_points_achieved?: number;
-    skill_checks?: SkillCheck[];
+    subsystem_type?: SubsystemCategory;
+    subsystem_checks?: SkillCheck[];
 
     // Derived fields
     total_experience: number;
     total_items_value: number;
 }
 
-export interface SkillCheck {
-    skill: string;
+
+export interface SkillRollOption {
+    skill: Skill;
     dc: number;
-    result: number;
-    victory_points: number;
+}
+
+
+
+export interface SkillCheck {
+    name: string;
+    roll_options: SkillRollOption[];
+    vp: number;
+
 }
 
 export interface CreateOrReplaceEncounter {
@@ -63,9 +71,7 @@ export interface CreateOrReplaceEncounter {
     
     // Subsystem fields
     subsystem_type?: SubsystemCategory;
-    victory_points_threshold?: number;
-    victory_points_achieved?: number;
-    skill_checks?: SkillCheck[];
+    subsystem_checks?: SkillCheck[];
 
     status: EncounterStatus;
 } 

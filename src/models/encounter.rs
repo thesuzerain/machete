@@ -39,7 +39,7 @@ pub enum EncounterType {
         #[serde(default)]
         enemies: Vec<EncounterEnemy>,
         #[serde(default)]
-        hazards: Vec<InternalId>,    
+        hazards: Vec<InternalId>,
     },
     Subsystem {
         subsystem_type: EncounterSubsystemType,
@@ -55,20 +55,20 @@ pub enum EncounterSubsystemType {
     Unknown,
     Chase,
     Infiltration,
-    Research
+    Research,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EncounterSubsystemCheck {
     pub name: String,
     pub roll_options: Vec<EncounterSubsystemRoll>,
-    pub vp : u8,
+    pub vp: u8,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EncounterSubsystemRoll {
-    pub skill : Skill,
-    pub dc : u8,
+    pub skill: Skill,
+    pub dc: u8,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -164,12 +164,21 @@ impl EncounterDifficulty {
 }
 
 impl EncounterType {
-    pub fn from_id_and_parts(i : i32, enemies : Vec<EncounterEnemy>, hazards: Vec<InternalId>, subsystem : Option<EncounterSubsystemType>, subsystem_rolls : Vec<EncounterSubsystemCheck>) -> EncounterType {
+    pub fn from_id_and_parts(
+        i: i32,
+        enemies: Vec<EncounterEnemy>,
+        hazards: Vec<InternalId>,
+        subsystem: Option<EncounterSubsystemType>,
+        subsystem_rolls: Vec<EncounterSubsystemCheck>,
+    ) -> EncounterType {
         match i {
             1 => EncounterType::RewardInitialization,
             2 => EncounterType::Reward,
             3 => EncounterType::Combat { enemies, hazards },
-            4 => EncounterType::Subsystem { subsystem_type: subsystem.unwrap_or_default(), subsystem_checks: subsystem_rolls },
+            4 => EncounterType::Subsystem {
+                subsystem_type: subsystem.unwrap_or_default(),
+                subsystem_checks: subsystem_rolls,
+            },
             _ => EncounterType::Unknown,
         }
     }
@@ -207,7 +216,9 @@ impl EncounterType {
 
     pub fn get_subsystem_checks(&self) -> Vec<EncounterSubsystemCheck> {
         match self {
-            EncounterType::Subsystem { subsystem_checks, .. } => subsystem_checks.clone(),
+            EncounterType::Subsystem {
+                subsystem_checks, ..
+            } => subsystem_checks.clone(),
             _ => Vec::new(),
         }
     }
@@ -277,4 +288,3 @@ pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
         4.. => 160,
     }
 }
-

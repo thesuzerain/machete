@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use crate::models;
-use crate::models::encounter::{EncounterEnemy, EncounterSubsystemCheck, EncounterSubsystemType, EncounterType};
 use crate::models::encounter::{CompletionStatus, Encounter};
+use crate::models::encounter::{
+    EncounterEnemy, EncounterSubsystemCheck, EncounterSubsystemType, EncounterType,
+};
 use crate::models::ids::InternalId;
 use crate::models::query::CommaSeparatedVec;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use super::creatures::CreatureFiltering;
@@ -126,7 +127,7 @@ pub async fn get_encounters(
         LEFT JOIN encounter_hazards eh ON en.id = eh.encounter
         LEFT JOIN encounter_treasure_items eti ON en.id = eti.encounter
         LEFT JOIN LATERAL (
-            SELECT JSONB_AGG(jsonb_build_object('roll', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
+            SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
             FROM encounter_skill_checks esc
             LEFT JOIN encounter_skill_check_rolls escr ON esc.id = escr.encounter_skill_check_id
             WHERE esc.encounter_id = en.id
@@ -150,33 +151,35 @@ pub async fn get_encounters(
         .await?
         .into_iter()
         .map(|row| {
-            
             let enemies = row
-            .enemies
-            .unwrap_or_default()
-            .iter()
-            .zip(row.enemy_level_adjustments.unwrap_or_default().iter())
-            .map(|(id, adj)| EncounterEnemy {
-                id: InternalId(*id as u32),
-                level_adjustment: *adj,
-            })
-            .collect();
+                .enemies
+                .unwrap_or_default()
+                .iter()
+                .zip(row.enemy_level_adjustments.unwrap_or_default().iter())
+                .map(|(id, adj)| EncounterEnemy {
+                    id: InternalId(*id as u32),
+                    level_adjustment: *adj,
+                })
+                .collect();
 
-        let hazards = row
-        .hazards
-        .unwrap_or_default()
-        .iter()
-        .map(|id| InternalId(*id as u32))
-        .collect();
+            let hazards = row
+                .hazards
+                .unwrap_or_default()
+                .iter()
+                .map(|id| InternalId(*id as u32))
+                .collect();
 
-    let subsystem_rolls: Vec<EncounterSubsystemCheck> = serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
-            
-            let encounter_subsystem_type = row.subsystem_type_id.map(|id| EncounterSubsystemType::from_i32(id as i32));
+            let subsystem_rolls: Vec<EncounterSubsystemCheck> =
+                serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
+            let encounter_subsystem_type = row
+                .subsystem_type_id
+                .map(|id| EncounterSubsystemType::from_i32(id as i32));
             let encounter_type = EncounterType::from_id_and_parts(
                 row.encounter_type_id,
-                enemies, 
-                hazards, 
-                encounter_subsystem_type, subsystem_rolls
+                enemies,
+                hazards,
+                encounter_subsystem_type,
+                subsystem_rolls,
             );
 
             Ok(Encounter {
@@ -256,10 +259,7 @@ pub async fn insert_encounters(
         let subsystem_checks = encounter.encounter_type.get_subsystem_checks();
         let encounter_subsystem_type = encounter.encounter_type.get_subsystem_type();
 
-        let enemy_ids = enemies
-            .iter()
-            .map(|e| e.id)
-            .collect::<Vec<InternalId>>();
+        let enemy_ids = enemies.iter().map(|e| e.id).collect::<Vec<InternalId>>();
         let enemy_levels = get_levels_enemies(
             &mut **tx,
             &enemy_ids,
@@ -290,15 +290,16 @@ pub async fn insert_encounters(
 
         let encounter_id = sqlx::query!(
             r#"
-            INSERT INTO encounters (name, description, encounter_type_id, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_items_value, owner)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            INSERT INTO encounters (name, description, encounter_type_id, subsystem_type_id, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_items_value, owner)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id
             "#,
             &encounter.name,
             encounter.description.as_deref(),
             encounter_type_id as i32,
+            encounter_subsystem_type.as_i32() as i32,
             encounter.treasure_currency as f64,
-            encounter.status.as_i32() as i64,
+            CompletionStatus::Prepared.as_i32() as i16,
             encounter.party_size as i64,
             encounter.party_level as i64,
             encounter.extra_experience as i64,
@@ -331,10 +332,7 @@ pub async fn insert_encounters(
             FROM UNNEST($2::int[]) AS t(hazard)
             "#,
             encounter_id as i32,
-            &hazards
-                .iter()
-                .map(|id| id.0 as i32)
-                .collect::<Vec<i32>>(),
+            &hazards.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;
@@ -415,12 +413,10 @@ pub async fn edit_encounter(
     encounter_id: InternalId,
     new_encounter: &ModifyEncounter,
 ) -> crate::Result<()> {
-    let enemies = new_encounter.enemies.as_ref().map(|enemies| {
-        enemies
-            .iter()
-            .map(|e| e.id.0 as i32)
-            .collect::<Vec<i32>>()
-    });
+    let enemies = new_encounter
+        .enemies
+        .as_ref()
+        .map(|enemies| enemies.iter().map(|e| e.id.0 as i32).collect::<Vec<i32>>());
     let enemy_level_adjustments = new_encounter.enemies.as_ref().map(|enemies| {
         enemies
             .iter()
@@ -470,7 +466,10 @@ pub async fn edit_encounter(
         new_encounter.party_level.map(|l| l as i32),
         new_encounter.extra_experience.map(|e| e as i32),
         new_encounter.encounter_type_id.map(|e| e as i32),
-        new_encounter.subsystem_type.as_ref().map(|e| e.as_i32() as i32),
+        new_encounter
+            .subsystem_type
+            .as_ref()
+            .map(|e| e.as_i32() as i32),
         new_encounter.total_experience.map(|e| e as i32),
         new_encounter.total_items_value.map(|e| e as f64),
         encounter_id.0 as i64,
@@ -580,6 +579,76 @@ pub async fn delete_encounters(
         return Ok(());
     }
 
+    // TODO: Check this again- may be easier to use cascade delete
+    sqlx::query!(
+        r#"
+        DELETE FROM encounter_treasure_items
+        WHERE encounter = ANY($1::int[])
+        "#,
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM encounter_enemies
+        WHERE encounter = ANY($1::int[])
+        "#,
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM encounter_hazards
+        WHERE encounter = ANY($1::int[])
+        "#,
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM encounter_skill_check_rolls
+        WHERE encounter_skill_check_id IN (
+            SELECT id
+            FROM encounter_skill_checks
+            WHERE encounter_id = ANY($1::int[])
+        )
+        "#,
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM encounter_skill_checks
+        WHERE encounter_id = ANY($1::int[])
+        "#,
+        &encounter_id
+            .iter()
+            .map(|id| id.0 as i32)
+            .collect::<Vec<i32>>(),
+    )
+    .execute(exec)
+    .await?;
+
     sqlx::query!(
         r#"
         DELETE FROM encounters
@@ -601,7 +670,6 @@ pub async fn insert_user_encounter_draft(
     owner: InternalId,
     encounter: &InsertEncounter,
 ) -> crate::Result<InternalId> {
-    log::info!("Inserting encounter draft encounter {:?}", encounter);
     // First, clear any existing drafts
     // TODO: transaction
     clear_user_encounter_draft(exec, owner).await?;
@@ -736,17 +804,23 @@ pub async fn clear_user_encounter_draft(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
 ) -> crate::Result<()> {
-    sqlx::query!(
+    let Some(draft_id) = sqlx::query!(
         r#"
-        DELETE FROM encounters
+        SELECT id
+        FROM encounters
         WHERE status = $1
         AND owner = $2
         "#,
         CompletionStatus::Draft.as_i32() as i64,
         owner.0 as i64,
     )
-    .execute(exec)
-    .await?;
+    .fetch_optional(exec)
+    .await?
+    .map(|r| r.id) else {
+        return Ok(());
+    };
+
+    delete_encounters(exec, &[InternalId(draft_id as u32)]).await?;
 
     Ok(())
 }
@@ -755,7 +829,6 @@ pub async fn get_encounter_draft(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     owner: InternalId,
 ) -> crate::Result<Option<Encounter>> {
-    log::info!("Getting encounter draft for user {}", owner.0);
     let encounter = sqlx::query!(
         r#"
         SELECT 
@@ -782,7 +855,7 @@ pub async fn get_encounter_draft(
         LEFT JOIN encounter_hazards eh ON en.id = eh.encounter
         LEFT JOIN encounter_treasure_items eti ON en.id = eti.encounter
         LEFT JOIN LATERAL (
-            SELECT JSONB_AGG(jsonb_build_object('roll', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
+            SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
             FROM encounter_skill_checks esc
             LEFT JOIN encounter_skill_check_rolls escr ON esc.id = escr.encounter_skill_check_id
             WHERE esc.encounter_id = en.id
@@ -799,7 +872,6 @@ pub async fn get_encounter_draft(
     .await?;
 
     let res = if let Some(row) = encounter {
-
         let enemies = row
             .enemies
             .unwrap_or_default()
@@ -818,13 +890,17 @@ pub async fn get_encounter_draft(
             .map(|id| InternalId(*id as u32))
             .collect();
 
-        let subsystem_rolls: Vec<EncounterSubsystemCheck> = serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
-        let encounter_subsystem_type = row.subsystem_type_id.map(|id| EncounterSubsystemType::from_i32(id as i32));
+        let subsystem_rolls: Vec<EncounterSubsystemCheck> =
+            serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
+        let encounter_subsystem_type = row
+            .subsystem_type_id
+            .map(|id| EncounterSubsystemType::from_i32(id as i32));
         let encounter_type = EncounterType::from_id_and_parts(
             row.encounter_type_id,
-            enemies, 
-            hazards, 
-            encounter_subsystem_type, subsystem_rolls
+            enemies,
+            hazards,
+            encounter_subsystem_type,
+            subsystem_rolls,
         );
 
         Ok(Some(Encounter {
@@ -859,7 +935,7 @@ pub async fn get_encounter_draft(
                     description: Some("".to_string()),
                     session_id: None,
                     owner,
-                    encounter_type : EncounterType::Reward,
+                    encounter_type: EncounterType::Reward,
                     status: CompletionStatus::Draft,
                     treasure_items: vec![],
                     treasure_currency: 0.0,
@@ -871,7 +947,6 @@ pub async fn get_encounter_draft(
                 })
             })
     };
-    log::info!("Got encounter result: {:?}", res);
     res
 }
 

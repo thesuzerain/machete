@@ -95,7 +95,6 @@ pub async fn insert_campaign(
     include_initial_sessions: bool,
     owner: InternalId,
 ) -> crate::Result<InternalId> {
-    log::info!("insert: {:?}", insert);
     let total_experience = insert
         .initialization
         .as_ref()

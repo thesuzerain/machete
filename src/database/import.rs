@@ -5,7 +5,9 @@ use crate::{
         sessions::InsertSession,
     },
     models::{
-        campaign::CampaignSessionCharacterRewards, encounter::{CompletionStatus, EncounterType}, ids::InternalId,
+        campaign::CampaignSessionCharacterRewards,
+        encounter::{CompletionStatus, EncounterType},
+        ids::InternalId,
     },
     ServerError,
 };

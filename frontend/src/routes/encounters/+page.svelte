@@ -105,7 +105,7 @@ library.add(faLink)
             
             if (enemyIds.size > 0) {
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).map((x) => x.id).join(',')
+                    ids: Array.from(enemyIds).flatMap((x) => x?.id).join(',')
                 })
             }
 
@@ -297,6 +297,7 @@ library.add(faLink)
                                     <p>{encounter.description}</p>
                                     
                                     <div class="details">
+                                        {#if encounter.enemies}
                                         <div class="detail-section">
                                             <h4>Enemies ({encounter.enemies.length})</h4>
                                             <ul>
@@ -312,6 +313,8 @@ library.add(faLink)
                                                 {/each}
                                             </ul>
                                         </div>
+                                        {/if}
+                                        {#if encounter.hazards}
 
                                         <div class="detail-section">
                                             <h4>Hazards ({encounter.hazards.length})</h4>
@@ -323,6 +326,28 @@ library.add(faLink)
                                                 {/each}
                                             </ul>
                                         </div>
+                                        {/if}
+                                        {#if encounter.subsystem_type}
+                                        <div class="detail-section">
+                                            <h4>Subsystem</h4>
+                                            <p>Subsystem Type: {encounter.subsystem_type}</p>
+                                            <ul>
+                                                {#each encounter.subsystem_checks || [] as check}
+                                                    <li> {check.name} 
+
+                                                        ({#each check.roll_options as roll, i}
+                                                        {roll.skill} DC {roll.dc}{#if i < check.roll_options.length - 1},&nbsp;{/if} 
+                                                        {/each})
+
+                                                    </li>
+                                                    
+                                                    
+                                                {/each}
+                                            </ul>
+                                        </div>
+
+
+                                        {/if}
 
                                         <div class="detail-section">
                                             <h4>Treasure</h4>
