@@ -1,11 +1,13 @@
 use crate::{
     database::{
         characters::{CharacterFilters, InsertCharacter},
-        encounters::{EncounterFilters, InsertEncounter, InsertEncounterEnemy},
+        encounters::{EncounterFilters, InsertEncounter},
         sessions::InsertSession,
     },
     models::{
-        campaign::CampaignSessionCharacterRewards, encounter::CompletionStatus, ids::InternalId,
+        campaign::CampaignSessionCharacterRewards,
+        encounter::{CompletionStatus, EncounterType},
+        ids::InternalId,
     },
     ServerError,
 };
@@ -110,8 +112,8 @@ pub struct ImportEncounter {
     pub party_level: u32,
     pub party_size: u32,
 
-    pub enemies: Vec<ImportEncounterEnemy>,
-    pub hazards: Vec<InternalId>,
+    #[serde(flatten)]
+    pub encounter_type: EncounterType,
 
     pub treasure_items: Vec<InternalId>,
     pub treasure_currency: f32,
@@ -202,16 +204,7 @@ pub async fn import_with_functions(
             session_id: session_ids_in_order.get(e.session_ix).cloned(),
             party_level: e.party_level as u8,
             party_size: e.party_size as u8,
-            initialization_encounter: None,
-            enemies: e
-                .enemies
-                .iter()
-                .map(|enemy| InsertEncounterEnemy::IdAndLevelAdjustment {
-                    id: enemy.id,
-                    level_adjustment: enemy.level_adjustment,
-                })
-                .collect(),
-            hazards: e.hazards.clone(),
+            encounter_type: e.encounter_type.clone(),
             treasure_items: e.treasure_items.clone(),
             treasure_currency: e.treasure_currency,
             extra_experience: e.extra_experience,
@@ -283,15 +276,7 @@ pub async fn export(
                 session_ix,
                 party_level: e.party_level,
                 party_size: e.party_size,
-                enemies: e
-                    .enemies
-                    .iter()
-                    .map(|enemy| ImportEncounterEnemy {
-                        id: enemy.id,
-                        level_adjustment: enemy.level_adjustment,
-                    })
-                    .collect(),
-                hazards: e.hazards,
+                encounter_type: e.encounter_type,
                 treasure_items: e.treasure_items,
                 treasure_currency: e.treasure_currency,
                 extra_experience: e.extra_experience,

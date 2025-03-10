@@ -13,7 +13,7 @@
         getAdjustedExperienceFromPartySize
 
     } from '$lib/utils/encounter';
-    import type { Encounter, CreateOrReplaceEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy, CreateOrReplaceEncounterExtended } from '$lib/types/encounters';
+    import type { Encounter, CreateOrReplaceEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy, CreateOrReplaceEncounterExtended, EncounterType, SubsystemCategory, SkillCheck } from '$lib/types/encounters';
     import { getFullUrl, getFullUrlWithAdjustment, type LibraryCreature, type LibraryHazard, type LibraryItem } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -35,6 +35,7 @@
   import { characterStore } from '$lib/stores/characters';
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { goto } from '$app/navigation';
+  import { skills } from '$lib/types/types';
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -56,12 +57,16 @@
     let saveTimeout: NodeJS.Timeout;
     const AUTOSAVE_DELAY = 2000; // 2 seconds
 
-    // Modify the newEncounter state to track the current draft or editing encounter
+    // Add subsystem state variables
+    let skillChecks = $state<SkillCheck[]>([]);
+    let subsystemSectionOpen = $state(true);
+    
+    // Modify the wipEncounter state to include encounter_type and subsystem fields
     let wipEncounter: CreateOrReplaceEncounter = $state({
         name: '',
         description: '',
+        encounter_type: 'combat',
         enemies: [],
-        enemy_level_adjustments: [],
         hazards: [],
         treasure_items: [],
         treasure_currency: 0,
@@ -69,21 +74,33 @@
         party_level: 1,
         party_size: 4,
         status: 'Draft',
+        subsystem_type: 'chase',
+        subsystem_checks: []
     });
 
-    function setWipEncounterAs(encounter : Encounter) {
+    $effect(() => {
+        console.log('wipEncounter:', $state.snapshot(wipEncounter));
+    });
+
+    function setWipEncounterAs(encounter: Encounter) {
         wipEncounter = {
             name: encounter.name,
             description: encounter.description,
-            enemies: encounter.enemies.map(e => ({ id: e.id, level_adjustment: e.level_adjustment })),
-            hazards: encounter.hazards,
+            encounter_type: encounter.encounter_type || 'combat',
+            enemies: encounter.enemies?.map(e => ({ id: e.id, level_adjustment: e.level_adjustment })),
+            hazards: encounter.hazards || [],
             treasure_items: encounter.treasure_items,
             treasure_currency: encounter.treasure_currency,
             extra_experience: encounter.extra_experience,
             party_level: encounter.party_level,
             party_size: encounter.party_size,
             status: encounter.status,
+            subsystem_type: encounter.subsystem_type || 'chase',
+            subsystem_checks: encounter.subsystem_checks || []
         };
+        
+        // Update local skillChecks for UI
+        skillChecks = encounter.subsystem_checks || [];
     }
     if (editingEncounter) {
         setWipEncounterAs(editingEncounter);
@@ -132,14 +149,16 @@
         try {
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
+            console.log('encounters:', encounters);
             const enemyIds = new Set(
                 encounters.flatMap(e => e.enemies)
                     .concat(wipEncounter.enemies)
             );
             
             if (enemyIds.size > 0) {
+                console.log('Fetching enemies:', enemyIds);
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).map((x) => x.id).join(',')
+                    ids: Array.from(enemyIds).flatMap((x) => x?.id).join(',')
                 })
             }
 
@@ -210,10 +229,11 @@
         
         saveTimeout = setTimeout(async () => {
             try {
-                console.log("Auto-saving...");
+                console.log("Auto-saving...", $state.snapshot(wipEncounter));
                 await encounterStore.updateDraft({
                     ...wipEncounter,
                 });
+                console.log("Auto-saved!", $state.snapshot(wipEncounter));
             } catch (e) {
                 error = e instanceof Error ? e.message : 'Failed to save draft';
             }
@@ -223,32 +243,51 @@
     // Modify the createEncounter function
     async function createEncounter(event: SubmitEvent) {
         event.preventDefault();
-
-        try {      
-            let extended : CreateOrReplaceEncounterExtended = {
+        
+        try {
+            // Prepare the encounter data based on type
+            const encounterData: CreateOrReplaceEncounterExtended = {
                 ...wipEncounter,
                 total_experience: totalEarnedXP,
-                total_treasure_value: totalTreasure,
+                total_items_value: totalTreasure,
             };
-
-            if (editingEncounter) {                
-                await encounterStore.updateEncounter(editingEncounter.id, extended);
-            } else {
-                let finalized : CreateEncounterFinalized = {
-                    ...extended,
-                    session_id: chosenSessionId,
-                };
-
-                // Creating for first time
-                // TODO: Some kind of way to choose/change this?
-                finalized.status = 'Prepared';
-
-                await encounterStore.addEncounter(finalized);
             
+            if (editingEncounter) {                
+                await encounterStore.updateEncounter(editingEncounter.id, encounterData);
+                
+                // If we're editing an encounter and it's linked to a session, we need to update the session
+                if (editingEncounter.session_id && chosenSessionId && editingEncounter.session_id !== chosenSessionId) {
+                    // Unlink from old session
+                    await encounterStore.unlinkEncounterFromSession(editingEncounter.id);
+                    
+                    // Link to new session
+                    if (chosenSessionId && selectedCampaignId) {
+                        await campaignSessionStore.linkEncounterToSession(
+                            selectedCampaignId, 
+                            chosenSessionId, 
+                            editingEncounter.id
+                        );
+                    }
+                } else if (editingEncounter.session_id && !chosenSessionId) {
+                    // Unlink from session
+                    await encounterStore.unlinkEncounterFromSession(editingEncounter.id);
+                } else if (!editingEncounter.session_id && chosenSessionId && selectedCampaignId) {
+                    // Link to new session
+                    await campaignSessionStore.linkEncounterToSession(
+                        selectedCampaignId, 
+                        chosenSessionId, 
+                        editingEncounter.id
+                    );
+                }
+                
+                // Reset form
+                editingEncounter = null;
+                
                 // Reset draft
                 wipEncounter = {
                     name: '',
                     description: '',
+                    encounter_type: 'combat',
                     enemies: [],
                     hazards: [],
                     treasure_items: [],
@@ -257,27 +296,49 @@
                     party_level: 1,
                     party_size: 4,
                     status: 'Draft',
+                    subsystem_type: 'chase',
+                    subsystem_checks: []
                 };
                 
-                // Clear NLP box
-                encounterCreatorNlp.clear();
+                skillChecks = [];
+            } else {
+                // Creating a new encounter
+                const finalizedEncounter: CreateEncounterFinalized = {
+                    ...encounterData,
+                    session_id: chosenSessionId
+                };
                 
-                // Clear any existing draft
-                await fetch(`${API_URL}/encounters/draft`, {
-                    method: 'DELETE',
-                    credentials: 'include',
-                });
+                await encounterStore.addEncounter(finalizedEncounter);
+                
+                // Reset form
+                wipEncounter = {
+                    name: '',
+                    description: '',
+                    encounter_type: 'combat',
+                    enemies: [],
+                    hazards: [],
+                    treasure_items: [],
+                    extra_experience: 0,
+                    treasure_currency: 0,
+                    party_level: 1,
+                    party_size: 4,
+                    status: 'Draft',
+                    subsystem_type: 'chase',
+                    subsystem_checks: []
+                };
+                
+                skillChecks = [];
             }
-
-            // This creates a new draft on backend
-            await fetchEncounters();
-
-            if (!editingEncounter) {
-                // If a campaign is selected, get player/party count defaults
-                pickDefaultCampaignForParty(selectedCampaignId);
-            }
+            
+            // Clear the draft
+            await fetch(`${API_URL}/encounters/draft`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            
         } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to create encounter';
+            console.error('Error creating encounter:', e);
+            error = e instanceof Error ? e.message : 'An error occurred';
         }
     }
 
@@ -310,7 +371,7 @@
     }
 
     let subtotalXPEnemies : number = $derived(
-        wipEncounter.enemies.reduce((total, encounterEnemy) => {
+        (wipEncounter.enemies || []).reduce((total, encounterEnemy) => {
             const enemy = getEnemyDetails(encounterEnemy.id);
             if (enemy?.level) {
                 return total + getExperienceFromLevel(wipEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
@@ -320,7 +381,7 @@
     );
 
     let subtotalXPHazards : number = $derived(
-        wipEncounter.hazards.reduce((total, hazardId) => {
+        (wipEncounter.hazards || []).reduce((total, hazardId) => {
             const hazard = getHazardDetails(hazardId);
             if (hazard?.level) {
                 return total + getExperienceFromLevel(wipEncounter.party_level, hazard.level);
@@ -331,12 +392,14 @@
 
     async function pickDefaultCampaignForParty(newCampaignId: number | null) {
         if (newCampaignId) {
+            const campaign = $campaignStore.get(newCampaignId);
+            const level = campaign?.level || 1;
             await characterStore.fetchCharacters(newCampaignId); // Fetch characters for the selected campaign
             const characters = $characterStore.get(newCampaignId);
             if (characters) {                
                 // Set PartyConfig to the player count and level of the campaign
                 wipEncounter.party_size = characters.length;
-                wipEncounter.party_level = characters.reduce((max, char) => Math.max(max, char.level), 1);
+                wipEncounter.party_level = characters.reduce((max, char) => Math.max(max, level), 1);
             }   
         }
     }
@@ -366,6 +429,7 @@
             [1, -1],
             [-1, 0]
         ]);
+        if (!wipEncounter.enemies) return;
         let encounterEnemy = wipEncounter.enemies[enemyId];
         encounterEnemy.level_adjustment = cycleOrder.get(encounterEnemy.level_adjustment) || 0;
     }
@@ -417,6 +481,50 @@
             autoSave();
         }
     });
+
+    // Handle encounter type change
+    function handleEncounterTypeChange() {
+        console.log('Encounter type changed:', wipEncounter.encounter_type);
+        // Set new encounter type metadat to include needed fields if they don't exist
+        if (!wipEncounter.enemies || !wipEncounter.hazards) {
+            wipEncounter.enemies = [];
+            wipEncounter.hazards = [];
+        }
+        
+        if (!wipEncounter.subsystem_type || !wipEncounter.subsystem_checks || !wipEncounter.party_level || !wipEncounter.party_size) {
+            skillChecks = [];
+            wipEncounter.subsystem_type = 'chase';
+            wipEncounter.subsystem_checks = [];
+        }
+        
+        // Save the draft with the new encounter type
+        encounterStore.updateDraft(wipEncounter);
+    }
+    
+    // Update addSkillCheck function
+    function addSkillCheck() {
+        const newSkillCheck: SkillCheck = {
+            name: `Check ${(wipEncounter.subsystem_checks?.length || 0) + 1}`,
+            roll_options: [{
+                skill: 'Acrobatics',
+                dc: 15
+            }],
+            vp: 5
+        };
+        
+        wipEncounter.subsystem_checks = [...(wipEncounter.subsystem_checks || []), newSkillCheck];
+    }
+
+    // Update addRollOption function
+    function addRollOption(checkIndex: number) {
+        if (!wipEncounter.subsystem_checks?.[checkIndex]) return;
+        
+        wipEncounter.subsystem_checks[checkIndex].roll_options = [
+            ...wipEncounter.subsystem_checks[checkIndex].roll_options,
+            { skill: 'Acrobatics', dc: 15 }
+        ];
+        wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks];
+    }
 </script>
 
 <div class="encounter-form">
@@ -480,23 +588,181 @@
             
         </div>
 
-        <EncounterCreatorNlp
-            bind:this={encounterCreatorNlp}
-            bind:enemies={wipEncounter.enemies}
-            bind:hazards={wipEncounter.hazards}
-            bind:treasures={wipEncounter.treasure_items}
-            ></EncounterCreatorNlp>
+        <!-- Encounter Type Selection -->
+        <div class="section">
+            <h3>Encounter Type</h3>
+            <div class="encounter-type-selector">
+                <div class="encounter-type-options">
+                    <label class="encounter-type-option">
+                        <input 
+                            type="radio" 
+                            name="encounterType" 
+                            value="combat" 
+                            bind:group={wipEncounter.encounter_type}
+                            on:change={handleEncounterTypeChange}
+                        />
+                        <span class="encounter-type-label">Combat</span>
+                        <span class="encounter-type-description">Standard encounter with enemies and/or hazards</span>
+                    </label>
+                    
+                    <label class="encounter-type-option">
+                        <input 
+                            type="radio" 
+                            name="encounterType" 
+                            value="reward" 
+                            bind:group={wipEncounter.encounter_type}
+                            on:change={handleEncounterTypeChange}
+                        />
+                        <span class="encounter-type-label">Reward</span>
+                        <span class="encounter-type-description">Just treasure and XP, no combat</span>
+                    </label>
+                    
+                    <label class="encounter-type-option">
+                        <input 
+                            type="radio" 
+                            name="encounterType" 
+                            value="subsystem" 
+                            bind:group={wipEncounter.encounter_type}
+                            on:change={handleEncounterTypeChange}
+                        />
+                        <span class="encounter-type-label">Subsystem</span>
+                        <!-- TODO: Social may not actually be a subsystem. Double check this- I think its actually a whole other thing with enemies..?-->
+                        <span class="encounter-type-description">Chase, infiltration, research, or social challenge</span>
+                    </label>
+                </div>
+            </div>
+        </div>
 
+
+        <!-- Subsystem section - Only shown for subsystem encounters -->
+        {#if wipEncounter.encounter_type === 'subsystem'}
+            <div class="section collapsible">
+                <div class="section-header" on:click={() => subsystemSectionOpen = !subsystemSectionOpen}>
+                    <h3>
+                        Subsystem Challenge
+                        <span class="toggle-icon">{subsystemSectionOpen ? '▼' : '▶'}</span>
+                    </h3>
+                </div>
+                
+                {#if subsystemSectionOpen}
+                    <h2> TODO: Experience is not provided by subsystems, but will be added as accomplishments are added (either simulatenously, or as accomplishments directly). </h2>
+
+                    <div class="section-content" transition:fade>
+                        <div class="form-group">
+                            <label for="subsystemCategory">Challenge Type</label>
+                            <select 
+                                id="subsystemCategory" 
+                                bind:value={wipEncounter.subsystem_type}
+                            >
+                                <option value="chase">Chase</option>
+                                <option value="infiltration">Infiltration</option>
+                                <option value="research">Research</option>
+                            </select>
+                        </div>
+                        
+                        <div class="skill-checks-list">
+                            {#each wipEncounter.subsystem_checks || [] as check, checkIndex}
+                                <div class="skill-check-container">
+                                    <div class="skill-check-header">
+                                        <input 
+                                            type="text"
+                                            class="check-name-input"
+                                            bind:value={check.name}
+                                            placeholder="Check name"
+                                        />
+                                        <div class="vp-input-container">
+                                            <label for="vp-{checkIndex}">Victory Points:</label>
+                                            <input 
+                                                type="number"
+                                                id="vp-{checkIndex}"
+                                                class="vp-input"
+                                                bind:value={check.vp}
+                                                min="0"
+                                            />
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            class="remove-button"
+                                            on:click={() => {
+                                                wipEncounter.subsystem_checks = wipEncounter.subsystem_checks?.filter((_, i) => i !== checkIndex);
+                                            }}
+                                        >
+                                            Remove Check
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="roll-options-list">
+                                        {#each check.roll_options as option, optionIndex}
+                                            <div class="roll-option">
+                                                <select 
+                                                    class="skill-select"
+                                                    bind:value={option.skill}
+                                                >
+                                                    {#each skills as skill}
+                                                        <option value={skill}>{skill}</option>
+                                                    {/each}
+                                                </select>
+                                                
+                                                <div class="dc-input-container">
+                                                    <label for="dc-{checkIndex}-{optionIndex}">DC:</label>
+                                                    <input 
+                                                        type="number"
+                                                        id="dc-{checkIndex}-{optionIndex}"
+                                                        class="dc-input"
+                                                        bind:value={option.dc}
+                                                        min="1"
+                                                    />
+                                                </div>
+                                                
+                                                <button 
+                                                    type="button"
+                                                    class="remove-button"
+                                                    on:click={() => {
+                                                        check.roll_options = check.roll_options.filter((_, i) => i !== optionIndex);
+                                                        wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks || []];
+                                                    }}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        {/each}
+                                        
+                                        <button 
+                                            type="button"
+                                            class="add-roll-option-btn"
+                                            on:click={() => addRollOption(checkIndex)}
+                                        >
+                                            Add Roll Option
+                                        </button>
+                                    </div>
+                                </div>
+                            {/each}
+                            
+                            <button 
+                                type="button"
+                                class="add-skill-check-btn"
+                                on:click={addSkillCheck}
+                            >
+                                Add Skill Check
+                            </button>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        {/if}
+
+        {#if wipEncounter.encounter_type === 'combat'}
 
         <div class="section collapsible">
+            {#if wipEncounter.enemies}
             <div class="section-header" on:click={() => enemiesSectionOpen = !enemiesSectionOpen}>
                 <h3>
                     Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies} XP
                     <span class="toggle-icon">{enemiesSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
-            
-            {#if enemiesSectionOpen}
+            {/if}
+            {#if enemiesSectionOpen && wipEncounter.enemies}
                 <div class="section-content" transition:fade>
                     
                     <div class="list-items">
@@ -522,7 +788,7 @@
                                         type="button" 
                                         class="remove-button"
                                         on:click={() => {
-                                            wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
+                                            if (wipEncounter.enemies) wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -539,7 +805,7 @@
                                 id: id,
                                 level_adjustment: 0
                             };
-                            wipEncounter.enemies = [...wipEncounter.enemies, newEnemy];
+                            wipEncounter.enemies = [...wipEncounter.enemies || [], newEnemy];
                         }}
                         placeholder="Search for enemies..."
                         initialIds={wipEncounter.enemies.map(e => e.id)}
@@ -556,17 +822,19 @@
         </div>
 
         <div class="section collapsible">
+            {#if wipEncounter.hazards}
             <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
                 <h3>
                     Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
                     <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
                 </h3>
             </div>
+            {/if}
             
             {#if hazardsSectionOpen}
                 <div class="section-content" transition:fade>
                     <div class="list-items">
-                        {#each wipEncounter.hazards as hazardId}
+                        {#each wipEncounter.hazards || [] as hazardId}
                             {#if getHazardDetails(hazardId)}
                                 <div class="list-item">
                                     <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
@@ -580,7 +848,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
+                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
                                         }}
                                     >
                                         Remove
@@ -593,7 +861,7 @@
                     <LibrarySelector
                         entityType="hazard"
                         onSelect={(id) => {
-                            wipEncounter.hazards = [...wipEncounter.hazards, id];
+                            wipEncounter.hazards = [...wipEncounter.hazards || [], id];
                         }}
                         placeholder="Search for hazards..."
                         initialIds={wipEncounter.hazards}
@@ -608,6 +876,8 @@
                 </div>
             {/if}
         </div>
+
+        {/if}
 
         <div class="section collapsible">
             <div class="section-header" on:click={() => treasureSectionOpen = !treasureSectionOpen}>
@@ -673,7 +943,7 @@
                         initialIds={wipEncounter.treasure_items}
                     />
                     <a 
-                        href="/library?encounter=true&tab=item"
+                        href="/library?encounter=true&tab=equipment"
                         class="browse-library-button"
                     >
                         Browse Library
@@ -682,34 +952,25 @@
                 </div>
             {/if}
         </div>
-        <div class="section">
 
-        {#if campaignSessions && !editingEncounter}
-        <div class="session-selector">
-            <label for="session">Add to existing session:</label> 
-            <select bind:value={chosenSessionId}>
-                <option value={null}>Select a session...</option>
-
-                {#each campaignSessions as session, ind}
-                    <option value={session.id}>Session {ind}: {session.name}</option>
-                {/each}
-            </select>
-        </div>
+        <!-- Session selection -->
+        {#if campaignSessions && campaignSessions.length > 0}
+            <div class="session-selector">
+                <label for="sessionSelect">Add to Session:</label>
+                <select id="sessionSelect" bind:value={chosenSessionId}>
+                    <option value={null}>None</option>
+                    {#each campaignSessions as session}
+                        <option value={session.id}>Session {session.session_order}: {session.name}</option>
+                    {/each}
+                </select>
+            </div>
         {/if}
 
+        <!-- Submit button -->
         <button type="submit" class="create-button">
-            {#if chosenSessionId && campaignSessions && !editingEncounter}
-                Create Encounter into Session {chosenSessionIndex}
-            {:else if !editingEncounter}
-                Create Encounter
-            {:else}
-                Update Encounter
-            {/if}
-            </button>
-       </div>
-
-    
-        </form>
+            {editingEncounter ? 'Update' : 'Create'} Encounter
+        </button>
+    </form>
 </div>
 
 <style>
@@ -1124,8 +1385,6 @@
     .create-button {
         width: 100%;
         font-size: 1.2rem;
-
-
         padding: 0.5rem 1rem;
         border-radius: 0.375rem;
         background: #3b82f6;
@@ -1134,8 +1393,6 @@
         cursor: pointer;
         font-weight: 500;
         transition: background-color 0.2s;
-
-
     }   
 
     .difficulty-indicator {
@@ -1153,7 +1410,6 @@
     .description-input {
         width: 100%;
         font-size: 1rem;
-        /* lock size */
         resize: none;
         font-family: inherit;
         border: 1px solid #e5e7eb;
@@ -1193,7 +1449,6 @@
         color: #ef4444;
     }
 
-    /* TODO: Modularize these classes as you modularize the difficulty ones */
     .adjustment-button {
         color: white;
         border: none;
@@ -1202,7 +1457,6 @@
         cursor: pointer;
     }
 
-    
     .elite-button {
         background: #ef4444;
     }
@@ -1223,5 +1477,167 @@
         background: #059669;
     }
 
-    
+    /* Encounter type selector styles */
+    .encounter-type-selector {
+        margin-bottom: 1.5rem;
+    }
+
+    .encounter-type-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .encounter-type-option {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .encounter-type-option:hover {
+        border-color: #3b82f6;
+        background: #f0f9ff;
+    }
+
+    .encounter-type-option input[type="radio"] {
+        width: auto;
+        margin-right: 0.5rem;
+    }
+
+    .encounter-type-label {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .encounter-type-description {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    /* Subsystem styles */
+    .skill-checks-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .skill-check-container {
+        background: #f8f8f8;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .skill-check-header {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .check-name-input {
+        font-size: 1rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        width: 100%;
+    }
+
+    .vp-input-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .vp-input {
+        width: 5rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+
+    .roll-options-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .roll-option {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+        align-items: center;
+        background: white;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .skill-select {
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        width: 100%;
+    }
+
+    .dc-input-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .dc-input {
+        width: 5rem;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+
+    .add-roll-option-btn {
+        background: #4b5563;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-weight: 500;
+        margin-top: 0.5rem;
+        width: fit-content;
+    }
+
+    .add-skill-check-btn {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.75rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-weight: 500;
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .remove-button {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    button:hover {
+        opacity: 0.9;
+    }
 </style> 

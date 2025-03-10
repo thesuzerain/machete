@@ -51,6 +51,7 @@
     // Favours exact start of name (eg: "drag" for "dragon") but will follow up with similar matches
     // So "lich" will return "lich" first, but "demlich" (typo intentional) will be in the list after, even though it's alphabetically first
     async function searchEntities(query: string | null, ids : number[] | null, page: string = '0') {
+        console.log("searching...");
         const endpoint = routePart[entityType];
         let params : Record<string, string> = {
             page,
@@ -93,6 +94,7 @@
     }
 
     const debouncedSearch = debounce(async (searchTerm: string) => {
+        console.log("debouncing...");
         try {
             loading = true;
             page = 0;
@@ -146,7 +148,9 @@
         }
     });
 
+    $: console.log("searchTerm", searchTerm);
     $: if (searchTerm) {
+        console.log("searching...");
         debouncedSearch(searchTerm);
     }
 

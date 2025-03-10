@@ -1,3 +1,4 @@
+use crate::models::encounter::EncounterType;
 use crate::models::ids::InternalId;
 use crate::models::{campaign::CampaignPartial, encounter::CompletionStatus};
 use crate::ServerError;
@@ -94,7 +95,6 @@ pub async fn insert_campaign(
     include_initial_sessions: bool,
     owner: InternalId,
 ) -> crate::Result<InternalId> {
-    log::info!("insert: {:?}", insert);
     let total_experience = insert
         .initialization
         .as_ref()
@@ -150,9 +150,7 @@ pub async fn insert_campaign(
                 treasure_items,
 
                 // TODO: Come back to this
-                initialization_encounter: Some(true),
-                enemies: Vec::new(),
-                hazards: Vec::new(),
+                encounter_type: EncounterType::RewardInitialization,
                 party_level: 1,
                 party_size: 1,
                 status: CompletionStatus::Archived,
