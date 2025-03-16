@@ -1,5 +1,5 @@
 import { get, writable } from 'svelte/store';
-import type { Encounter, CreateOrReplaceEncounterExtended, CreateEncounterFinalized, CreateOrReplaceEncounter } from '$lib/types/encounters';
+import { type Encounter, type CreateOrReplaceEncounterExtended, type CreateEncounterFinalized, type CreateOrReplaceEncounter, type AccomplishmentLevel, experienceForAccomplishment } from '$lib/types/encounters';
 import { API_URL } from '$lib/config';
 import { auth } from './auth';
 import { campaignSessionStore } from './campaignSessions';
@@ -46,6 +46,28 @@ function createEncounterStore() {
                 console.error('Error adding encounter:', e);
                 throw e;
             }
+        },
+        addQuickAccomplishment: async (campaignId : number, campaignSessionId : number, name : string, xp : number | AccomplishmentLevel) => {
+            if (typeof xp === 'string') {
+                xp = experienceForAccomplishment(xp);
+            }
+            const encounter : CreateEncounterFinalized = {
+                name: name,
+                description: '',
+                session_id: campaignSessionId,
+                extra_experience: xp,
+                treasure_items: [],
+                encounter_type: 'accomplishment',
+                status: 'Prepared',
+                treasure_currency: 0,
+                party_level: 0, // TODO: I believe this doesn't matter for accomplishments. Revisit if it does.
+                party_size: 0, // TODO: ^^
+
+                total_experience: xp,
+                total_items_value: 0,
+            };
+            await encounterStore.addEncounter(encounter);
+            await campaignSessionStore.fetchCampaignSessions(campaignId);
         },
         updateEncounter: async (id : number, encounter: Partial<CreateOrReplaceEncounterExtended>) => {
             try {

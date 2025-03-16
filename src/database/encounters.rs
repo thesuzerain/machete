@@ -935,7 +935,10 @@ pub async fn get_encounter_draft(
                     description: Some("".to_string()),
                     session_id: None,
                     owner,
-                    encounter_type: EncounterType::Reward,
+                    encounter_type: EncounterType::Combat {
+                        enemies: vec![],
+                        hazards: vec![],
+                    },
                     status: CompletionStatus::Draft,
                     treasure_items: vec![],
                     treasure_currency: 0.0,

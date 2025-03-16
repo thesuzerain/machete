@@ -33,8 +33,9 @@ pub struct Encounter {
 pub enum EncounterType {
     #[default]
     Unknown,
-    Reward,
+    Accomplishment,
     RewardInitialization,
+    // TODO: We may want to move party level and size to the combat part? It's only relevant for it- but we may want to keep it otherwise as its in a different section.
     Combat {
         #[serde(default)]
         enemies: Vec<EncounterEnemy>,
@@ -173,7 +174,7 @@ impl EncounterType {
     ) -> EncounterType {
         match i {
             1 => EncounterType::RewardInitialization,
-            2 => EncounterType::Reward,
+            2 => EncounterType::Accomplishment,
             3 => EncounterType::Combat { enemies, hazards },
             4 => EncounterType::Subsystem {
                 subsystem_type: subsystem.unwrap_or_default(),
@@ -186,7 +187,7 @@ impl EncounterType {
     pub fn get_id(&self) -> i32 {
         match self {
             EncounterType::RewardInitialization => 1,
-            EncounterType::Reward => 2,
+            EncounterType::Accomplishment => 2,
             EncounterType::Combat { .. } => 3,
             EncounterType::Subsystem { .. } => 4,
             EncounterType::Unknown => 0,

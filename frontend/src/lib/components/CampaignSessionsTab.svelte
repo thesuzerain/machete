@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { CampaignSession, CompiledRewards } from '$lib/types/types';
+    import type { CampaignSession, CompiledRewards, AccomplishmentLevel } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
@@ -288,6 +288,48 @@
         viewingEncounter = encounter;
         showEncounterViewer = true;
     }
+
+    // Accomplishment state
+    let accomplishmentName = $state('');
+    let accomplishmentDescription = $state('');
+    let accomplishmentType: AccomplishmentLevel | null = $state('moderate');
+    let useCustomXP = $state(false);
+    let customXPAmount = $state(0);
+
+    let showAccomplishmentForm = $state(false);
+
+    let canAddAccomplishment = $derived(
+        useCustomXP ? customXPAmount > 0 : accomplishmentType !== null
+    );
+
+    function setCustomXP() {
+        useCustomXP = true;
+        accomplishmentType = null;
+        if (!customXPAmount) customXPAmount = 10; // Default value
+    }
+
+    function setAccomplishmentType(type: AccomplishmentLevel) {
+        accomplishmentType = type;
+        useCustomXP = false;
+    }
+
+    async function addAccomplishment() {
+        if (!selectedSession) return;
+        
+        const name = accomplishmentName.trim() || 'Accomplishment';
+        const xp = useCustomXP ? customXPAmount : accomplishmentType!;
+        await encounterStore.addQuickAccomplishment(
+            selectedCampaignId,
+            selectedSession.id,
+            name,
+            xp
+        );
+        console.log('Added accomplishment');
+
+        // Reset form name (don't reset type, so that we can quickly add more)
+        accomplishmentName = '';
+        showAccomplishmentForm = false;
+    }
 </script>
 
 <div class="characters-section" transition:fade>
@@ -343,13 +385,83 @@
         <div class="encounters-section">
             <div class="section-header">
                 <h3>Session Encounters</h3>
-                <button class="add-button" on:click={createNewEncounter}>
-                    Create New Encounter
-                </button>
+                <div class="header-buttons">
+                    <button 
+                        class="add-button" 
+                        class:active={showAccomplishmentForm} 
+                        on:click={() => showAccomplishmentForm = !showAccomplishmentForm}
+                    >
+                        {showAccomplishmentForm ? 'Cancel' : 'Add Accomplishment'}
+                    </button>
+                    <div>
+                    <button class="add-button" on:click={createNewEncounter}>
+                        Create New Encounter
+                    </button>
+                </div>
+                </div>
             </div>
 
+            {#if showAccomplishmentForm}
+                <div class="quick-accomplishment" transition:fade>
+                    <div class="accomplishment-inputs">
+                        <div class="name-description-row">
+                            <input 
+                                type="text" 
+                                placeholder="Name"
+                                bind:value={accomplishmentName}
+                            />
+
+                        </div>
+                        <div class="accomplishment-buttons">
+                            <button 
+                                class="accomplishment-buttons-button"
+                                class:selected={accomplishmentType === 'minor'}
+                                on:click={() => setAccomplishmentType('minor')}
+                            >Minor (10 XP)</button>
+                            <button 
+                            class="accomplishment-buttons-button"
+                                class:selected={accomplishmentType === 'moderate'}
+                                on:click={() => setAccomplishmentType('moderate')}
+                            >Moderate (30 XP)</button>
+                            <button 
+                            class="accomplishment-buttons-button"
+
+                                class:selected={accomplishmentType === 'major'}
+                                on:click={() => setAccomplishmentType('major')}
+                            >Major (80 XP)</button>
+                            <button 
+                            class="accomplishment-buttons-button"
+
+                                class:selected={useCustomXP}
+                                on:click={() => setCustomXP()}
+                            >Custom XP</button>
+                        {#if useCustomXP}
+                            <div class="custom-xp">
+                                <input 
+                                    type="number" 
+                                    bind:value={customXPAmount}
+                                    min="0"
+                                    placeholder="Enter XP amount"
+                                />
+                            </div>
+                        {/if}
+
+                        <button 
+                            class="submit-accomplishment" 
+                            on:click={addAccomplishment}
+                            disabled={!canAddAccomplishment}
+                        >
+                            Add Accomplishment
+                        </button>
+                    </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Regular Encounters -->
             <div class="encounters-list">
-                {#each sessionEncounters as encounter}
+                <h4>Combat & Other Encounters</h4>
+                {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
                     <div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
@@ -369,6 +481,26 @@
                     </div>
                 {/each}
             </div>
+
+            <!-- Accomplishments -->
+            {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}
+                <div class="accomplishments-list accomplishments">
+                    <h4>Accomplishments</h4>
+                    {#each sessionEncounters.filter(e => e.encounter_type === 'accomplishment') as encounter}
+                        <div class="accomplishment-card accomplishment">
+                            <div class="accomplishment-info">
+                                <h4>{encounter.name}</h4>
+                                <span>XP: {encounter.total_experience}</span>
+                            </div>
+                            <div class="encounter-actions">
+                                <button class="remove-button" on:click={() => removeEncounterFromSession(encounter.id)}>
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
         </div>
 
         <div class="misc-section">
@@ -517,6 +649,21 @@
         display: grid;
         gap: 1rem;
         margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .accomplishments-list {
+        display: grid;
+        gap: 0.5rem;
+        margin: 0;
+    }
+    .accomplishment-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem;
+        background: #f9fafb;
+        border-radius: 0.5rem;
     }
 
     .encounter-card {
@@ -550,14 +697,7 @@
         cursor: move;
     }
 
-    .add-button {
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
+
 
     .edit-button {
         background: #3b82f6;
@@ -667,6 +807,111 @@
 
     .view-button:hover {
         background: #374151;
+    }
+
+    .header-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .add-button.active {
+        background: #dc2626;
+    }
+
+    .name-description-row {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .name-description-row input {
+        flex: 1;
+    }
+
+    .quick-accomplishment {
+        background: #f9fafb;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .accomplishment-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .accomplishment-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .accomplishment-buttons-button {
+        flex: 1;
+        min-width: 120px;
+        padding: 0.5rem 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        background: white;
+        color: #4b5563;
+        cursor: pointer;
+    }
+
+    .accomplishment-buttons-button.selected {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+
+    .custom-xp {
+        display: flex;
+        justify-content: center;
+    }
+
+    .custom-xp input[type="number"] {
+        width: 200px;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        text-align: center;
+    }
+
+    .submit-accomplishment {
+        align-self: center;
+        width: fit-content;
+        background: #22c55e;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+    }
+
+
+    .encounter-card .description {
+        color: #6b7280;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .encounters-list h4 {
+        margin-bottom: 0.75rem;
+        color: #4b5563;
+    }
+
+    .add-button {
+        background: #22c55e;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+    }
+
+    .accomplishment-info {
+        display: flex;
+        gap: 1rem;
     }
 
 </style> 
