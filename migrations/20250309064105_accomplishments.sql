@@ -1,0 +1,1 @@
+UPDATE encounter_types SET name = 'Accomplishment' WHERE id = 2;

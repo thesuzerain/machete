@@ -1,7 +1,7 @@
 import type { Skill } from "./types";
 
 export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed' | 'Archived' | 'Success' | 'Failure';
-export type EncounterType = 'combat' | 'reward' | 'rewardInitialization' | 'subsystem' | 'unknown';
+export type EncounterType = 'combat' | 'accomplishment' | 'rewardInitialization' | 'subsystem' | 'unknown';
 export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'unknown';
 
 export interface Encounter {
@@ -41,8 +41,6 @@ export interface SkillRollOption {
     skill: Skill;
     dc: number;
 }
-
-
 
 export interface SkillCheck {
     name: string;
@@ -91,3 +89,12 @@ export interface CreateEncounterFinalized extends CreateOrReplaceEncounterExtend
     // session_id can only be set on creation
     session_id: number | null;
 } 
+
+export type AccomplishmentLevel = 'minor' | 'moderate' | 'major';
+export function experienceForAccomplishment(level : AccomplishmentLevel) : number {
+    switch (level) {
+        case 'minor': return 10;
+        case 'moderate': return 30;
+        case 'major': return 80;
+    }
+}
