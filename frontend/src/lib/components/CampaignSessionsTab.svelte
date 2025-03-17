@@ -575,7 +575,6 @@
                 </div>
             </div>
 
-            frack {compiledGoldTotal} {compiledItemRewardsTotal} {JSON.stringify(compiledItemRewardsIter)}
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">
@@ -602,7 +601,6 @@
                             {/each}
                         </section>
                     {/if}
-                    fresh {compiledGoldTotal} {JSON.stringify(totalSessionRewards)} {JSON.stringify(compiledGoldRewards)}
                     {#if compiledGoldTotal > 0 && totalSessionRewards.currency > 0}
                     <div class="gold-division">
                         <input type="number" bind:value={compiledGoldRewards[cid]} min={0} max={Math.ceil(totalSessionRewards.currency)} 
