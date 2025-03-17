@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { CampaignSession, InsertCampaignSessionEncounterLinksMetadata } from '$lib/types/types';
+import type { CampaignSession, InsertCampaignSession, InsertCampaignSessionEncounterLinksMetadata } from '$lib/types/types';
 import { API_URL } from '$lib/config';
 import { encounterStore } from './encounters';
 
@@ -30,7 +30,7 @@ function createCampaignSessionStore() {
                 throw error;
             }
         },
-        addCampaignSessions: async (campaignId : number, newCampaignSessions: Omit<CampaignSession, 'id' | 'play_date'>[]) => {
+        addCampaignSessions: async (campaignId : number, newCampaignSessions: InsertCampaignSession[]) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions`, {
                     method: 'POST',
