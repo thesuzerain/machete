@@ -12,6 +12,7 @@ pub struct InsertSession {
     pub name: Option<String>,
     pub description: Option<String>,
     pub play_date: Option<DateTime<Utc>>,
+    pub characters: Option<Vec<InternalId>>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -238,6 +239,26 @@ pub async fn insert_sessions(
     .into_iter()
     .map(|row| InternalId(row.id as u32))
     .collect::<Vec<InternalId>>();
+
+    // Insert empty campaign_session_characters for each session
+    // TODO: Assumes same order, which I think is fine, but should be checked
+    for (i,session) in sessions.iter().enumerate() {
+        let Some(ref characters) = session.characters else {
+            continue;
+        };
+        let characters = characters.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
+        sqlx::query!(
+            r#"
+            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards)
+            SELECT $1, character_id, 0
+            FROM UNNEST($2::int[]) as character_id
+        "#,
+            ids[i].0 as i32,
+            &characters,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
 
     Ok(ids)
 }

@@ -40,16 +40,16 @@ export interface CampaignSession {
     unassigned_gold_rewards: number;
 }
 
-export interface CompiledRewards {
-    gold: number;
-    items: number[];
-}
-
 export interface InsertCampaignSession {
     session_order: number;
     name: string;
     description?: string;
-    encounter_ids: number[];
+    characters: number[];
+}
+
+export interface CompiledRewards {
+    gold: number;
+    items: number[];
 }
 
 export interface InsertCampaignSessionEncounterLinksMetadata {

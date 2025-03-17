@@ -24,6 +24,7 @@
     let editingName = $state(false);
     let editingDescription = $state(false);
     let selectedSessionId: number | null = $state(null);
+    let showCharacterSelector = $state(false);
 
     let tempName = $state('');
     let tempDescription = $state('');
@@ -33,6 +34,9 @@
     let selectedSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
     let campaignCharacters = $derived(($characterStore.get(selectedCampaignId)) || []);
+
+    // Track which characters are present in the session separately from rewards
+    let presentCharacters = $state(new Set<number>());
 
     // Calculate total rewards for the session
     interface TotalRewards {
@@ -80,20 +84,33 @@
     });
 
     async function handleCampaignChange(id: number) {
+        console.log("CAMPAIGN CHANGE");
         await campaignSessionStore.fetchCampaignSessions(id);
         if (campaignSessions.length > 0) {
             selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
         }
 
         // TODO: This is not right. Because when we 'switch' the campaign it will all reset...
-        await handleEncountersUpdate();
+        await handleSessionChange();
     }
 
     async function handleSessionChange() {
+        console.log("SESSION CHANGE");
         await handleEncountersUpdate();
+        // Update present characters based on compiled rewards
+        if (selectedSession) {
+            presentCharacters = new Set(
+                Object.keys(selectedSession.compiled_rewards)
+                    .map(Number)
+                    .filter(id => id !== -1)
+            );
+        } else {
+            presentCharacters = new Set();
+        }
     }
 
     async function handleEncountersUpdate() {
+        console.log("Handling encounters update");
         // TODO: Refactor
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
@@ -109,21 +126,7 @@
         compiledItemRewardsWithIds = {};
         compiledGoldRewards = {};
 
-        // Populate with items and gold
-        Object.entries(session.compiled_rewards).forEach(([characterId, characterRewards]) => {
-            // Populate with gold
-            compiledGoldRewards[Number(characterId)] = characterRewards.gold;
-
-            // Populate with items
-            compiledItemRewardsWithIds[Number(characterId)] = characterRewards.items.map((iid, ix) => {
-                return {
-                    id: iid.toString()+'-'+ix,
-                    itemId: iid,
-                } as DndRewardItem;
-            });
-        });
-
-        // Add unassigned ones as -1
+        // Add unassigned rewards
         compiledItemRewardsWithIds[-1] = session.unassigned_item_rewards.map((iid, ix) => {
             return {
                 id: iid.toString()+'-'+ix,
@@ -132,14 +135,18 @@
         });
         compiledGoldRewards[-1] = session.unassigned_gold_rewards;
 
-        // For every character in this session, ensure they have a key in both compilations
-        // TODO: Not every character is in every session
-        campaignCharacters.forEach(c => {
-            compiledItemRewardsWithIds[c.id] = compiledItemRewardsWithIds[c.id] || [];
-            compiledGoldRewards[c.id] = compiledGoldRewards[c.id] || 0;
-        });
-
-            // snapshot
+        // Add entries for all present characters
+        console.log("Updating with present characters", presentCharacters); 
+        for (const charId of presentCharacters) {
+            const rewards = session.compiled_rewards[charId] || { gold: 0, items: [] };
+            compiledGoldRewards[charId] = rewards.gold;
+            compiledItemRewardsWithIds[charId] = rewards.items.map((iid, ix) => {
+                return {
+                    id: iid.toString()+'-'+ix,
+                    itemId: iid,
+                } as DndRewardItem;
+            });
+        }
     }
 
     async function updateSessionName() {
@@ -192,14 +199,21 @@
 
     async function createNewSession() {
         const highestSessionOrder = campaignSessions.reduce((acc, s) => s.session_order > acc ? s.session_order : acc, 0);
+        
+        // Get characters from most recent session, or all characters if no sessions exist
+        let initialCharacterIds: number[] = [];
+        if (campaignSessions.length > 0) {
+            const mostRecentSession = campaignSessions[campaignSessions.length - 1];
+            initialCharacterIds = Object.keys(mostRecentSession.compiled_rewards).map(Number);
+        } else {
+            initialCharacterIds = campaignCharacters.map(c => c.id);
+        }
+
         await campaignSessionStore.addCampaignSessions(selectedCampaignId, [{
             name: `New session`,
             description: '',
             session_order: highestSessionOrder + 1,
-            encounter_ids: [],
-            unassigned_gold_rewards: 0,
-            unassigned_item_rewards: [],
-            compiled_rewards: [],
+            characters: initialCharacterIds,
         }]);
 
         await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
@@ -261,22 +275,23 @@
     async function updateRewardAssignments() {
         if (!selectedSession) return;
 
-        let itemRewards : Record<number,number[]> = $state.snapshot(compiledItemRewardsApi);
-        delete itemRewards[-1];
+        const updatedCompiledRewards: Record<number, CompiledRewards> = {};
+        
+        // Include rewards for all present characters
+        console.log("Sending for present characters", presentCharacters);
+        for (const charId of presentCharacters) {
+            updatedCompiledRewards[charId] = {
+                gold: compiledGoldRewards[charId] || 0,
+                items: compiledItemRewardsWithIds[charId]?.map(item => item.itemId) || []
+            };
+        }
 
-        let goldRewards : Record<number,number> = $state.snapshot(compiledGoldRewards);
-        delete goldRewards[-1];
+        console.log("After: ", updatedCompiledRewards);
 
-        let compiledRewards : Record<number,CompiledRewards> = {};
-        Object.entries(itemRewards).forEach(([cid, items]) => {
-            compiledRewards[Number(cid)] = {
-                gold: goldRewards[Number(cid)] || 0,
-                items: items,
-            }
+        await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId,  
+            selectedSession.id, {
+            compiled_rewards: updatedCompiledRewards
         });
-
-        await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId, selectedSession.id,
-        { ...selectedSession, compiled_rewards: compiledRewards });
     }
 
     // Add these state variables
@@ -330,6 +345,25 @@
         accomplishmentName = '';
         showAccomplishmentForm = false;
     }
+
+    async function updateSessionCharacters(characterId: number, present: boolean) {
+        if (!selectedSession) return;
+
+        if (present) {
+            presentCharacters.add(characterId);
+        } else {
+            // Treat as if we set rewards to 0
+            compiledGoldRewards[characterId] = 0;
+            compiledItemRewardsWithIds[characterId] = [];
+
+            presentCharacters.delete(characterId);
+        }
+        await updateRewardAssignments();
+        presentCharacters = presentCharacters; // trigger reactivity
+
+        // Update the UI state to match
+        await handleEncountersUpdate();
+    }
 </script>
 
 <div class="characters-section" transition:fade>
@@ -377,6 +411,31 @@
                         editingDescription = true;
                         tempDescription = selectedSession.description || '';
                     }}>{selectedSession.description || 'Click to add description...'}</p>
+                {/if}
+            </div>
+
+            <div class="character-selector">
+                <button 
+                    class="character-selector-toggle"
+                    on:click={() => showCharacterSelector = !showCharacterSelector}
+                >
+                    {showCharacterSelector ? 'Hide' : 'Show'} Present Characters ({presentCharacters.size})
+                </button>
+                {#if showCharacterSelector}
+                    <div class="character-selector-content" transition:fade>
+                        <div class="character-checkboxes">
+                            {#each campaignCharacters as character}
+                                <label class="character-checkbox">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={presentCharacters.has(character.id)}
+                                        on:change={(e) => updateSessionCharacters(character.id, (e.target as HTMLInputElement).checked)}
+                                    />
+                                    {character.name}
+                                </label>
+                            {/each}
+                        </div>
+                    </div>
                 {/if}
             </div>
         </div>
@@ -516,7 +575,6 @@
                 </div>
             </div>
 
-            frack {compiledGoldTotal} {compiledItemRewardsTotal}
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">
@@ -543,7 +601,6 @@
                             {/each}
                         </section>
                     {/if}
-                    fresh {compiledGoldTotal}
                     {#if compiledGoldTotal > 0 && totalSessionRewards.currency > 0}
                     <div class="gold-division">
                         <input type="number" bind:value={compiledGoldRewards[cid]} min={0} max={Math.ceil(totalSessionRewards.currency)} 
@@ -912,6 +969,50 @@
     .accomplishment-info {
         display: flex;
         gap: 1rem;
+    }
+
+    .character-selector {
+        margin: 1rem 0;
+    }
+
+    .character-selector-toggle {
+        background: #4b5563;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+
+    .character-selector-toggle:hover {
+        background: #374151;
+    }
+
+    .character-selector-content {
+        margin-top: 0.5rem;
+        padding: 1rem;
+        background: #f9fafb;
+        border-radius: 0.5rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .character-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .character-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .character-checkbox input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
     }
 
 </style> 

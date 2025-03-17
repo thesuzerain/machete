@@ -5,6 +5,7 @@
     import type { Character } from '$lib/types/types';
     import LibrarySelector from './LibrarySelector.svelte';
     import { characterStore } from '$lib/stores/characters';
+    import { classStore } from '$lib/stores/libraryStore';
 
     export let show = false;
     export let campaignId: number | null;
@@ -13,7 +14,6 @@
     const dispatch = createEventDispatcher();
 
     let name = '';
-    let level = 1;
     let classId: number | null = null;
     let className = '';
     let error: string | null = null;
@@ -22,12 +22,10 @@
     $: if (show) {
         if (editingCharacter) {
             name = editingCharacter.name;
-            level = editingCharacter.level;
             classId = editingCharacter.class;
             className = editingCharacter.class_name;
         } else {
             name = '';
-            level = 1;
             classId = null;
             className = '';
         }
@@ -47,7 +45,6 @@
         try {
             const characterData = {
                 name,
-                level,
                 class: classId,
                 campaign_id: campaignId,
             };
@@ -97,10 +94,6 @@
         error = null;
         dispatch('close');
     }
-
-    function handleClassSelect(id: number) {
-        classId = id;
-    }
 </script>
 
 {#if show}
@@ -123,26 +116,16 @@
                     />
                 </div>
 
-                <div class="form-group">
-                    <label for="level">Level</label>
-                    <input 
-                        type="number" 
-                        id="level" 
-                        bind:value={level}
-                        min="1"
-                        max="20"
-                        required
-                    />
-                </div>
 
-                <div class="form-group">
-                    <label for="class">Class</label>
-                    <LibrarySelector
-                        entityType="class"
-                        onSelect={handleClassSelect}
-                        placeholder="Search for a class..."
-                        initialIds={classId ? [classId] : []}
-                    />
+                <div class="form-group inline">
+                    <label for="class">Class:</label>
+                    <select bind:value={classId}>
+                        <option value={0}>Select Class</option>
+                        {#each Array.from($classStore.entities.values()) as classOption}
+                            <option value={classOption.id}>{classOption.name}</option>
+                        {/each}
+                    </select>
+
                 </div>
 
                 <div class="modal-actions">
@@ -228,8 +211,10 @@
         margin-bottom: 1rem;
     }
 
-    /* Add specific styling for the LibrarySelector */
-    :global(.form-group .entity-selector) {
-        width: 100%;
+    .form-group.inline {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
     }
+
 </style> 
