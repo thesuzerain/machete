@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{characters::Skill, ids::InternalId};
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Encounter {
     pub id: InternalId,
     pub status: CompletionStatus,
@@ -80,7 +80,7 @@ pub struct EncounterEnemy {
 }
 
 // TODO: We may want to remove this
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, Copy)]
 pub enum CompletionStatus {
     Draft,
     #[default]
@@ -201,6 +201,16 @@ impl EncounterType {
             3 => "Combat".to_string(),
             4 => "Subsystem".to_string(),
             _ => "Unknown".to_string(),
+        }
+    }
+
+    pub fn id_from_string(s: &str) -> i32 {
+        match s {
+            "Reward Initialization" => 1,
+            "Accomplishment" => 2,
+            "Combat" => 3,
+            "Subsystem" => 4,
+            _ => 0,
         }
     }
 

@@ -182,25 +182,28 @@ pub async fn import_with_functions(
         .sessions
         .iter()
         .enumerate()
-        .map(|(ix, s)| Ok(InsertSession {
-            name: s.name.clone(),
-            description: s.description.clone(),
-            session_order: (ix * 1000) as u32,
-            play_date: s.date,
-            characters: Some(s
-                .compiled_rewards
-                .iter()
-                .map(|(character_name, _)| {
-                    character_name_to_id
-                        .get(character_name)
-                        .ok_or(ServerError::BadRequest(format!(
-                            "Character {} not found in 'characters'",
-                            character_name
-                        )))
-                        .map(|id| *id)
-                })
-                .collect::<Result<Vec<_>, _>>()?),
-        }))
+        .map(|(ix, s)| {
+            Ok(InsertSession {
+                name: s.name.clone(),
+                description: s.description.clone(),
+                session_order: (ix * 1000) as u32,
+                play_date: s.date,
+                characters: Some(
+                    s.compiled_rewards
+                        .iter()
+                        .map(|(character_name, _)| {
+                            character_name_to_id
+                                .get(character_name)
+                                .ok_or(ServerError::BadRequest(format!(
+                                    "Character {} not found in 'characters'",
+                                    character_name
+                                )))
+                                .map(|id| *id)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+            })
+        })
         .collect::<Result<Vec<_>, ServerError>>()?;
     let session_ids_in_order =
         super::sessions::insert_sessions(&mut *tx, campaign_id, &insert_sessions).await?;

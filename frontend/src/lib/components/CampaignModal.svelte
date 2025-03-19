@@ -65,7 +65,6 @@
         currentStep += 1;
     }
     function prevStep() {
-        console.log('prevStep', currentStep);
         currentStep -= 1;
     }
     function addCharacter() {
@@ -78,6 +77,7 @@
         }];
     }
     function removeCharacter(index: number) {
+        // TODO: remove character from list
         console.log('removeCharacter', index);
     }
 

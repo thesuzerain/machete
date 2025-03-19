@@ -148,9 +148,7 @@
         }
     });
 
-    $: console.log("searchTerm", searchTerm);
     $: if (searchTerm) {
-        console.log("searching...");
         debouncedSearch(searchTerm);
     }
 
@@ -227,6 +225,7 @@
         on:focus={() => showDropdown = true}
         on:keydown={handleKeydown}
         class="unselected-input"
+        on:keydown={(e) => e.key === 'Enter' && e.preventDefault()}
         />
     {/if}
     {#if showDropdown && searchTerm.length > 0}

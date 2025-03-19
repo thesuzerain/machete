@@ -55,35 +55,40 @@ pub async fn get_sessions(
             ARRAY_AGG(e.id) filter (where e.id is not null) as encounter_ids,
             unassigned_gold_rewards,
             unassigned_item_rewards,
-            JSONB_AGG(
+            csc.character_rewards,
+            SUM(e.total_items_value + e.treasure_currency) as total_combined_treasure_value,
+            SUM(e.total_experience) as total_experience,
+            SUM(SUM(e.total_experience)::int) OVER (ORDER BY s.session_order, s.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as accumulated_total_experience
+        FROM campaign_sessions s
+        LEFT JOIN campaigns ca ON s.campaign_id = ca.id
+        LEFT JOIN encounters e ON s.id = e.session_id
+
+        LEFT JOIN LATERAL (
+            SELECT
+                csc.session_id,
+                JSONB_AGG(
                 JSONB_BUILD_OBJECT(
                     'session_id', csc.session_id,
                     'character_id', csc.character_id,
                     'gold_rewards', csc.gold_rewards,
                     'item_rewards', csc.item_rewards
                 )
-            ) filter (where csc.session_id is not null) as character_rewards,
-            SUM(e.total_items_value + e.treasure_currency) as total_combined_treasure_value,
-            SUM(e.total_experience) as total_experience
-        FROM campaign_sessions s
-        LEFT JOIN campaigns ca ON s.campaign_id = ca.id
-        LEFT JOIN encounters e ON s.id = e.session_id
-
-        LEFT JOIN LATERAL (
-            SELECT 
-                csc.session_id,
-                csc.character_id,
-                csc.gold_rewards,
-                ARRAY_AGG(item_id) FILTER (WHERE item_id IS NOT NULL) as item_rewards
-            FROM campaign_session_characters csc
-            LEFT JOIN campaign_session_character_items csci ON csci.character_id = csc.character_id AND csci.session_id = csc.session_id
-            GROUP BY csc.session_id, csc.character_id
+            ) filter (where csc.session_id is not null) as character_rewards
+            FROM (
+                SELECT
+                    csc.session_id, csc.character_id, csc.gold_rewards,
+                    ARRAY_AGG(item_id) FILTER (WHERE item_id IS NOT NULL) as item_rewards
+                FROM campaign_session_characters csc
+                LEFT JOIN campaign_session_character_items csci ON csci.character_id = csc.character_id AND csci.session_id = csc.session_id
+                GROUP BY csc.session_id, csc.character_id
+             ) csc
+            GROUP BY csc.session_id
         ) csc ON s.id = csc.session_id
 
         WHERE 
             ca.id = $1
             AND ca.owner = $2
-        GROUP BY s.id
+        GROUP BY s.id, character_rewards
         ORDER BY s.session_order, s.id ASC
     "#,
         campaign_id.0 as i32,
@@ -135,6 +140,10 @@ pub async fn get_sessions(
                 .map(|e| InternalId(*e as u32))
                 .collect::<Vec<InternalId>>();
 
+            let accumulated_total_experience = row.accumulated_total_experience.unwrap_or(0) as f64;
+            let level_at_end = 1 + (accumulated_total_experience / 1000.0).floor() as u8;
+            let experience_at_end = (accumulated_total_experience % 1000.0) as u64;
+
             Ok(CampaignSession {
                 id: InternalId(row.id as u32),
                 name: row.name,
@@ -150,6 +159,8 @@ pub async fn get_sessions(
                     .map(|e| InternalId(*e as u32))
                     .collect(),
                 total_experience: row.total_experience.map(|e| e as u64).unwrap_or_default(),
+                experience_at_end,
+                level_at_end,
                 total_combined_treasure_value: row
                     .total_combined_treasure_value
                     .unwrap_or_default(),
@@ -242,7 +253,7 @@ pub async fn insert_sessions(
 
     // Insert empty campaign_session_characters for each session
     // TODO: Assumes same order, which I think is fine, but should be checked
-    for (i,session) in sessions.iter().enumerate() {
+    for (i, session) in sessions.iter().enumerate() {
         let Some(ref characters) = session.characters else {
             continue;
         };

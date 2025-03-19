@@ -185,7 +185,7 @@
           }
           }"
           on:focus="{(e) => {
-            console.log("focus",  [point, i, e]);
+            // TODO: Something on focus?
             // dotInfo = [point, i, e] 
             }
           }"

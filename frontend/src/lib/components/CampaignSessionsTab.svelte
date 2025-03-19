@@ -14,11 +14,13 @@
 
     interface Props {
         selectedCampaignId: number;
+        defaultSessionId: number | null;
     }
     let { 
         selectedCampaignId = $bindable(),
-
+        defaultSessionId = $bindable(),
      } : Props = $props();
+
 
     let showSessionOrderModal = $state(false);
     let editingName = $state(false);
@@ -31,7 +33,7 @@
 
     let items = $derived($itemStore);
     let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
-    let selectedSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
+    let selectedSession : CampaignSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
     let campaignCharacters = $derived(($characterStore.get(selectedCampaignId)) || []);
 
@@ -84,10 +86,13 @@
     });
 
     async function handleCampaignChange(id: number) {
-        console.log("CAMPAIGN CHANGE");
         await campaignSessionStore.fetchCampaignSessions(id);
         if (campaignSessions.length > 0) {
-            selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
+            if (defaultSessionId) {
+                selectedSessionId = defaultSessionId;
+            } else {
+                selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
+            }
         }
 
         // TODO: This is not right. Because when we 'switch' the campaign it will all reset...
@@ -95,7 +100,6 @@
     }
 
     async function handleSessionChange() {
-        console.log("SESSION CHANGE");
         await handleEncountersUpdate();
         // Update present characters based on compiled rewards
         if (selectedSession) {
@@ -111,7 +115,6 @@
     }
 
     async function handleEncountersUpdate() {
-        console.log("Handling encounters update");
         // TODO: Refactor
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
@@ -137,7 +140,6 @@
         compiledGoldRewards[-1] = session.unassigned_gold_rewards;
 
         // Add entries for all present characters
-        console.log("Updating with present characters", presentCharacters); 
         for (const charId of presentCharacters) {
             const rewards = session.compiled_rewards[charId] || { gold: 0, items: [] };
             compiledGoldRewards[charId] = rewards.gold;
@@ -167,6 +169,11 @@
         await campaignSessionStore.unlinkEncounterFromSession(selectedCampaignId, selectedSession.id, encounterId);
 
         // Update the session encounters (gold, etc, changes so we need to re-assign)
+        await handleEncountersUpdate();
+    }
+
+    async function deleteEncounter(encounterId: number) {
+        await encounterStore.deleteEncounter(encounterId);
         await handleEncountersUpdate();
     }
 
@@ -224,11 +231,11 @@
     }
 
     function createNewEncounter() {
-        goto('/encounters?sessionId=' + selectedSessionId);
+        goto(`/encounters?sessionId=${selectedSessionId}&returnToSessionId=${selectedSessionId}`);
     }
 
     function editEncounter(encounterId: number) {
-        goto(`/encounters?encounterId=${encounterId}`);
+        goto(`/encounters?encounterId=${encounterId}&returnToSessionId=${selectedSessionId}`);
     }
 
     function dragItemAssignmentConsider(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
@@ -236,7 +243,6 @@
     }
 
     function dragItemAssignmentFinalize(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
-        console.log("Finalize", cid, e.detail.items);
         compiledItemRewardsWithIds[cid] = e.detail.items.filter(i => i.id !== SHADOW_PLACEHOLDER_ITEM_ID);
         updateRewardAssignments();
     }
@@ -280,15 +286,12 @@
         const updatedCompiledRewards: Record<number, CompiledRewards> = {};
         
         // Include rewards for all present characters
-        console.log("Sending for present characters", presentCharacters);
         for (const charId of presentCharacters) {
             updatedCompiledRewards[charId] = {
                 gold: compiledGoldRewards[charId] || 0,
                 items: compiledItemRewardsWithIds[charId]?.map(item => item.itemId) || []
             };
         }
-
-        console.log("After: ", updatedCompiledRewards);
 
         await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId,  
             selectedSession.id, {
@@ -332,6 +335,7 @@
 
     async function addAccomplishment() {
         if (!selectedSession) return;
+        if (!canAddAccomplishment) return;
         
         const name = accomplishmentName.trim() || 'Accomplishment';
         const xp = useCustomXP ? customXPAmount : accomplishmentType!;
@@ -341,7 +345,6 @@
             name,
             xp
         );
-        console.log('Added accomplishment');
 
         // Reset form name (don't reset type, so that we can quickly add more)
         accomplishmentName = '';
@@ -464,7 +467,7 @@
 
             {#if showAccomplishmentForm}
                 <div class="quick-accomplishment" transition:fade>
-                    <div class="accomplishment-inputs">
+                    <form on:submit={addAccomplishment} class="accomplishment-inputs">
                         <div class="name-description-row">
                             <input 
                                 type="text" 
@@ -475,22 +478,26 @@
                         </div>
                         <div class="accomplishment-buttons">
                             <button 
+                            type="button"
                                 class="accomplishment-buttons-button"
                                 class:selected={accomplishmentType === 'minor'}
                                 on:click={() => setAccomplishmentType('minor')}
                             >Minor (10 XP)</button>
                             <button 
+                            type="button"
                             class="accomplishment-buttons-button"
                                 class:selected={accomplishmentType === 'moderate'}
                                 on:click={() => setAccomplishmentType('moderate')}
                             >Moderate (30 XP)</button>
                             <button 
+                            type="button"
                             class="accomplishment-buttons-button"
 
                                 class:selected={accomplishmentType === 'major'}
                                 on:click={() => setAccomplishmentType('major')}
                             >Major (80 XP)</button>
                             <button 
+                            type="button"
                             class="accomplishment-buttons-button"
 
                                 class:selected={useCustomXP}
@@ -509,13 +516,12 @@
 
                         <button 
                             class="submit-accomplishment" 
-                            on:click={addAccomplishment}
                             disabled={!canAddAccomplishment}
                         >
                             Add Accomplishment
                         </button>
                     </div>
-                    </div>
+                </form>
                 </div>
             {/if}
 
@@ -554,7 +560,7 @@
                                 <span>XP: {encounter.total_experience}</span>
                             </div>
                             <div class="encounter-actions">
-                                <button class="remove-button" on:click={() => removeEncounterFromSession(encounter.id)}>
+                                <button class="remove-button" on:click={() => deleteEncounter(encounter.id)}>
                                     Remove
                                 </button>
                             </div>
@@ -574,6 +580,7 @@
                     <p>Experience: {totalSessionRewards.xp} XP</p>
                     <p>Gold: {totalSessionRewards.currency}g</p>
                     <p>Total item treasure value: {totalSessionRewards.total_items_value}</p>
+                    <p>At end of session, we are level {selectedSession.level_at_end} with {selectedSession.experience_at_end} XP</p>
                 </div>
             </div>
 

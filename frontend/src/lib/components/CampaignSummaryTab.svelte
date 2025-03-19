@@ -3,11 +3,13 @@
     import { characterStore } from '$lib/stores/characters';
     import LineGraph from './LineGraph.svelte';
     import { onMount } from 'svelte';
+    import { campaignSessionStore } from '$lib/stores/campaignSessions';
 
     export let selectedCampaignId: number;
     
     $: characters = $characterStore.get(selectedCampaignId);
     $: stats = $statsStore.get(selectedCampaignId);
+    $: campaignSessions = $campaignSessionStore.get(selectedCampaignId);
 
     onMount(async () => {
         await statsStore.fetchStats(selectedCampaignId);
@@ -80,8 +82,6 @@
         return acc;
     }, [] as Array<{level: number, actual: number, expected: number}>).reverse();
 
-    $: console.log("tblc", treasureByLevelCumulative);
-
     $: treasureByLevelCumulativeSeries = treasureByLevelCumulative.map(((data) => ({
         x: data.level,
         y: data.actual
@@ -92,8 +92,6 @@
         y: data.expected
     })));
 
-    $: console.log("expectedTreasureByLevelCumulativeSeries", expectedTreasureByLevelCumulativeSeries);
-
     $: expectedTreasureGrowthSeries = stats?.encounters.reduce((acc, e, i) => {
         const prev = i > 0 ? acc[i-1].y : 0;
         acc.push({
@@ -103,11 +101,20 @@
         return acc;
     }, [] as {x: number, y: number}[]) || [];
 
-    $: xpGrowthSeries = stats?.encounters.reduce((acc, e, i) => {
+    $: xpGrowthEncountersSeries = stats?.encounters.reduce((acc, e, i) => {
         const prev = i > 0 ? acc[i-1].y : 0;
         acc.push({
             x: i,
             y: prev + e.accumulated_xp
+        });
+        return acc;
+    }, [] as {x: number, y: number}[]) || [];
+
+    $: xpGrowthSessionSeries = campaignSessions?.reduce((acc, s, i) => {
+        const prev = i > 0 ? acc[i-1].y : 0;
+        acc.push({
+            x: i,
+            y: s.level_at_end + s.experience_at_end/1000
         });
         return acc;
     }, [] as {x: number, y: number}[]) || [];
@@ -234,9 +241,9 @@
         </div>
 
         <div class="graph-card">
-            <h3>Experience Growth</h3>
+            <h3>Experience Growth by Encounter</h3>
             <LineGraph 
-                data={[{ id: 'XP', data: xpGrowthSeries }]} 
+                data={[{ id: 'XP', data: xpGrowthEncountersSeries }]} 
                 xLabel="Encounters" 
                 yLabel="Experience" 
             />
@@ -248,6 +255,15 @@
                 data={[{ id: 'Session XP', data: sessionXPArray }]} 
                 xLabel="Session" 
                 yLabel="Experience" 
+            />
+        </div>
+
+        <div class="graph-card">
+            <h3>Experience Growth by Session</h3>
+            <LineGraph 
+                data={[{ id: 'XP', data: xpGrowthSessionSeries }]} 
+                xLabel="Sessions" 
+                yLabel="Level" 
             />
         </div>
     </div>

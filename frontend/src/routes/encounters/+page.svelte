@@ -53,12 +53,31 @@ library.add(faLink)
     let linkingEncounter: Encounter | null = $state(null);
     let selectedLinkingSession: number | null = $state(null);
 
-    // Default session (pass to this page with a query parameter)
+    // Subscribe to the stores
+    let encounters = $derived($encounterStore);
+    let campaigns = $derived( $campaignStore);
+    let libraryEnemies = $derived($creatureStore);
+    let libraryHazards = $derived($hazardStore);
+    let libraryItems = $derived($itemStore);
+    let globalCampaignId = $derived($selectedCampaignStore);
+    let campaignSessions = $derived($campaignSessionStore.get(globalCampaignId || 0) || []);
+
+
+    // Default session (pass to this page with a query parameter) (to attach to an encounter)
     // TODO: Svelte solution for parsing query parameters to a page?
     let chosenSessionId : number | null = $state(null);
     let sessionIdString = $page.url.searchParams.get('sessionId');
     if (sessionIdString) {
         chosenSessionId = parseInt(sessionIdString);
+    }
+
+    // Return to this session after creating an encounter
+    // TODO: Svelte solution for parsing query parameters to a page?
+    // TODO: Is there ever a case where this and chosenSessionId are different?
+    let returnToSessionId : number | null = $state(null);
+    let returnToSessionIdString = $page.url.searchParams.get('returnToSessionId');
+    if (returnToSessionIdString) {
+        returnToSessionId = parseInt(returnToSessionIdString);
     }
 
     let deletingEncounter: number | null = $state(null);
@@ -72,15 +91,6 @@ library.add(faLink)
         await encounterStore.deleteEncounter(id);
         deletingEncounter = null;
     }
-
-    // Subscribe to the stores
-    let encounters = $derived($encounterStore);
-    let campaigns = $derived( $campaignStore);
-    let libraryEnemies = $derived($creatureStore);
-    let libraryHazards = $derived($hazardStore);
-    let libraryItems = $derived($itemStore);
-    let globalCampaignId = $derived($selectedCampaignStore);
-    let campaignSessions = $derived($campaignSessionStore.get(globalCampaignId || 0) || []);
 
     let sessionIx = $derived.by(() => {
         let sessionIx : Map<number, number> = new Map();
@@ -150,6 +160,7 @@ library.add(faLink)
             if (encounterIdString) {
                 // Load the encounter into the editor.
                 // editingEncounteris bound to EncounterCreator
+                console.log("LOADING ENCOUNTER", encounterIdString);
                 editingEncounter = encounters.find(e => e.id === parseInt(encounterIdString)) || null;
             }
 
@@ -179,8 +190,9 @@ library.add(faLink)
 
     // Add this reactive statement to sort and filter encounters
     let filteredAndSortedEncounters = $derived(encounters
-        .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
-        .sort((a, b) => {
+    .filter(enc => enc.encounter_type != 'accomplishment' && enc.encounter_type != 'unknown' && enc.encounter_type != 'rewardInitialization')
+    .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
+    .sort((a, b) => {
             const direction = sortDirection === 'asc' ? 1 : -1;
             switch (encounterSort) {
                 case 'name':
@@ -235,7 +247,7 @@ library.add(faLink)
         <div class="error">{error}</div>
     {/if}
 
-    <EncounterCreator bind:editingEncounter bind:chosenSessionId bind:this={encounterCreator} />
+    <EncounterCreator bind:editingEncounter bind:chosenSessionId bind:returnToSessionId bind:this={encounterCreator} />
 
     {#if loading}
         <div class="loading">Loading encounters...</div>
@@ -243,7 +255,7 @@ library.add(faLink)
         <div class="encounters-section">
             <div class="section-header" on:click={() => encountersListOpen = !encountersListOpen}>
                 <h2>
-                    Existing Encounters ({encounters.length})
+                    Existing Encounters ({filteredAndSortedEncounters.length})
                     <span class="toggle-icon">{encountersListOpen ? '▼' : '▶'}</span>
                 </h2>
             </div>

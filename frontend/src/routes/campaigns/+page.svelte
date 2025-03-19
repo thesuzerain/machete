@@ -17,6 +17,7 @@
   import { encounterStore } from '$lib/stores/encounters';
   import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
 import { statsStore } from '$lib/stores/stats';
+    import { page } from '$app/stores';
 
     let loading = true;
     let error: string | null = null;
@@ -31,6 +32,22 @@ import { statsStore } from '$lib/stores/stats';
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
     $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
     $: stats = selectedCampaignId ? $statsStore.get(selectedCampaignId) : null;
+
+    // Default session to snap to (pass to this page with a query parameter)
+    // TODO: Svelte solution for parsing query parameters to a page?
+    let defaultSessionIdString = $page.url.searchParams.get('sessionId');
+    let defaultSessionId: number | null = null;
+    if (defaultSessionIdString) {
+        let sessionId = parseInt(defaultSessionIdString);
+
+        // If we want a default session, set the active tab to sessions and set the session ID
+        if (sessionId) {
+            activeTab = 'sessions';
+            defaultSessionId = sessionId;
+        }
+    }
+
+
     async function fetchLogs() {
         if (!selectedCampaignId) return;
         
@@ -202,6 +219,7 @@ import { statsStore } from '$lib/stores/stats';
     {:else if activeTab === 'sessions'}
         <CampaignSessionsTab
             {selectedCampaignId}
+            defaultSessionId={defaultSessionId}
         />
     {:else if activeTab === 'characters'}
             <CampaignCharactersTab

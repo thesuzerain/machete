@@ -18,6 +18,7 @@ pub struct EncounterFilters {
     pub ids: Option<CommaSeparatedVec>,
     pub name: Option<String>,
     pub status: Option<CompletionStatus>,
+    pub encounter_type: Option<String>,
 }
 
 impl EncounterFilters {
@@ -148,12 +149,17 @@ pub async fn get_encounters(
             ($1::text IS NULL OR en.name LIKE '%' || $1 || '%')
             AND ($2::integer IS NULL OR en.status = $2)
             AND ($3::int[] IS NULL OR en.id = ANY($3::int[]))
-            AND en.owner = $4
+            AND ($4::integer IS NULL OR en.encounter_type_id = $4)
+            AND en.owner = $5
         GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
     "#,
         condition.name,
         condition.status.as_ref().map(|s| s.as_i32()),
         &ids as _,
+        condition
+            .encounter_type
+            .as_deref()
+            .map(|x| EncounterType::id_from_string(x)),
         owner.0 as i64,
     );
 
@@ -434,9 +440,6 @@ pub async fn edit_encounter(
             .map(|e| e.level_adjustment)
             .collect::<Vec<i16>>()
     });
-
-    log::info!("enemies: {:?}", enemies);
-    log::info!("enemy_level_adjustments: {:?}", enemy_level_adjustments);
 
     let hazards = new_encounter
         .hazards
