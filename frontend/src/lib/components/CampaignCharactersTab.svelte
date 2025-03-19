@@ -24,16 +24,20 @@
         return stats?.character_stats[characterId];
     }
 
+
+    $: allIndividualGold = Object.values(stats?.character_stats || {}).map(c => c.total_combined_treasure).reduce((acc, val) => acc + val, 0);
+    // TODO: refactor with CampaignSummaryTab
     function getEquityStats(character) {
         const charStats = characterStats[character.id];
         if (!charStats) return null;
 
-        const expectedGoldShare = (stats?.total_expected_combined_treasure || 0) / (characters.length || 1);
+        const expectedGoldShare = (allIndividualGold || 0) / (characters.length || 1);
+        const goldDeno = expectedGoldShare ? expectedGoldShare : 1;
         
         return {
             goldShare: charStats.total_combined_treasure,
             expectedGoldShare,
-            goldPercent: ((charStats.total_combined_treasure / expectedGoldShare) * 100).toFixed(1),
+            goldPercent: ((charStats.total_combined_treasure / goldDeno) * 100).toFixed(1),
             permanentItems: charStats.total_permanent_items.length,
             expectedPermanentItems: Object.values(charStats.expected_boosts || {}).length,
             availableBoosts: charStats.available_boosts,
@@ -97,7 +101,7 @@
                                                   class:surplus={equity.goldShare >= equity.expectedGoldShare}>
                                     <span class="stat-label">Gold Share</span>
                                     <span class="stat-value">{equity.goldShare.toFixed(1)}</span>
-                                    <span class="stat-subtext">({equity.goldPercent}% of expected {equity.expectedGoldShare.toFixed(1)})</span>
+                                    <span class="stat-subtext">({equity.goldPercent}% of fair share {equity.expectedGoldShare.toFixed(1)})</span>
                                 </div>
                                 <div class="equity-stat" class:deficit={equity.permanentItems < equity.expectedPermanentItems}
                                                   class:surplus={equity.permanentItems >= equity.expectedPermanentItems}>

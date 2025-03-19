@@ -100,12 +100,13 @@ library.add(faLink)
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
-                encounters.flatMap(e => e.enemies)
+                encounters.flatMap(e => e.enemies).map((e) => e?.id)
+                    .filter((id) => id !== undefined) as number[]
             );
             
             if (enemyIds.size > 0) {
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).flatMap((x) => x?.id).join(',')
+                    ids: Array.from(enemyIds).join(',')
                 })
             }
 
@@ -153,6 +154,7 @@ library.add(faLink)
             }
 
         } catch (e) {
+            console.error(e);
             error = e instanceof Error ? e.message : 'An error occurred';
         } finally {
             loading = false;

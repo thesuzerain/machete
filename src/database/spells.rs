@@ -185,8 +185,8 @@ pub async fn get_spells_search(
                 AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
                 AND NOT (NOT $11::bool AND lo.legacy = FALSE)
                 AND NOT (NOT $12::bool AND lo.legacy = TRUE)
-                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
 
 
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name

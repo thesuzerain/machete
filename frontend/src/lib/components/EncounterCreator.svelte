@@ -83,6 +83,7 @@
     });
 
     function setWipEncounterAs(encounter: Encounter) {
+        console.log("Setting wipEncounter as:", encounter);
         wipEncounter = {
             name: encounter.name,
             description: encounter.description,
@@ -149,18 +150,22 @@
         try {
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
-            console.log('encounters:', encounters);
+            console.log('encounters:', encounters.flatMap(e => e.enemies));
             const enemyIds = new Set(
                 encounters.flatMap(e => e.enemies)
-                    .concat(wipEncounter.enemies)
+                    .concat(wipEncounter.enemies).map((e) => e?.id)
+                    .filter((id) => id !== undefined) as number[]
             );
-            
+            console.log('enemyIds:', enemyIds);
+
+
             if (enemyIds.size > 0) {
-                console.log('Fetching enemies:', enemyIds);
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).flatMap((x) => x?.id).join(',')
+                    ids: Array.from(enemyIds).join(',')
                 })
             }
+
+            console.log("done");
 
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
@@ -190,6 +195,7 @@
     }
 
     export function loadEncounterCopyToDraft(encounter: Encounter) {
+        console.log("Loading encounter copy to draft:", encounter);
         editingEncounter = null;
         setWipEncounterAs(encounter);
     }
@@ -370,15 +376,16 @@
         await encounterStore.fetchEncounters();
     }
 
-    let subtotalXPEnemies : number = $derived(
-        (wipEncounter.enemies || []).reduce((total, encounterEnemy) => {
+    let subtotalXPEnemies : number = $derived.by(() => {
+        console.log('wipEncounter enemies:', wipEncounter.enemies);
+        return (wipEncounter.enemies || []).reduce((total, encounterEnemy) => {
             const enemy = getEnemyDetails(encounterEnemy.id);
-            if (enemy?.level) {
+            if (enemy?.level != undefined) {
                 return total + getExperienceFromLevel(wipEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
             }
             return total;
         }, 0)
-    );
+    });
 
     let subtotalXPHazards : number = $derived(
         (wipEncounter.hazards || []).reduce((total, hazardId) => {
@@ -609,7 +616,7 @@
                         <input 
                             type="radio" 
                             name="encounterType" 
-                            value="reward" 
+                            value="accomplishment" 
                             bind:group={wipEncounter.encounter_type}
                             on:change={handleEncounterTypeChange}
                         />
@@ -848,7 +855,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
+                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -912,7 +919,7 @@
 
                     <h4>Items</h4>
                     <div class="list-items">
-                        {#each wipEncounter.treasure_items as itemId}
+                        {#each wipEncounter.treasure_items as itemId, i}
                             {#if getItemDetails(itemId)}
                                 <div class="list-item">
                                     <span>{getItemDetails(itemId)?.name}</span> 
@@ -924,7 +931,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            wipEncounter.treasure_items = wipEncounter.treasure_items.filter(id => id !== itemId);
+                                            if (wipEncounter.treasure_items) wipEncounter.treasure_items = wipEncounter.treasure_items.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -943,7 +950,7 @@
                         initialIds={wipEncounter.treasure_items}
                     />
                     <a 
-                        href="/library?encounter=true&tab=equipment"
+                        href="/library?encounter=true&tab=item"
                         class="browse-library-button"
                     >
                         Browse Library
@@ -959,8 +966,8 @@
                 <label for="sessionSelect">Add to Session:</label>
                 <select id="sessionSelect" bind:value={chosenSessionId}>
                     <option value={null}>None</option>
-                    {#each campaignSessions as session}
-                        <option value={session.id}>Session {session.session_order}: {session.name}</option>
+                    {#each campaignSessions as session, i}
+                        <option value={session.id}>Session {i}: {session.name}</option>
                     {/each}
                 </select>
             </div>

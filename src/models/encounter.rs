@@ -194,6 +194,16 @@ impl EncounterType {
         }
     }
 
+    pub fn string_from_id(i: i32) -> String {
+        match i {
+            1 => "Reward Initialization".to_string(),
+            2 => "Accomplishment".to_string(),
+            3 => "Combat".to_string(),
+            4 => "Subsystem".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+
     pub fn get_enemies(&self) -> Vec<EncounterEnemy> {
         match self {
             EncounterType::Combat { enemies, .. } => enemies.clone(),

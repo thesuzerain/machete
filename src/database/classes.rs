@@ -132,8 +132,8 @@ pub async fn get_classes_search(
                 AND (($4::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $3)
                 AND NOT (NOT $5::bool AND lo.legacy = FALSE)
                 AND NOT (NOT $6::bool AND lo.legacy = TRUE)
-                AND NOT ($7::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-                AND NOT ($8::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($7::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($8::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
 
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
             LIMIT $9 OFFSET $10

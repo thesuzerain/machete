@@ -364,23 +364,6 @@ pub async fn link_encounter_to_session(
     .execute(&mut **tx)
     .await?;
 
-    // Add  empty characters to the session
-    // TODO: Eventually, we may not want to add every character to the session, but for now, this is fine. Some default set, etc.
-    sqlx::query!(
-        r#"
-        INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards)
-        SELECT $1, ch.id, 0
-        FROM characters ch
-        INNER JOIN campaigns cp ON ch.campaign = cp.id
-        INNER JOIN campaign_sessions cs ON cp.id = cs.campaign_id
-        WHERE cs.id = $1
-        ON CONFLICT DO NOTHING
-    "#,
-        session_id.0 as i32,
-    )
-    .execute(&mut **tx)
-    .await?;
-
     Ok(())
 }
 

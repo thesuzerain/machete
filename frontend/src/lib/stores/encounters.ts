@@ -18,7 +18,8 @@ function createEncounterStore() {
                 const response = await fetch(`${API_URL}/encounters`, {
                     credentials: 'include',
                 });
-                if (!response.ok) throw new Error('Failed to fetch encounters');
+                console.log('response:', response);
+                if (!response.ok) throw new Error(`Failed to fetch encounters: ${response.status}`);
                 const encounters = await response.json();
                 set(encounters);
             } catch (e) {

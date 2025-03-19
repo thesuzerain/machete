@@ -12,10 +12,56 @@
     onMount(async () => {
         await statsStore.fetchStats(selectedCampaignId);
     });
+    
+    function getTreasureFraction(totalTreasure : number | undefined, expectedTreasure : number | undefined) {
+        let expectedTreasureSanity = expectedTreasure || 0;
+        let fraction = (totalTreasure || 0) / expectedTreasureSanity;
+        if (isNaN(fraction)) {
+            fraction = 1;
+        }
+        return fraction;
+    }
+
+    $: totalCombinedTreasure = stats?.total_combined_treasure || 0;
+    $: treasureThisLevelFraction = getTreasureFraction(totalCombinedTreasure, stats?.total_expected_combined_treasure);
+    $: treasureStartOfLevelFraction = getTreasureFraction(totalCombinedTreasure, stats?.total_expected_combined_treasure_start_of_level);
+    $: treasureEndOfLevelFraction = getTreasureFraction(totalCombinedTreasure, stats?.total_expected_combined_treasure_end_of_level);
+
+    function getTextForFraction(totalTreasure : number, expectedTreasure : number | undefined) {
+        let expectedTreasureSanity = expectedTreasure || 0;
+        let fraction = totalTreasure / expectedTreasureSanity;
+        if (isNaN(fraction)) {
+            fraction = 1;
+        }
+        let difference = -(expectedTreasureSanity - totalTreasure);
+        if (fraction < 0.8) {
+            return `Deficit (${difference.toFixed(1)})`;
+        } else if (fraction < 1.2) {
+            return `On track (${difference.toFixed(1)})`;
+        } else {
+            return `Surplus (${difference.toFixed(1)})`;    
+        }
+    }
+
+    function getClassColorForFraction(fraction: number) {
+        if (fraction < 0.8) {
+            return 'large-deficit-colour';
+        } else if (fraction < 0.9) {
+            return 'small-deficit-colour';
+        } else if (fraction < 1.1) {
+            return 'no-deficit-colour';
+        } else if (fraction < 1.2) {
+            return 'small-surplus-colour';
+        } else {
+            return 'large-surplus-colour';
+        }
+    }
 
     // Cumulative series calculations
+    $: totalXp = stats?.total_xp || 0;
     $: treasureByLevelCumulative = stats?.encounters.reverse().reduce((acc, e) => {
-        const level = e.accumulated_xp / 1000 + 1;
+        const level = acc.length === 0 ? (totalXp/1000)+1 : acc[acc.length-1].level - (e.accumulated_xp / 1000);
+
         // Add to every level below (above)
         acc.forEach((data) => {
             if (data.level >= level) {
@@ -34,6 +80,8 @@
         return acc;
     }, [] as Array<{level: number, actual: number, expected: number}>).reverse();
 
+    $: console.log("tblc", treasureByLevelCumulative);
+
     $: treasureByLevelCumulativeSeries = treasureByLevelCumulative.map(((data) => ({
         x: data.level,
         y: data.actual
@@ -44,11 +92,13 @@
         y: data.expected
     })));
 
+    $: console.log("expectedTreasureByLevelCumulativeSeries", expectedTreasureByLevelCumulativeSeries);
+
     $: expectedTreasureGrowthSeries = stats?.encounters.reduce((acc, e, i) => {
         const prev = i > 0 ? acc[i-1].y : 0;
         acc.push({
             x: i,
-            y: prev + e.expected_total_treasure
+            y: prev + e.calculated_expected_total_treasure
         });
         return acc;
     }, [] as {x: number, y: number}[]) || [];
@@ -95,10 +145,12 @@
         expected: stats?.expected_consumable_items_by_end_of_level[Number(level)] || 0
     }));
 
+    $: allIndividualGold = Object.values(stats?.character_stats || {}).map(c => c.total_combined_treasure).reduce((acc, val) => acc + val, 0);
+
     // Character equity analysis
-    $: characterEquity = Object.entries(stats?.character_stats || {}).map(([id, charStats]) => {
+    $: characterEquity = characters ? Object.entries(stats?.character_stats || {}).map(([id, charStats]) => {
         const character = characters.find(c => c.id === Number(id));
-        const expectedGoldDivided = (stats?.total_expected_combined_treasure || 0) / (characters?.length || 1);
+        const expectedGoldDivided = allIndividualGold / (characters?.length || 1);
         return {
             name: character?.name || 'Unknown',
             goldShare: charStats.total_combined_treasure,
@@ -108,7 +160,7 @@
             boostCount: charStats.available_boosts.length,
             expectedBoostCount: charStats.expected_boosts.length,
         };
-    });
+    }) : [];
 </script>
 
 <div class="summary-container">
@@ -118,6 +170,7 @@
             <div class="value">{stats?.level || 0}</div>
             <div class="progress-bar">
                 <div class="progress" style="width: {((stats?.experience_this_level || 0) / 1000) * 100}%"></div>
+                <div class="subtext">Experience: {stats?.experience_this_level || 0}</div>
             </div>
             <div class="subtext">{stats?.experience_this_level || 0}/1000 XP</div>
         </div>
@@ -125,16 +178,45 @@
         <div class="stat-card">
             <h3>Sessions</h3>
             <div class="value">{stats?.num_sessions || 0}</div>
-            <div class="subtext">Total encounters: {stats?.num_encounters || 0}</div>
+            <div class="subtext">Total encounters: {stats?.num_combat_encounters || 0}</div>
         </div>
 
         <div class="stat-card">
             <h3>Total Treasure</h3>
-            <div class="value">{stats?.total_combined_treasure || 0}</div>
-            <div class="progress-bar" style="--color: {stats?.total_combined_treasure >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
-                <div class="progress" style="width: {Math.min(((stats?.total_combined_treasure || 0) / (stats?.total_expected_combined_treasure || 1)) * 100, 100)}%"></div>
+            <div class="stat-line">
+                <div class="value">{stats?.total_combined_treasure || 0}</div>
+                <div class="subtext">Expected by end of level: {stats?.total_expected_combined_treasure_end_of_level?.toFixed(1) || 0}</div>
             </div>
-            <div class="subtext">Expected: {stats?.total_expected_combined_treasure?.toFixed(1) || 0}</div>
+            <div class="progress-bar" style="--color: {stats?.total_combined_treasure >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
+                <div class="progress" style="width: {Math.min(treasureThisLevelFraction * 100, 100)}%"></div>
+            </div>
+            <div>
+                <div>
+                    <h3>Variance to expected treasure</h3>
+                    <div class="stat-line">
+                        <div class="value {getClassColorForFraction(treasureThisLevelFraction)}">{-((stats?.total_expected_combined_treasure||0) - totalCombinedTreasure)}</div>
+                        <div class="subtext">Approximate expected: {stats?.total_expected_combined_treasure?.toFixed(1) || 0}</div>
+
+                    </div>
+            </div>
+                    <div>
+                        <h3>Variance to start of level</h3>
+                        <div class="stat-line">
+
+                        <div class="value {getClassColorForFraction(treasureStartOfLevelFraction)}">{-((stats?.total_expected_combined_treasure_start_of_level || 0) - totalCombinedTreasure)}</div>
+                        <div class="subtext">Expected by start of level: {stats?.total_expected_combined_treasure_start_of_level?.toFixed(1) || 0}</div>
+
+                    </div>
+                    <div>
+                        <h3>Variance to end of level</h3>
+                        <div class="stat-line">
+
+                            <div class="value {getClassColorForFraction(treasureEndOfLevelFraction)}">{-((stats?.total_expected_combined_treasure_end_of_level || 0) - totalCombinedTreasure)}</div>
+                            <div class="subtext">Expected by end of level: {stats?.total_expected_combined_treasure_end_of_level?.toFixed(1) || 0}</div>
+                        </div>
+                </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -236,7 +318,7 @@
                             <span class="value">{char.goldShare.toFixed(1)}</span>
                             <span class="subtext">of {char.expectedGoldShare.toFixed(1)}</span>
                             <span class="value">{((char.goldShare / char.expectedGoldShare || 0) * 100).toFixed(1)}%</span>
-                            <span class="subtext">of expected</span>
+                            <span class="subtext">of fair share</span>
                         </div>
                         <div class="equity-stat" class:deficit={char.itemCount < char.expectedItemCount}
                                               class:surplus={char.itemCount >= char.expectedItemCount}>
@@ -283,11 +365,47 @@
         letter-spacing: 0.05em;
     }
 
+    .stat-line {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: space-between;
+    }
+    .stat-line div {
+        align-self: flex-end;
+    }
+
     .value {
         font-size: 2rem;
         font-weight: 600;
         color: #1e293b;
-        margin: 0.5rem 0;
+        margin: 0.1rem 0;
+    }
+
+    .value-subtype {
+        font-size: 1.2rem;
+        font-weight: 400;
+        color: #1e293b;
+        margin: 0.3rem 0;
+    }
+
+    .large-deficit-colour {
+        color: #ef4444;
+    }
+    .small-deficit-colour {
+        color: rgb(250, 107, 107);
+    }
+
+
+    .no-deficit-colour {
+        color: rgb(99, 192, 133);
+    }
+
+    .small-surplus-colour {
+        color: #ca9a22;
+    }
+
+    .large-surplus-colour {
+        color: #f0de0d;
     }
 
     .subtext {

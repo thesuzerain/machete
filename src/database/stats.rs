@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::models::encounter::EncounterType;
 use crate::models::ids::InternalId;
 use crate::models::stats::CampaignStats;
 use crate::models::stats::{AssignedBoost, AssignedRewardsSession, CharacterStats, EncounterStats};
@@ -162,7 +163,9 @@ pub async fn get_campaign_stats(
         r#"
         SELECT
             c.level,
-            by_encounter.num_encounters,
+            by_encounter.num_accomplishments,
+            by_encounter.num_combat_encounters,
+            by_encounter.num_subsystem_encounters,
             by_encounter.num_sessions,
             by_encounter.stats_by_encounter,
             by_encounter.total_item_treasure_value,
@@ -176,9 +179,7 @@ pub async fn get_campaign_stats(
             expected_consumable.expected_consumable_items_by_end_of_level,
             expected_permanent.expected_permanent_items_by_end_of_level,
             expected_combined_total_treasure_value_start_of_level,
-            expected_combined_total_treasure_value_end_of_level,
-            (expected_combined_total_treasure_value_end_of_level - expected_combined_total_treasure_value_start_of_level)*((by_encounter.total_experience % 1000)::float/1000.0) + expected_combined_total_treasure_value_start_of_level
-                as expected_combined_total_treasure_value
+            expected_combined_total_treasure_value_end_of_level
         FROM campaigns c
         LEFT JOIN LATERAL (
             SELECT
@@ -190,10 +191,11 @@ pub async fn get_campaign_stats(
                         json_build_object(
                                 'session_id', cs.id,
                                 'encounter_id', e.id,
+                                'encounter_type_id', e.encounter_type_id,
                                 'total_experience', e.total_experience,
                                 'total_items_value', e.total_items_value,
                                 'treasure_currency', e.treasure_currency,
-                                'calculated_expected_total_treasure', ex.total_value,
+                                'calculated_expected_total_treasure', ex.total_value * (e.total_experience / 1000.0),
                                 'pf_expected_total_treasure', 
                                     CASE
                                         WHEN e.total_experience < 40 THEN ex.encounter_low
@@ -202,8 +204,10 @@ pub async fn get_campaign_stats(
                                         ELSE ex.encounter_extreme
                                     END
                         ) ORDER BY cs.session_order, cs.id, e.id -- TODO: Encounter ordering within a session?
-                ) AS stats_by_encounter,
-                COUNT(DISTINCT e.id) as num_encounters,
+                ) filter (WHERE e.id IS NOT NULL) as stats_by_encounter,
+                COUNT(DISTINCT e.id) filter (WHERE e.encounter_type_id = 2) as num_accomplishments,
+                COUNT(DISTINCT e.id) filter (WHERE e.encounter_type_id = 3) as num_combat_encounters,
+                COUNT(DISTINCT e.id) filter (WHERE e.encounter_type_id = 4) as num_subsystem_encounters,
                 COUNT(DISTINCT cs.id) as num_sessions
             FROM campaign_sessions cs
             LEFT JOIN encounters e ON e.session_id = cs.id
@@ -229,11 +233,12 @@ pub async fn get_campaign_stats(
                 li.level::text AS level,
                 li.consumable,
                 COUNT(*) AS total
-            FROM campaign_session_character_items csci
-            JOIN characters ch ON csci.character_id = ch.id
-            JOIN library_objects lo ON lo.id = csci.item_id
-            JOIN library_items li ON li.id = csci.item_id
-            WHERE ch.campaign = c.id
+            FROM encounter_treasure_items eti
+            INNER JOIN encounters e ON eti.encounter = e.id
+            INNER JOIN campaign_sessions cs ON e.session_id = cs.id
+            INNER JOIN library_objects lo ON lo.id = eti.item
+            INNER JOIN library_items li ON li.id = eti.item
+            WHERE cs.campaign_id = 1
             GROUP BY li.level, li.consumable
             ) s
         ) items_2 ON true
@@ -279,17 +284,19 @@ pub async fn get_campaign_stats(
         pub struct OneEncounter {
             pub session_id: u32,
             pub encounter_id: u32,
+            pub encounter_type_id: i32,
             pub total_experience: u32,
             pub treasure_currency: f32,
             pub total_items_value: f32,
             pub calculated_expected_total_treasure: f32,
             pub pf_expected_total_treasure: f32,
         }
-        let encounters : Vec<OneEncounter> = serde_json::from_value(r.stats_by_encounter.unwrap_or_default()).unwrap_or_default();
+        let encounters : Vec<OneEncounter> = serde_json::from_value(r.stats_by_encounter.unwrap_or_default()).unwrap();
         let mut acc = 0;
         let encounters = encounters.into_iter().map(|e| {
             let stats = EncounterStats {
                 encounter_ix: e.encounter_id,
+                encounter_type: EncounterType::string_from_id(e.encounter_type_id),
                 session_ix: acc,
                 session_id: e.session_id,
                 accumulated_items_treasure: e.total_items_value,
@@ -302,14 +309,24 @@ pub async fn get_campaign_stats(
             stats
         }).collect();
 
+        let experience_this_level = r.experience_this_level.unwrap_or(0) as u32;
+        let expected_combined_total_treasure_value_start_of_level = r.expected_combined_total_treasure_value_start_of_level.unwrap_or(0.0) as f32;
+        let expected_combined_total_treasure_value_end_of_level = r.expected_combined_total_treasure_value_end_of_level.unwrap_or(0.0) as f32;
+
+        let fraction_through_level = experience_this_level as f32 / 1000.0;
+        let treasure_over_level = expected_combined_total_treasure_value_end_of_level - expected_combined_total_treasure_value_start_of_level;
+        let expected_combined_total_treasure_value = treasure_over_level * fraction_through_level + expected_combined_total_treasure_value_start_of_level;
+        let expected_combined_total_treasure_value = expected_combined_total_treasure_value.round();
         CampaignStats {
             level: r.level as u32,
             total_xp: r.total_experience.unwrap_or(0) as u32,
             experience_this_level: r.experience_this_level.unwrap_or(0) as u32,
-            num_encounters: r.num_encounters.unwrap_or(0) as u32,
+            num_accomplishments: r.num_accomplishments.unwrap_or(0) as u32,
+            num_combat_encounters: r.num_combat_encounters.unwrap_or(0) as u32,
+            num_subsystem_encounters: r.num_subsystem_encounters.unwrap_or(0) as u32,
             num_sessions: r.num_sessions.unwrap_or(0) as u32,
             total_combined_treasure: r.total_combined_treasure_value.unwrap_or(0.0) as u32,
-            total_expected_combined_treasure: r.expected_combined_total_treasure_value.unwrap_or(0.0) as f32,
+            total_expected_combined_treasure: expected_combined_total_treasure_value,
             total_treasure_items_value: r.total_treasure_items_value.unwrap_or(0.0) as u32,
             total_gold: r.total_treasure_currency_value.unwrap_or(0.0) as u32,
             total_expected_combined_treasure_start_of_level: r.expected_combined_total_treasure_value_start_of_level.unwrap_or(0.0) as f32,

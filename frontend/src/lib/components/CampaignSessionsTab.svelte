@@ -107,6 +107,7 @@
         } else {
             presentCharacters = new Set();
         }
+        showCharacterSelector = false;
     }
 
     async function handleEncountersUpdate() {
@@ -231,10 +232,11 @@
     }
 
     function dragItemAssignmentConsider(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
-        compiledItemRewardsWithIds[cid] = e.detail.items.filter(i => i.id !== SHADOW_PLACEHOLDER_ITEM_ID);
+        compiledItemRewardsWithIds[cid] = e.detail.items;
     }
 
     function dragItemAssignmentFinalize(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
+        console.log("Finalize", cid, e.detail.items);
         compiledItemRewardsWithIds[cid] = e.detail.items.filter(i => i.id !== SHADOW_PLACEHOLDER_ITEM_ID);
         updateRewardAssignments();
     }

@@ -107,10 +107,10 @@ pub async fn get_encounters(
             en.name,
             en.description,
             en.session_id,
-            ARRAY_AGG(ee.enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies,
-            ARRAY_AGG(ee.level_adjustment) FILTER (WHERE ee.level_adjustment IS NOT NULL) as enemy_level_adjustments,
-            ARRAY_AGG(eh.hazard) FILTER (WHERE eh.hazard IS NOT NULL) as hazards,
-            ARRAY_AGG(eti.item) FILTER (WHERE eti.item IS NOT NULL) as treasure_items,
+            ee.enemies,
+            ee.level_adjustments as enemy_level_adjustments,
+            eh.hazards,
+            eti.items as treasure_items,
             en.treasure_currency,
             en.party_size,
             en.party_level,
@@ -123,9 +123,20 @@ pub async fn get_encounters(
             JSONB_AGG(jsonb_build_object('name', esc.name, 'vp', esc.vp, 'roll_options', esc.roll_options)) as subsystem_rolls,
             en.owner
         FROM encounters en
-        LEFT JOIN encounter_enemies ee ON en.id = ee.encounter
-        LEFT JOIN encounter_hazards eh ON en.id = eh.encounter
-        LEFT JOIN encounter_treasure_items eti ON en.id = eti.encounter
+        LEFT JOIN LATERAL (
+            SELECT 
+                ARRAY_AGG(enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies, 
+                ARRAY_AGG(level_adjustment) FILTER (WHERE ee.enemy IS NOT NULL) as level_adjustments 
+            FROM encounter_enemies ee WHERE en.id = ee.encounter
+        ) ee ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ARRAY_AGG(hazard) FILTER (WHERE eh.hazard IS NOT NULL) as hazards
+            FROM encounter_hazards eh WHERE en.id = eh.encounter
+        ) eh ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ARRAY_AGG(item) FILTER (WHERE eti.item IS NOT NULL) as items
+            FROM encounter_treasure_items eti WHERE en.id = eti.encounter
+        ) eti ON TRUE
         LEFT JOIN LATERAL (
             SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
             FROM encounter_skill_checks esc
@@ -138,7 +149,7 @@ pub async fn get_encounters(
             AND ($2::integer IS NULL OR en.status = $2)
             AND ($3::int[] IS NULL OR en.id = ANY($3::int[]))
             AND en.owner = $4
-        GROUP BY en.id
+        GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
     "#,
         condition.name,
         condition.status.as_ref().map(|s| s.as_i32()),
@@ -423,6 +434,9 @@ pub async fn edit_encounter(
             .map(|e| e.level_adjustment)
             .collect::<Vec<i16>>()
     });
+
+    log::info!("enemies: {:?}", enemies);
+    log::info!("enemy_level_adjustments: {:?}", enemy_level_adjustments);
 
     let hazards = new_encounter
         .hazards
