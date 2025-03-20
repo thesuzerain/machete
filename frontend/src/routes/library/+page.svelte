@@ -5,31 +5,25 @@
         type LibraryEntityType,
         type TableColumn,
         type LibraryResponse,
-        
-
         formatCurrency,
-
         getFullUrl,
-
         type Rune,
-
         formatAlignment
-
-
-
-
     } from '$lib/types/library';
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
     import { getExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
+    import { goto } from '$app/navigation';
+    import type { Encounter } from '$lib/types/encounters';
 
-    export let data: { activeEncounter: boolean | null, startTab: string | null };
+    export let data: { activeEncounterId: number | null, startTab: string | null };
 
     let activeTab: LibraryEntityType = 'class';
     if (data.startTab) {
         activeTab = data.startTab as LibraryEntityType;
     }
+
     let loading = false;
     let error: string | null = null;
     let searchQuery = '';
@@ -123,7 +117,7 @@
     let previewPosition = { x: 0, y: 0 };
 
     // Modify encounter state handling
-    let currentEncounter: any | null = null;
+    let currentEncounter: Encounter | null = null;
     let isEncounterMode = false;
 
     // Add state for notification
@@ -166,20 +160,17 @@
 
     onMount(async () => {
         await fetchLibraryData(true);
-        
         // If we have an active encounter ID from URL, activate encounter mode
-        if (data.activeEncounter) {
-            await loadEncounter();
-            isEncounterMode = true;
-        } else {
-            // Still load the encounter but don't activate mode
-            await loadEncounter();
-        }
+        if (data.activeEncounterId) {
+            await loadEncounter(data.activeEncounterId);
+            if (currentEncounter) isEncounterMode = true;
+        } 
     });
 
-    async function loadEncounter() {
+    
+    async function loadEncounter(encounterId: number) {
         try {
-            const response = await fetch(`${API_URL}/encounters/draft`, {
+            const response = await fetch(`${API_URL}/encounters/${encounterId}`, {
                 credentials: 'include'
             });
             if (response.ok) {
@@ -196,6 +187,10 @@
 
     function exitEncounterMode() {
         isEncounterMode = false;
+    }
+
+    function exitEncounterModeReturn() {
+        goto(`/encounters?encounterId=${data.activeEncounterId}`);
     }
 
     function handleRowClick(entity: LibraryEntity) {
@@ -226,11 +221,18 @@
 
         try {
             // Update the draft with the new entity
-            const updatedDraft = { ...currentEncounter };
-            
+            const updatedDraft = {
+                enemies: [...currentEncounter.enemies || []],
+                hazards: [...currentEncounter.hazards || []],
+                treasure_items: [...currentEncounter.treasure_items]
+            };
             switch (type) {
                 case 'enemy':
-                    updatedDraft.enemies = [...updatedDraft.enemies, entity.id];
+                    updatedDraft.enemies  = [...updatedDraft.enemies, {
+                        id: entity.id,
+                        // TODO: For now, we just do level adjustment 0 (no elite or weak) when adding from library
+                        level_adjustment: 0
+                    }];
                     break;
                 case 'hazard':
                     updatedDraft.hazards = [...updatedDraft.hazards, entity.id];
@@ -240,8 +242,9 @@
                     break;
             }
 
-            const response = await fetch(`${API_URL}/encounters/draft`, {
-                method: 'POST',
+            // TODO: Use store functions
+            const response = await fetch(`${API_URL}/encounters/${currentEncounter.id}`, {
+                method: 'PATCH',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
@@ -251,7 +254,7 @@
 
             if (!response.ok) throw new Error(`Failed to add ${type} to encounter`);
             
-            const responseGet = await fetch(`${API_URL}/encounters/draft`, {
+            const responseGet = await fetch(`${API_URL}/encounters/${currentEncounter.id}`, {
                 credentials: 'include'
             });
             currentEncounter = await responseGet.json();
@@ -366,6 +369,7 @@
                 <div class="mode-indicator">
                     <span class="mode-badge">Encounter Mode</span>
                     <span class="encounter-name">{currentEncounter?.name || 'Unnamed Encounter'}</span>
+                    <button class="exit-mode" on:click={exitEncounterModeReturn}>Return to encounter</button>
                     <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
                 </div>
                 <div class="toggle-range-container">

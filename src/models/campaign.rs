@@ -55,6 +55,9 @@ pub struct CampaignSession {
     pub play_date: DateTime<Utc>,
     pub encounter_ids: Vec<InternalId>,
 
+    pub experience_at_end: u64,
+    pub level_at_end: u8,
+
     // Aggregation of encounter rewards, for easy reference.
     pub total_experience: u64,
     pub total_combined_treasure_value: f64,

@@ -1,7 +1,10 @@
+import type { EncounterType } from './encounters';
 import type { InternalId } from './types';
 
 export interface CampaignStats {
-    num_encounters: number;
+    num_combat_encounters: number;
+    num_accomplishments: number;
+    num_subsystem_encounters: number;
     num_sessions: number;
     level: number;
     total_xp: number;
@@ -56,6 +59,7 @@ export interface EncounterStats {
     encounter_ix: number;
     session_id: number;
     session_ix: number;
+    encounter_type: EncounterType;
     accumulated_items_treasure: number;
     accumulated_gold_treasure: number;
     accumulated_xp: number;

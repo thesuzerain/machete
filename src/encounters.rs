@@ -25,6 +25,7 @@ pub fn router() -> Router<AppState> {
         .route("/draft", get(get_encounter_draft))
         .route("/draft", post(insert_encounter_draft))
         .route("/draft", delete(clear_encounter_draft))
+        .route("/:id", get(get_encounter))
         .route("/:id", patch(edit_encounter))
         .route("/:id", delete(delete_encounter))
         .route("/:id/session", delete(delete_session_link))
@@ -39,6 +40,22 @@ async fn get_encounters(
 
     let encounters = database::encounters::get_encounters(&pool, user.id, &filters).await?;
     Ok(Json(encounters))
+}
+
+async fn get_encounter(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(encounter_id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    let filters = EncounterFilters::from_ids(&[encounter_id]);
+    let encounters = database::encounters::get_encounters(&pool, user.id, &filters).await?;
+    if encounters.is_empty() {
+        return Err(ServerError::NotFound);
+    }
+
+    Ok(Json(encounters[0].clone()))
 }
 
 async fn insert_encounter(

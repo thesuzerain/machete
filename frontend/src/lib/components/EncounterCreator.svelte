@@ -40,10 +40,12 @@
     interface Props {
         editingEncounter: Encounter | null;
         chosenSessionId: number | null;
+        returnToSessionId: number | null;
     }
     let { 
         editingEncounter = $bindable(),
-        chosenSessionId = $bindable()
+        chosenSessionId = $bindable(),
+        returnToSessionId = $bindable()
      } : Props = $props();
 
      library.add(faLink)
@@ -78,10 +80,6 @@
         subsystem_checks: []
     });
 
-    $effect(() => {
-        console.log('wipEncounter:', $state.snapshot(wipEncounter));
-    });
-
     function setWipEncounterAs(encounter: Encounter) {
         wipEncounter = {
             name: encounter.name,
@@ -98,6 +96,9 @@
             subsystem_type: encounter.subsystem_type || 'chase',
             subsystem_checks: encounter.subsystem_checks || []
         };
+
+        // Set session id
+        chosenSessionId = encounter.session_id || null;
         
         // Update local skillChecks for UI
         skillChecks = encounter.subsystem_checks || [];
@@ -149,16 +150,15 @@
         try {
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
-            console.log('encounters:', encounters);
             const enemyIds = new Set(
                 encounters.flatMap(e => e.enemies)
-                    .concat(wipEncounter.enemies)
+                    .concat(wipEncounter.enemies).map((e) => e?.id)
+                    .filter((id) => id !== undefined) as number[]
             );
-            
+
             if (enemyIds.size > 0) {
-                console.log('Fetching enemies:', enemyIds);
                 await creatureStore.fetchEntities({
-                    ids: Array.from(enemyIds).flatMap((x) => x?.id).join(',')
+                    ids: Array.from(enemyIds).join(',')
                 })
             }
 
@@ -205,6 +205,15 @@
             // Setting sessions
             if (selectedCampaignId) {
                 await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+
+                // If we have a chosen session, set the number of players and party level to those in the encounter generator by default
+                if (chosenSessionId) {
+                    const session = campaignSessions?.find(s => s.id === chosenSessionId);
+                    if (session) {
+                        wipEncounter.party_size = Object.keys(session.compiled_rewards).length;
+                        wipEncounter.party_level = session.level_at_end; // Level at end by default. For an empty session, this will be the same as the start, but this allows it to sorta change mid-session if needed.
+                    }
+                }
             }
 
             // Then load other encounters and campaigns
@@ -238,6 +247,10 @@
                 error = e instanceof Error ? e.message : 'Failed to save draft';
             }
         }, AUTOSAVE_DELAY);
+    }
+
+     function returnToSession(sessionId: number) { 
+        goto(`/campaigns?sessionId=${sessionId}`);
     }
 
     // Modify the createEncounter function
@@ -301,6 +314,7 @@
                 };
                 
                 skillChecks = [];
+                
             } else {
                 // Creating a new encounter
                 const finalizedEncounter: CreateEncounterFinalized = {
@@ -336,6 +350,11 @@
                 credentials: 'include',
             });
             
+            // If we are editing an encounter, also, return to the page.
+            // TODO: Can probably remove above resetting, but not sure what we want to keep here.
+            if (returnToSessionId) {
+                returnToSession(returnToSessionId);
+            }
         } catch (e) {
             console.error('Error creating encounter:', e);
             error = e instanceof Error ? e.message : 'An error occurred';
@@ -370,15 +389,15 @@
         await encounterStore.fetchEncounters();
     }
 
-    let subtotalXPEnemies : number = $derived(
-        (wipEncounter.enemies || []).reduce((total, encounterEnemy) => {
+    let subtotalXPEnemies : number = $derived.by(() => {
+        return (wipEncounter.enemies || []).reduce((total, encounterEnemy) => {
             const enemy = getEnemyDetails(encounterEnemy.id);
-            if (enemy?.level) {
+            if (enemy?.level != undefined) {
                 return total + getExperienceFromLevel(wipEncounter.party_level, enemy.level + encounterEnemy.level_adjustment);
             }
             return total;
         }, 0)
-    );
+    });
 
     let subtotalXPHazards : number = $derived(
         (wipEncounter.hazards || []).reduce((total, hazardId) => {
@@ -456,7 +475,6 @@
         }
     }
 
-
     // Add reactive statement for difficulty calculation
     let encounterDifficulty : EncounterDifficulty = $derived(getSeverityFromRawExperience(subtotalXPEnemies + subtotalXPHazards, wipEncounter.party_size));
 
@@ -484,7 +502,6 @@
 
     // Handle encounter type change
     function handleEncounterTypeChange() {
-        console.log('Encounter type changed:', wipEncounter.encounter_type);
         // Set new encounter type metadat to include needed fields if they don't exist
         if (!wipEncounter.enemies || !wipEncounter.hazards) {
             wipEncounter.enemies = [];
@@ -525,10 +542,32 @@
         ];
         wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks];
     }
+
+    function resetToNewEncounter() {
+        editingEncounter = null;
+        chosenSessionId = null;
+        wipEncounter = {
+            name: '',
+            description: '',
+            encounter_type: 'combat',
+            enemies: [],
+            hazards: [],
+            treasure_items: [],
+            extra_experience: 0,
+            treasure_currency: 0,
+            party_level: 1,
+            party_size: 4,
+            status: 'Draft',
+            subsystem_type: 'chase',
+            subsystem_checks: []
+        };
+    }
 </script>
 
 <div class="encounter-form">
-    <h2>Create New Encounter</h2>
+    <div class="encounter-header"><h2>Create New Encounter</h2>
+    <button type="button" on:click={resetToNewEncounter}>Create New Encounter</button>
+</div>
     <form on:submit={createEncounter} class="encounter-form">
         <div class="encounter-form-container">
 
@@ -565,6 +604,7 @@
                             <input 
                                 type="number" 
                                 id="playerCount"
+                                disabled={editingEncounter ? true : false}
                                 bind:value={wipEncounter.party_size}
                                 min="1"
                                 max="6"
@@ -574,6 +614,7 @@
                             <input 
                                 type="number" 
                                 id="partyLevel"
+                                disabled={editingEncounter ? true : false}
                                 bind:value={wipEncounter.party_level}
                                 min="1"
                                 max="20"
@@ -609,7 +650,7 @@
                         <input 
                             type="radio" 
                             name="encounterType" 
-                            value="reward" 
+                            value="accomplishment" 
                             bind:group={wipEncounter.encounter_type}
                             on:change={handleEncounterTypeChange}
                         />
@@ -811,7 +852,7 @@
                         initialIds={wipEncounter.enemies.map(e => e.id)}
                     />
                     <a 
-                        href="/library?encounter=true&tab=creature"
+                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=creature`}
                         class="browse-library-button"
                     >
                         Browse Library
@@ -848,7 +889,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter(id => id !== hazardId);
+                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -867,7 +908,7 @@
                         initialIds={wipEncounter.hazards}
                     />
                     <a 
-                        href="/library?encounter=true&tab=hazard"
+                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=hazard`}
                         class="browse-library-button"
                     >
                         Browse Library
@@ -912,7 +953,7 @@
 
                     <h4>Items</h4>
                     <div class="list-items">
-                        {#each wipEncounter.treasure_items as itemId}
+                        {#each wipEncounter.treasure_items as itemId, i}
                             {#if getItemDetails(itemId)}
                                 <div class="list-item">
                                     <span>{getItemDetails(itemId)?.name}</span> 
@@ -924,7 +965,7 @@
                                     <button 
                                         type="button" 
                                         on:click={() => {
-                                            wipEncounter.treasure_items = wipEncounter.treasure_items.filter(id => id !== itemId);
+                                            if (wipEncounter.treasure_items) wipEncounter.treasure_items = wipEncounter.treasure_items.filter((_, index) => index !== i);
                                         }}
                                     >
                                         Remove
@@ -943,7 +984,7 @@
                         initialIds={wipEncounter.treasure_items}
                     />
                     <a 
-                        href="/library?encounter=true&tab=equipment"
+                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=item`}
                         class="browse-library-button"
                     >
                         Browse Library
@@ -956,13 +997,26 @@
         <!-- Session selection -->
         {#if campaignSessions && campaignSessions.length > 0}
             <div class="session-selector">
+                {#if editingEncounter && campaignSessions[chosenSessionIndex]}
+                <label for="sessionSelect">Linked to session {chosenSessionIndex + 1}: {campaignSessions[chosenSessionIndex].name}</label>
+                <button 
+                    class="remove-button"
+                    on:click={() => encounterStore.unlinkEncounterFromSession(editingEncounter!.id)}
+                >
+                    Unlink from session
+                </button>
+
+
+                {:else}
                 <label for="sessionSelect">Add to Session:</label>
                 <select id="sessionSelect" bind:value={chosenSessionId}>
                     <option value={null}>None</option>
-                    {#each campaignSessions as session}
-                        <option value={session.id}>Session {session.session_order}: {session.name}</option>
+                    {#each campaignSessions as session, i}
+                        <option value={session.id}>Session {i}: {session.name}</option>
                     {/each}
                 </select>
+
+                {/if}
             </div>
         {/if}
 
@@ -985,6 +1039,10 @@
         padding: 1.5rem;
         border-radius: 8px;
         margin-bottom: 2rem;
+    }
+
+    .encounter-header {
+        display: flex;
     }
 
     .section {

@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::ids::InternalId;
+use super::{encounter::EncounterType, ids::InternalId};
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct CampaignStats {
-    pub num_encounters: u32,
+    pub num_accomplishments: u32,
+    pub num_combat_encounters: u32,
+    pub num_subsystem_encounters: u32,
     pub num_sessions: u32,
 
     // Total experience, and experience this level. (Every level has 1000 XP)
@@ -69,6 +71,7 @@ pub struct EncounterStats {
     pub encounter_ix: u32,
     pub session_id: u32,
     pub session_ix: u32,
+    pub encounter_type: String,
 
     pub accumulated_items_treasure: f32,
     pub accumulated_gold_treasure: f32,

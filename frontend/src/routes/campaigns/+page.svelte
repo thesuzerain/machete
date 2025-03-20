@@ -17,6 +17,7 @@
   import { encounterStore } from '$lib/stores/encounters';
   import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
 import { statsStore } from '$lib/stores/stats';
+    import { page } from '$app/stores';
 
     let loading = true;
     let error: string | null = null;
@@ -31,6 +32,22 @@ import { statsStore } from '$lib/stores/stats';
     $: characters = selectedCampaignId ? $characterStore.get(selectedCampaignId) || [] : [];
     $: campaignSessions = selectedCampaignId ? $campaignSessionStore.get(selectedCampaignId) || [] : [];
     $: stats = selectedCampaignId ? $statsStore.get(selectedCampaignId) : null;
+
+    // Default session to snap to (pass to this page with a query parameter)
+    // TODO: Svelte solution for parsing query parameters to a page?
+    let defaultSessionIdString = $page.url.searchParams.get('sessionId');
+    let defaultSessionId: number | null = null;
+    if (defaultSessionIdString) {
+        let sessionId = parseInt(defaultSessionIdString);
+
+        // If we want a default session, set the active tab to sessions and set the session ID
+        if (sessionId) {
+            activeTab = 'sessions';
+            defaultSessionId = sessionId;
+        }
+    }
+
+
     async function fetchLogs() {
         if (!selectedCampaignId) return;
         
@@ -58,6 +75,21 @@ import { statsStore } from '$lib/stores/stats';
         });
     }
 
+        // TODO: Refactor, this is used in a few places
+        function getTreasureFraction(totalTreasure : number | undefined, expectedTreasure : number | undefined) {
+        let expectedTreasureSanity = expectedTreasure || 0;
+        let fraction = (totalTreasure || 0) / expectedTreasureSanity;
+        if (isNaN(fraction)) {
+            fraction = 1;
+        }
+        return fraction;
+    }
+
+
+    $: totalCombinedTreasure = stats?.total_combined_treasure || 0;
+    $: treasureFractionCurrent = getTreasureFraction(stats?.total_combined_treasure, stats?.total_expected_combined_treasure);
+
+
     // Update onMount to include library data
     onMount(async () => {
         requireAuth();
@@ -78,6 +110,21 @@ import { statsStore } from '$lib/stores/stats';
             loading = false;
         }
     });
+
+    // TODO: This logic is also used in CampaignSummaryTab- refactor.
+    function getClassColorForFraction(fraction: number) {
+        if (fraction < 0.8) {
+            return 'large-deficit-colour';
+        } else if (fraction < 0.9) {
+            return 'small-deficit-colour';
+        } else if (fraction < 1.1) {
+            return 'no-deficit-colour';
+        } else if (fraction < 1.2) {
+            return 'small-surplus-colour';
+        } else {
+            return 'large-surplus-colour';
+        }
+    }
 </script>
 
 <div class="campaigns-page">
@@ -91,6 +138,7 @@ import { statsStore } from '$lib/stores/stats';
                         <div class="mini-progress-bar">
                             <div class="progress" style="width: {(stats.experience_this_level / 1000) * 100}%"></div>
                         </div>
+                        <div class="subtext">Experience: {stats?.experience_this_level || 0}</div>
                     </div>
                 </div>
             </div>
@@ -99,20 +147,27 @@ import { statsStore } from '$lib/stores/stats';
                     <span class="label">Sessions</span>
                     <div class="value-group">
                         <span class="value">{stats.num_sessions}</span>
-                        <span class="subtext">({stats.num_encounters} encounters)</span>
+                        <span class="subtext">({stats.num_combat_encounters} encounters)</span>
                     </div>
                 </div>
             </div>
             <div class="metadata-item">
                 <div class="metadata-content">
                     <span class="label">Treasure Balance</span>
-                    <div class="value-group">
-                        <span class="value" class:deficit={stats.total_combined_treasure < stats.total_expected_combined_treasure}
-                                      class:surplus={stats.total_combined_treasure >= stats.total_expected_combined_treasure}>
-                            {((stats.total_combined_treasure / stats.total_expected_combined_treasure || 0) * 100).toFixed(1)}%
+                    <div class="values-group">
+                        <div class="value-group">
+                        <span class="value">
+                            {totalCombinedTreasure}
                         </span>
-                        <span class="subtext">of expected</span>
+                        <span class="subtext">gold</span>
                     </div>
+                    <div class="value-group">
+                        <span class="value {getClassColorForFraction(treasureFractionCurrent)}">
+                            {(treasureFractionCurrent * 100).toFixed(1)}%
+                        </span>
+                        <span class="subtext">of approximate expected gold</span>
+                    </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -164,6 +219,7 @@ import { statsStore } from '$lib/stores/stats';
     {:else if activeTab === 'sessions'}
         <CampaignSessionsTab
             {selectedCampaignId}
+            defaultSessionId={defaultSessionId}
         />
     {:else if activeTab === 'characters'}
             <CampaignCharactersTab
@@ -245,6 +301,11 @@ import { statsStore } from '$lib/stores/stats';
         letter-spacing: 0.05em;
     }
 
+    .values-group {
+        display: flex;
+        justify-content: space-between;
+    }
+
     .value-group {
         display: flex;
         align-items: baseline;
@@ -254,7 +315,6 @@ import { statsStore } from '$lib/stores/stats';
     .metadata-item .value {
         font-size: 1.25rem;
         font-weight: 600;
-        color: #1e293b;
     }
 
     .metadata-item .subtext {
@@ -328,5 +388,25 @@ import { statsStore } from '$lib/stores/stats';
     .tab-button.active {
         color: #3b82f6;
         border-bottom-color: #3b82f6;
+    }
+
+    .large-deficit-colour {
+        color: #ef4444;
+    }
+    .small-deficit-colour {
+        color: rgb(250, 107, 107);
+    }
+
+
+    .no-deficit-colour {
+        color: rgb(99, 192, 133);
+    }
+
+    .small-surplus-colour {
+        color: #ca9a22;
+    }
+
+    .large-surplus-colour {
+        color: #f0de0d;
     }
 </style> 

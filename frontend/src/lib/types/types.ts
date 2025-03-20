@@ -27,6 +27,9 @@ export interface CampaignSession {
     encounter_ids: number[];
     play_date: Date;
 
+    level_at_end: number;
+    experience_at_end: number;
+
     // Derived values for aggregation. Not modified directly.
     total_experience: number;
     total_combined_treasure_value: number;
