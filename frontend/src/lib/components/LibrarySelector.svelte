@@ -250,7 +250,11 @@
                             <span class="detail">Lv: {entity.level}</span>
                         {/if}
                         {#if entity.price !== undefined}
-                            <span class="detail">{entity.price} gp</span>
+                            {#if entity.price !== null}
+                                <span class="detail">{entity.price} gp</span>
+                            {:else}
+                                <span class="detail">Priceless</span>
+                            {/if}
                         {/if}
                     </button>
                 {/each}

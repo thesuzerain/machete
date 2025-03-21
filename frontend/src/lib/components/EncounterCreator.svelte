@@ -566,7 +566,7 @@
 
 <div class="encounter-form">
     <div class="encounter-header"><h2>Create New Encounter</h2>
-    <button type="button" on:click={resetToNewEncounter}>Create New Encounter</button>
+    <button type="button" on:click={resetToNewEncounter}>Reset to new encounter</button>
 </div>
     <form on:submit={createEncounter} class="encounter-form">
         <div class="encounter-form-container">
@@ -621,10 +621,14 @@
                             /></div>
 
                     </div>
-                    <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
+
+                        <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
                         <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {wipEncounter.extra_experience})</div>
+                        {#if wipEncounter.encounter_type === 'combat'}
                         This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{wipEncounter.party_size}</b> level <b>{wipEncounter.party_level}</b> players
-                        </div>
+                        {/if}
+                    </div>
+
                     </div>
             
         </div>

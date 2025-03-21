@@ -122,11 +122,14 @@
                 await handleSuccess(data.id);
             } else if (activeTab === 'import') {
                 try {
-                    JSON.parse(importJson);
+                    let json = JSON.parse(importJson);
+                    // TODO: Validate JSON
+                    if (!json) throw new Error('Unparseable JSON');
                     let id = await campaignStore.importCampaign(importJson);
                     await handleSuccess(id);
                 } catch (e) {
-                    throw new Error('Invalid JSON format');
+                    console.log('Error importing campaign', e);
+                    throw new Error('Could not import campaign', e);
                 }
             } else if (activeTab === 'initialize') {
                 const url = `${API_URL}/campaign`;
@@ -401,7 +404,7 @@
                                                                     {#if item}
                                                                         <div class="item-entry">
                                                                             <div class="item-name">{item.name}</div>
-                                                                            <div class="item-details">Level {item.level} • {item.price || 0} gp</div>
+                                                                            <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
                                                                             <button 
                                                                                 type="button"
                                                                                 class="remove-button"
@@ -463,7 +466,7 @@
                                                     {#if item}
                                                         <div class="item-entry">
                                                             <div class="item-name">{item.name}</div>
-                                                            <div class="item-details">Level {item.level} • {item.price || 0} gp</div>
+                                                            <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
                                                             <button 
                                                                 type="button"
                                                                 class="remove-button"

@@ -228,6 +228,8 @@
 
         // Go to the new session
         selectedSessionId = campaignSessions[campaignSessions.length - 1].id;
+
+        handleSessionChange();
     }
 
     function createNewEncounter() {
@@ -542,14 +544,12 @@
                                 Edit
                             </button>
                             <button class="remove-button" on:click={() => removeEncounterFromSession(encounter.id)}>
-                                Remove
+                                Unlink
                             </button>
                         </div>
                     </div>
                 {/each}
             </div>
-
-            <!-- Accomplishments -->
             {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}
                 <div class="accomplishments-list accomplishments">
                     <h4>Accomplishments</h4>
@@ -557,9 +557,19 @@
                         <div class="accomplishment-card accomplishment">
                             <div class="accomplishment-info">
                                 <h4>{encounter.name}</h4>
-                                <span>XP: {encounter.total_experience}</span>
+                                {#if encounter.total_experience > 0}
+                                    <span>XP: {encounter.total_experience}</span>
+                                {/if}
+                                {#if encounter.treasure_items.length > 0}
+                                    <span>Items: {encounter.treasure_items.map(item => items.entities.get(item)?.name).join(', ')}</span>
+                                {/if}
+
+                                
                             </div>
                             <div class="encounter-actions">
+                                <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
+                                    Edit
+                                </button>    
                                 <button class="remove-button" on:click={() => deleteEncounter(encounter.id)}>
                                     Remove
                                 </button>

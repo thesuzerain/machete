@@ -28,6 +28,10 @@ pub struct ItemFiltering {
     pub tags: Vec<String>,
     #[serde(default)]
     pub legacy: LegacyStatus,
+    pub relic_gift: Option<bool>,
+    pub consumable: Option<bool>,
+    pub magical: Option<bool>,
+    pub cursed: Option<bool>,
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
@@ -74,6 +78,11 @@ pub struct ItemSearch {
     #[serde(default)]
     pub legacy: LegacyStatus,
 
+    pub relic_gift: Option<bool>,
+    pub consumable: Option<bool>,
+    pub magical: Option<bool>,
+    pub cursed: Option<bool>,
+
     pub limit: Option<u64>,
     pub page: Option<u64>,
 }
@@ -96,6 +105,10 @@ impl From<ItemFiltering> for ItemSearch {
             tags: filter.tags,
             limit: filter.limit,
             page: filter.page,
+            relic_gift: filter.relic_gift,
+            consumable: filter.consumable,
+            magical: filter.magical,
+            cursed: filter.cursed,
         }
     }
 }
@@ -117,6 +130,8 @@ pub struct InsertLibraryItem {
     pub consumable: bool,
     pub magical: bool,
     pub legacy: bool,
+    pub cursed: bool,
+    pub relic_gift_stage: Option<i8>,
     pub item_type: RuneItemType,
     pub skill_boosts: Vec<SkillPotency>,
     pub runes: Vec<Rune>,
@@ -206,6 +221,8 @@ pub async fn get_items_search(
                 li.traits,
                 li.consumable,
                 li.magical,
+                li.cursed,
+                li.relic_gift_stage,
                 li.item_type,
                 li.apex_stat,
                 lo.legacy,
@@ -235,9 +252,12 @@ pub async fn get_items_search(
                 AND NOT (NOT $14::bool AND lo.legacy = TRUE)
                 AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
                 AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-
+                AND ($17::bool IS NULL OR ($17::bool AND li.relic_gift_stage IS NOT NULL) OR ($17::bool = FALSE AND li.relic_gift_stage IS NULL))
+                AND ($18::bool IS NULL OR ($18::bool AND li.consumable = TRUE) OR ($18::bool = FALSE AND li.consumable = FALSE))
+                AND ($19::bool IS NULL OR ($19::bool AND li.magical = TRUE) OR ($19::bool = FALSE AND li.magical = FALSE))
+                AND ($20::bool IS NULL OR ($20::bool AND li.cursed = TRUE) OR ($20::bool = FALSE AND li.cursed = FALSE))
             GROUP BY lo.id, li.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $17 OFFSET $18
+            LIMIT $21 OFFSET $22
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -257,6 +277,10 @@ pub async fn get_items_search(
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
         search.legacy.favor_legacy(),
+        search.relic_gift,
+        search.consumable,
+        search.magical,
+        search.cursed,
         limit as i64,
         offset as i64,
     )
@@ -304,6 +328,8 @@ pub async fn get_items_search(
             consumable: row.consumable,
             legacy: row.legacy,
             magical: row.magical,
+            cursed: row.cursed,
+            relic_gift_stage: row.relic_gift_stage.map(|i| i as i8),
             item_type: RuneItemType::from_str(&row.item_type.unwrap_or_default()),
             skill_boosts: serde_json::from_value(row.skill_boosts.unwrap_or_default())
                 .unwrap_or_default(),
@@ -382,8 +408,8 @@ pub async fn insert_items(
         let apex_stat = item.apex_stat.as_ref().map(|s| s.to_string());
         sqlx::query!(
             r#"
-            INSERT INTO library_items (id, rarity, level, price, item_categories, traits, consumable, magical, item_type, apex_stat)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO library_items (id, rarity, level, price, item_categories, traits, consumable, magical, cursed, relic_gift_stage, item_type, apex_stat)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         "#,
             id,
             item.rarity.as_i64() as i32,
@@ -393,6 +419,8 @@ pub async fn insert_items(
             &item.traits,
             item.consumable,
             item.magical,
+            item.cursed,
+            item.relic_gift_stage.map(|i| i as i32),
             &item.item_type.to_string(),
             apex_stat.as_ref(),
         )

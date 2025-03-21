@@ -191,7 +191,7 @@
            
             step = 'characters';
         } catch (e) {
-            error = 'Invalid JSON format: ' + e;
+            error = 'Could not import campaign: ' + e;
         }
     }
 

@@ -110,8 +110,7 @@ library.add(faLink)
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
-                encounters.flatMap(e => e.enemies).map((e) => e?.id)
-                    .filter((id) => id !== undefined) as number[]
+                encounters.flatMap(e => e.enemies ?? []).map((e) => e?.id)
             );
             
             if (enemyIds.size > 0) {
@@ -122,7 +121,7 @@ library.add(faLink)
 
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
-                encounters.flatMap(e => e.hazards)
+                encounters.flatMap(e => e.hazards ?? [])
             );
             if (hazardIds.size > 0) {
                 await hazardStore.fetchEntities({
@@ -132,7 +131,7 @@ library.add(faLink)
 
             // Load any items that are in current encounters
             const itemIds = new Set(
-                encounters.flatMap(e => e.treasure_items)
+                encounters.flatMap(e => e.treasure_items ?? [])
             );
             if (itemIds.size > 0) {
                 await itemStore.fetchEntities({

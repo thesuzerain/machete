@@ -25,7 +25,10 @@ pub struct LibraryItem {
 
     pub consumable: bool,
     pub magical: bool,
-    // TODO: MAy need to be combined with GameSystem, as its part of the game system
+    pub cursed: bool,
+    pub relic_gift_stage: Option<i8>,
+
+    // TODO: May need to be combined with GameSystem, as its part of the game system
     pub legacy: bool,
 
     pub item_type: RuneItemType,
