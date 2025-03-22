@@ -158,6 +158,7 @@ export interface LibraryEntity {
     name: string;
     level?: number;
     // ... other properties
+    // TODO: Think of a better way to do this. LibraryClass expand sthis, etc?
 }
 
 export interface Enemy {

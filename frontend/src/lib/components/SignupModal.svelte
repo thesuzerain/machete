@@ -2,15 +2,14 @@
     import { API_URL } from '$lib/config';
     import { auth } from '$lib/stores/auth';
     import { createEventDispatcher } from 'svelte';
+    import Modal from './Modal.svelte';
 
+    export let show = false;
     const dispatch = createEventDispatcher();
     let username = '';
     let password = '';
     let error = '';
 
-    function handleBackgroundClick() {
-        dispatch('close');
-    }
 
     async function handleSignup(event: SubmitEvent) {
         event.preventDefault();
@@ -31,6 +30,7 @@
                 auth.setUser(session.user);
                 dispatch('close');
                 dispatch('success');
+                show = false;
             } else {
                 error = 'Signup failed';
             }
@@ -41,28 +41,27 @@
     }
 </script>
 
-<div class="modal" on:click={handleBackgroundClick}>
-    <div class="modal-content" on:click|stopPropagation>
-        <h2>Sign Up</h2>
-        <form on:submit={handleSignup}>
-            <div class="form-group">
-                <label>Username:</label>
-                <input type="text" bind:value={username} required>
-            </div>
-            <div class="form-group">
-                <label>Password:</label>
-                <input type="password" bind:value={password} required>
-            </div>
-            {#if error}
-                <div class="error">{error}</div>
-            {/if}
-            <div class="buttons">
-                <button type="submit">Sign Up</button>
-                <button type="button" on:click={() => dispatch('close')}>Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
+<Modal bind:show={show} bind:error={error}>
+    <h2>Sign Up</h2>
+    <form on:submit={handleSignup}>
+        <div class="form-group">
+            <label>Username:</label>
+            <input type="text" bind:value={username} required>
+        </div>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" bind:value={password} required>
+        </div>
+        {#if error}
+            <div class="error">{error}</div>
+        {/if}
+        <div class="buttons">
+            <button type="submit">Sign Up</button>
+            <button type="button" on:click={() => dispatch('close')}>Cancel</button>
+        </div>
+    </form>
+</Modal>
+
 
 <style>
     .modal {

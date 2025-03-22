@@ -2,6 +2,9 @@
     import { API_URL } from '$lib/config';
     import { auth } from '$lib/stores/auth';
     import { createEventDispatcher } from 'svelte';
+    import Modal from './Modal.svelte';
+
+    export let show = false;
 
     const dispatch = createEventDispatcher();
     let username = '';
@@ -26,6 +29,7 @@
                 const session = await response.json();
                 auth.setUser(session.user);
                 dispatch('close');
+                show = false;
             } else {
                 error = 'Invalid credentials';
             }
@@ -40,28 +44,25 @@
     }
 </script>
 
-<div class="modal" on:click={handleBackgroundClick}>
-    <div class="modal-content" on:click|stopPropagation>
-        <h2>Login</h2>
-        <form on:submit={handleLogin}>
-            <div class="form-group">
-                <label>Username:</label>
-                <input type="text" bind:value={username} required>
-            </div>
-            <div class="form-group">
-                <label>Password:</label>
-                <input type="password" bind:value={password} required>
-            </div>
-            {#if error}
-                <div class="error">{error}</div>
-            {/if}
-            <div class="buttons">
-                <button type="submit">Login</button>
-                <button type="button" on:click={() => dispatch('close')}>Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
+<Modal bind:error bind:show>
+    <h2>Login</h2>
+    <form on:submit={handleLogin}>
+        <div class="form-group">
+            <label>Username:</label>
+            <input type="text" bind:value={username} required>
+        </div>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" bind:value={password} required>
+        </div>
+
+        <div class="buttons">
+            <button type="submit">Login</button>
+            <button type="button" on:click={() => dispatch('close')}>Cancel</button>
+        </div>
+    </form>
+
+</Modal>
 
 <style>
     .modal {

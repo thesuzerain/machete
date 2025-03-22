@@ -294,9 +294,8 @@ pub async fn insert_encounters(
             &hazard_levels,
             encounter.party_level,
             encounter.party_size,
-        );
-
-        let derived_total_treasure_value = treasure_values.iter().sum::<f32>();
+        ) + encounter.extra_experience as i32;
+        let derived_total_treasure_value = treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
 
         let total_experience = encounter
             .total_experience

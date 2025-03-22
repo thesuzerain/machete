@@ -6,10 +6,13 @@
     import LibrarySelector from './LibrarySelector.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
+    import Modal from './Modal.svelte';
 
     export let show = false;
     export let campaignId: number | null;
     export let editingCharacter: Character | null = null;
+
+    let classes = $classStore.entities;
 
     const dispatch = createEventDispatcher();
 
@@ -53,7 +56,7 @@
                 const url = `${API_URL}/campaign/${campaignId}/characters/${editingCharacter.id}`
 
                 const response = await fetch(url, {
-                    method: 'PATCH',
+                    method: 'PUT',
                     credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
@@ -96,50 +99,44 @@
     }
 </script>
 
-{#if show}
-    <div class="modal-backdrop" on:click={closeModal} transition:fade>
-        <div class="modal-content" on:click|stopPropagation>
-            <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
-            
-            {#if error}
-                <div class="error-message">{error}</div>
-            {/if}
 
-            <form on:submit|preventDefault={handleSubmit}>
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input 
-                        type="text" 
-                        id="name" 
-                        bind:value={name}
-                        required
-                    />
-                </div>
-
-
-                <div class="form-group inline">
-                    <label for="class">Class:</label>
-                    <select bind:value={classId}>
-                        <option value={0}>Select Class</option>
-                        {#each Array.from($classStore.entities.values()) as classOption}
-                            <option value={classOption.id}>{classOption.name}</option>
-                        {/each}
-                    </select>
-
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="cancel-btn" on:click={closeModal}>
-                        Cancel
-                    </button>
-                    <button type="submit" class="save-btn">
-                        {editingCharacter ? 'Save' : 'Create'} Character
-                    </button>
-                </div>
-            </form>
+<Modal bind:show={show} bind:error={error}>
+    <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
+    <form on:submit|preventDefault={handleSubmit}>
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input 
+                type="text" 
+                id="name" 
+                bind:value={name}
+                required
+            />
         </div>
-    </div>
-{/if}
+
+
+        <div class="form-group inline">
+            <label for="class">Class:</label>
+            <select bind:value={classId}>
+                <option value={0}>Select Class</option>
+                {#each Array.from(classes.values()) as classOption}
+                    <option value={classOption.id}>{classOption.name}</option>
+                {/each}
+            </select>
+
+        </div> 
+
+        <div class="modal-actions">
+            <button type="button" class="cancel-btn" on:click={closeModal}>
+                Cancel
+            </button>
+            <button type="submit" class="save-btn">
+                {editingCharacter ? 'Save' : 'Create'} Character
+            </button>
+        </div> 
+    </form>
+
+    </Modal>
+
 
 <style>
     .modal-backdrop {
