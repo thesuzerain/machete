@@ -58,15 +58,9 @@
             <slot />
         </main>
 
-        {#if showLoginModal}
-            <LoginModal on:close={() => showLoginModal = false} />
-        {/if}
+        <LoginModal bind:show={showLoginModal} />
+        <SignupModal bind:show={showSignupModal} />
 
-        {#if showSignupModal}
-            <SignupModal 
-                on:close={() => showSignupModal = false}
-            />
-        {/if}
     </div>
 {/if}
 

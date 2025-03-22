@@ -16,7 +16,6 @@
     import { API_URL } from '$lib/config';
     import { goto } from '$app/navigation';
     import type { Encounter } from '$lib/types/encounters';
-    import Library from '$lib/components/Library.svelte';
 
     export let data: { activeEncounterId: number | null, startTab: string | null };
 
@@ -356,14 +355,278 @@
 </script>
 
 <div class="library-page">
+    <div class="header">
+        <h1>Game Library</h1>
+        {#if !isEncounterMode && currentEncounter}
+            <button 
+                class="activate-mode-button"
+                on:click={activateEncounterMode}
+            >
+                Start adding to current encounter
+            </button>
+        {:else if isEncounterMode}
+            <div class="mode-indicator-container">
+                <div class="mode-indicator">
+                    <span class="mode-badge">Encounter Mode</span>
+                    <span class="encounter-name">{currentEncounter?.name || 'Unnamed Encounter'}</span>
+                    <button class="exit-mode" on:click={exitEncounterModeReturn}>Return to encounter</button>
+                    <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+                </div>
+                <div class="toggle-range-container">
+                    <label class="toggle-range-label">
+                        <input type="checkbox" bind:checked={lockToCommonRange} />
+                        Lock to Common Range
+                    </label>
+                </div>
+            </div>
+        {/if}
+    </div>
 
     {#if error}
         <div class="error" transition:fade>{error}</div>
     {/if}
 
+    <div class="controls">
+        <div class="tabs">
+            {#each Object.keys(columns) as tab}
+                <button 
+                    class="tab-button" 
+                    class:active={activeTab === tab}
+                    on:click={() => activeTab = tab as LibraryEntityType}
+                >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}s
+                </button>
+            {/each}
+        </div>
 
-    <Library activeEncounterId={data.activeEncounterId} activeTab={activeTab} />
+        <div class="filters">
+            <input
+                type="text"
+                placeholder="Search..."
+                bind:value={searchQuery}
+                class="search-input"
+            />
 
+            <select bind:value={filterRarity} class="filter-select">
+                <option value="">All Rarities</option>
+                <option value="common">Common</option>
+                <option value="uncommon">Uncommon</option>
+                <option value="rare">Rare</option>
+                <option value="unique">Unique</option>
+            </select>
+
+            <select bind:value={minLevel} class="filter-select">
+                <option value=-2>Min Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
+                        <option value={i-3 + 1}>{i-3 + 1}</option>
+                    {/if}
+                {/each}
+            </select>
+
+            <select bind:value={maxLevel} class="filter-select">
+                <option value=-2>Max Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
+                        <option value={i-2 + 1}>{i-2 + 1}</option>
+                    {/if}
+                {/each}
+            </select>
+
+            <select bind:value={filterLegacy} class="filter-select">
+                <option value="remaster">Remastered</option>
+                <option value="remaster">Legacy</option>
+                <option value="all">All Versions</option>
+                <option value="legacy_only">Legacy Only</option>
+                <option value="remaster_only">Remastered Only</option>
+            </select>
+        </div>
+
+        <div class="column-selector-container">
+            <button 
+                class="column-selector-toggle"
+                on:click={() => showColumnSelector = !showColumnSelector}
+            >
+                {showColumnSelector ? 'Hide' : 'Show'} Column Selector
+            </button>
+
+            {#if showColumnSelector}
+                <div class="column-selector" transition:slide>
+                    <h4>Toggle Visible Columns</h4>
+                    <div class="column-options">
+                        {#each columns[activeTab] as column}
+                            <label class="column-option">
+                                <input
+                                    type="checkbox"
+                                    checked={visibleColumns[activeTab].has(column.key)}
+                                    on:change={() => toggleColumn(activeTab, column.key)}
+                                />
+                                {column.label}
+                            </label>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </div>
+
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th></th> <!-- Column for expand/collapse -->
+                    {#each columns[activeTab] as column}
+                        {#if visibleColumns[activeTab].has(column.key)}
+                            <th>{column.label}</th>
+                        {/if}
+                    {/each}
+                    {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
+                        <th>Experience</th>
+                    {/if}
+                    {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
+                        <th>Actions</th>
+                    {/if}
+                </tr>
+            </thead>
+            <tbody>
+                {#each entities as entity (entity.id)}
+                    <tr 
+                        class:expanded={expandedRow === entity.id}
+                        on:mouseenter={(e) => handleMouseMove(e, entity)}
+                        on:mouseleave={handleMouseLeave}
+                        on:click={() => handleRowClick(entity)}
+                    >
+                        <td>
+                            <button 
+                                class="expand-button"
+                                on:click={(e) => { e.stopPropagation(); handleRowClick(entity); }}
+                            >
+                                {expandedRow === entity.id ? '−' : '+'}
+                            </button>
+                        </td>
+                        {#each columns[activeTab] as column}
+                            {#if visibleColumns[activeTab].has(column.key)}
+                                <td>
+                                    {#if column.key === 'rarity'}
+                                        <span class="rarity-label {entity[column.key as keyof typeof entity]}">
+                                            {entity[column.key as keyof typeof entity]}
+                                        </span>
+                                    {:else if column.formatter}
+                                        {@html column.formatter(entity[column.key as keyof typeof entity])}
+                                    {:else}
+                                        {entity[column.key as keyof typeof entity]}
+                                    {/if}
+                                </td>
+                            {/if}
+                        {/each}
+                        {#if isEncounterMode && activeTab === 'creature'}
+                            <td>
+                                {getExperienceFromLevel(currentEncounter.party_level, entity.level)}
+                            </td>
+                        {/if}
+                        {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
+                            <td class="actions">
+                                <button 
+                                    class="add-button"
+                                    on:click={(e) => { e.stopPropagation(); addToEncounter(
+                                        entity,
+                                        activeTab === 'creature' ? 'enemy' :
+                                        activeTab === 'hazard' ? 'hazard' : 'treasure'
+                                    ); }}
+                                >
+                                    Add to Encounter
+                                </button>
+                            </td>
+                        {/if}
+                    </tr>
+                    {#if expandedRow === entity.id}
+                        <tr class="detail-row" transition:slide>
+                            <td colspan={columns[activeTab].length + (isEncounterMode && activeTab === 'creature' ? 1 : 0) + 2}>
+                                <div class="entity-details">
+                                    {#if entity.description}
+                                        <div class="detail-section">
+                                            <h4>Description</h4>
+                                            <p>{entity.description}</p>
+                                        </div>
+                                    {/if}
+
+                                    <div class="detail-section detail-grid">
+                                        {#each Object.entries(entity) as [key, value]}
+                                            {#if !ignoredColumns[activeTab as keyof typeof ignoredColumns]?.includes(key) && value !== undefined && value !== null}
+                                                <div class="detail-item">
+                                                    <span class="detail-label">{formatDetailLabel(key)}</span>
+                                                    <span class="detail-value">
+                                                        {#if key === 'alignment'}
+                                                            {formatAlignment(value)}
+                                                        {:else if key === 'price'}
+                                                            {formatCurrency(value)}
+                                                        {:else if key === 'rarity'}
+                                                            <span class="rarity-label {value}">{value}</span>
+                                                        {:else if key === 'runes' && value.length > 0}
+                                                                {runeFormatter(value)}
+                                                        {:else if Array.isArray(value)}
+                                                            {value.join(', ')}
+                                                        {:else if typeof value === 'boolean'}
+                                                            {value ? '✔️' : '❌'}
+                                                        {:else}
+                                                            {value}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                            {/if}
+                                        {/each}
+                                    </div>
+
+                                    {#if entity.url}
+                                        <div class="detail-section">
+                                            <a href={getFullUrl(entity.url)} target="_blank" rel="noopener noreferrer">
+                                                View More Details ↗
+                                            </a>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </td>
+                        </tr>
+                    {/if}
+                {/each}
+            </tbody>
+        </table>
+
+        <InfiniteScroll
+            hasMore={hasMore}
+            threshold={100}
+            on:loadMore={() => {page++;fetchLibraryData()}}
+        />
+    </div>
+
+    {#if previewEntity && !expandedRow}
+        <div 
+            class="preview-card"
+            style="left: {previewPosition.x}px; top: {previewPosition.y}px"
+            transition:fade
+        >
+            <h3>{previewEntity.name}</h3>
+            {#if previewEntity.description}
+                <p>{previewEntity.description.substring(0, 200)}...</p>
+            {/if}
+        </div>
+    {/if}
+
+    {#if loading}
+        <div class="loading">Loading more items...</div>
+    {/if}
+
+    {#if isEncounterMode}
+        <div class="encounter-indicator" transition:fade>
+            <a href="/encounters" class="view-encounter"><span class="mode-badge">Editing: {currentEncounter?.name || 'Unnamed Encounter'}</span></a>
+            <button class="exit-mode" on:click={exitEncounterMode}>Exit</button>
+        </div>
+    {/if}
+
+    {#if notification}
+        <div class="notification" transition:fade>{notification}</div>
+    {/if}
 </div>
 
 <style>

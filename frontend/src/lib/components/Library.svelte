@@ -8,28 +8,30 @@
         formatCurrency,
         getFullUrl,
         type Rune,
-        formatAlignment
+        formatAlignment,
+        type LibraryCreature,
+        type LibraryHazard,
+        type LibraryItem
     } from '$lib/types/library';
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
     import { getExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
     import { goto } from '$app/navigation';
-    import type { Encounter } from '$lib/types/encounters';
-    import Library from '$lib/components/Library.svelte';
+    import type { CreateOrReplaceEncounter } from '$lib/types/encounters';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
 
-    export let data: { activeEncounterId: number | null, startTab: string | null };
+    export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
+    export let activeTab: LibraryEntityType  = allowedTabs[0];
+    export let addEntityToEncounter: ((entityType: LibraryEntityType, entity: LibraryEntity) => Promise<void>) | undefined;
+    export let editingEncounter: CreateOrReplaceEncounter | null = null;
 
-    let activeTab: LibraryEntityType = 'class';
-    if (data.startTab) {
-        activeTab = data.startTab as LibraryEntityType;
-    }
 
     let loading = false;
     let error: string | null = null;
     let searchQuery = '';
     let filterRarity: string = '';
-    let filterLegacy = 'remaster'; // default to match Rust enum default
+    let filterLegacy = 'remaster';
 
     let minLevel = -1;
     let maxLevel = 30;
@@ -118,8 +120,7 @@
     let previewPosition = { x: 0, y: 0 };
 
     // Modify encounter state handling
-    let currentEncounter: Encounter | null = null;
-    let isEncounterMode = false;
+    $: isEncounterMode = addEntityToEncounter && editingEncounter;
 
     // Add state for notification
     let notification: string | null = null;
@@ -161,38 +162,7 @@
 
     onMount(async () => {
         await fetchLibraryData(true);
-        // If we have an active encounter ID from URL, activate encounter mode
-        if (data.activeEncounterId) {
-            await loadEncounter(data.activeEncounterId);
-            if (currentEncounter) isEncounterMode = true;
-        } 
     });
-
-    
-    async function loadEncounter(encounterId: number) {
-        try {
-            const response = await fetch(`${API_URL}/encounters/${encounterId}`, {
-                credentials: 'include'
-            });
-            if (response.ok) {
-                currentEncounter = await response.json();
-            }
-        } catch (e) {
-            console.error('Failed to load encounter');
-        }
-    }
-
-    function activateEncounterMode() {
-        isEncounterMode = true;
-    }
-
-    function exitEncounterMode() {
-        isEncounterMode = false;
-    }
-
-    function exitEncounterModeReturn() {
-        goto(`/encounters?encounterId=${data.activeEncounterId}`);
-    }
 
     function handleRowClick(entity: LibraryEntity) {
         if (expandedRow === entity.id) {
@@ -214,59 +184,39 @@
         previewEntity = null;
     }
 
-    async function addToEncounter(entity: LibraryEntity, type: 'enemy' | 'hazard' | 'treasure') {
-        if (!currentEncounter) {
-            error = 'No encounter in progress';
-            return;
+    async function addToEncounter(entity: LibraryEntity, type: LibraryEntityType) {
+        console.log("addToEncounter", entity, type);
+        console.log("editingEncounter", editingEncounter);
+        // TODO: Remove
+        // if (addEntityToEncounter) {await addEntityToEncounter?.(type, entity) }
+
+        // TODO: There may be a better way to do type assignemnts w.r.t LibraryEntity
+        // currently: creatureStore.insertEntity(entity as LibraryCreature);
+
+        if (!editingEncounter) return;
+        switch (type) {
+            case 'creature':
+                if (editingEncounter.enemies) editingEncounter.enemies.push({
+                    id: entity.id,
+                    level_adjustment: 0
+                });
+                creatureStore.insertEntity(entity as LibraryCreature);
+                console.log("editingEncounter.enemies", editingEncounter.enemies);
+                break;
+            case 'hazard':
+            if (editingEncounter.hazards) editingEncounter.hazards.push(entity.id);
+                hazardStore.insertEntity(entity as LibraryHazard);
+                break;
+            case 'item':
+            if (editingEncounter.treasure_items) editingEncounter.treasure_items.push(entity.id);
+                itemStore.insertEntity(entity as LibraryItem);
+                break;
+            // TODO: Spell
         }
-
-        try {
-            // Update the draft with the new entity
-            const updatedDraft = {
-                enemies: [...currentEncounter.enemies || []],
-                hazards: [...currentEncounter.hazards || []],
-                treasure_items: [...currentEncounter.treasure_items]
-            };
-            switch (type) {
-                case 'enemy':
-                    updatedDraft.enemies  = [...updatedDraft.enemies, {
-                        id: entity.id,
-                        // TODO: For now, we just do level adjustment 0 (no elite or weak) when adding from library
-                        level_adjustment: 0
-                    }];
-                    break;
-                case 'hazard':
-                    updatedDraft.hazards = [...updatedDraft.hazards, entity.id];
-                    break;
-                case 'treasure':
-                    updatedDraft.treasure_items = [...updatedDraft.treasure_items, entity.id];
-                    break;
-            }
-
-            // TODO: Use store functions
-            const response = await fetch(`${API_URL}/encounters/${currentEncounter.id}`, {
-                method: 'PATCH',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updatedDraft)
-            });
-
-            if (!response.ok) throw new Error(`Failed to add ${type} to encounter`);
-            
-            const responseGet = await fetch(`${API_URL}/encounters/${currentEncounter.id}`, {
-                credentials: 'include'
-            });
-            currentEncounter = await responseGet.json();
-            
-            // Show success message
-            notification = `Added ${entity.name} to encounter as ${type}`;
-            setTimeout(() => notification = null, 3000); // Clear notification after 3 seconds
-        } catch (e) {
-            console.error(e);
-            error = e instanceof Error ? e.message : `Failed to add to encounter`;
-        }
+        
+        // Show success message
+        notification = `Added ${entity.name} to encounter as ${type}`;
+        setTimeout(() => notification = null, 3000); // Clear notification after 3 seconds
     }
 
     async function fetchLibraryData(reset: boolean = false) {
@@ -291,6 +241,8 @@
             });
 
             const pluralType = pluralizations[activeTab];
+            console.log(pluralType);
+            console.log("activeTab", activeTab);
             const response = await fetch(`${API_URL}/library/${pluralType}?${params}`);
             
             if (!response.ok) throw new Error(`Failed to fetch ${pluralType}`);
@@ -330,9 +282,9 @@
     }
 
     $: {
-        if (lockToCommonRange && currentEncounter) {
-            minMinLevel = Math.max(currentEncounter.party_level - 4, -1);
-            maxMaxLevel = currentEncounter.party_level + 3;
+        if (lockToCommonRange && editingEncounter) {
+            minMinLevel = Math.max(editingEncounter.party_level - 4, -1);
+            maxMaxLevel = editingEncounter.party_level + 3;
 
             minLevel = Math.max(minLevel || minMinLevel, minMinLevel);
             maxLevel = Math.min(maxLevel || maxMaxLevel, maxMaxLevel);
@@ -356,14 +308,247 @@
 </script>
 
 <div class="library-page">
-
     {#if error}
-        <div class="error" transition:fade>{error}</div>
+    <div class="error" transition:fade>{error}</div>
+{/if}
+
+    <div class="controls">
+        {#if allowedTabs.length > 1}
+        <div class="tabs">
+            {#each allowedTabs as tab}
+                <button 
+                    class="tab-button" 
+                    class:active={activeTab === tab}
+                    on:click={() => activeTab = tab as LibraryEntityType}
+                >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}s
+                </button>
+            {/each}
+        </div>
+        {/if}
+
+        <div class="filters">
+            <input
+                type="text"
+                placeholder="Search..."
+                bind:value={searchQuery}
+                class="search-input"
+            />
+
+            <select bind:value={filterRarity} class="filter-select">
+                <option value="">All Rarities</option>
+                <option value="common">Common</option>
+                <option value="uncommon">Uncommon</option>
+                <option value="rare">Rare</option>
+                <option value="unique">Unique</option>
+            </select>
+
+            <select bind:value={minLevel} class="filter-select">
+                <option value=-2>Min Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
+                        <option value={i-3 + 1}>{i-3 + 1}</option>
+                    {/if}
+                {/each}
+            </select>
+
+            <select bind:value={maxLevel} class="filter-select">
+                <option value=-2>Max Level</option>
+                {#each Array(33) as _, i}
+                    {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
+                        <option value={i-2 + 1}>{i-2 + 1}</option>
+                    {/if}
+                {/each}
+            </select>
+
+            <select bind:value={filterLegacy} class="filter-select">
+                <option value="remaster">Remastered</option>
+                <option value="remaster">Legacy</option>
+                <option value="all">All Versions</option>
+                <option value="legacy_only">Legacy Only</option>
+                <option value="remaster_only">Remastered Only</option>
+            </select>
+        </div>
+
+        <div class="column-selector-container">
+            <button 
+                class="column-selector-toggle"
+                on:click={() => showColumnSelector = !showColumnSelector}
+            >
+                {showColumnSelector ? 'Hide' : 'Show'} Column Selector
+            </button>
+
+            {#if showColumnSelector}
+                <div class="column-selector" transition:slide>
+                    <h4>Toggle Visible Columns</h4>
+                    <div class="column-options">
+                        {#each columns[activeTab] as column}
+                            <label class="column-option">
+                                <input
+                                    type="checkbox"
+                                    checked={visibleColumns[activeTab].has(column.key)}
+                                    on:change={() => toggleColumn(activeTab, column.key)}
+                                />
+                                {column.label}
+                            </label>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </div>
+
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th></th> <!-- Column for expand/collapse -->
+                    {#each columns[activeTab] as column}
+                        {#if visibleColumns[activeTab].has(column.key)}
+                            <th>{column.label}</th>
+                        {/if}
+                    {/each}
+                    {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
+                        <th>Experience</th>
+                    {/if}
+                    {#if isEncounterMode}
+                        <th>Actions</th>
+                    {/if}
+                </tr>
+            </thead>
+            <tbody>
+                {#each entities as entity (entity.id)}
+                    <tr 
+                        class:expanded={expandedRow === entity.id}
+                        on:mouseenter={(e) => handleMouseMove(e, entity)}
+                        on:mouseleave={handleMouseLeave}
+                        on:click={() => handleRowClick(entity)}
+                    >
+                        <td>
+                            <button 
+                                class="expand-button"
+                                on:click={(e) => { e.stopPropagation(); handleRowClick(entity); }}
+                            >
+                                {expandedRow === entity.id ? '−' : '+'}
+                            </button>
+                        </td>
+                        {#each columns[activeTab] as column}
+                            {#if visibleColumns[activeTab].has(column.key)}
+                                <td>
+                                    {#if column.key === 'rarity'}
+                                        <span class="rarity-label {entity[column.key as keyof typeof entity]}">
+                                            {entity[column.key as keyof typeof entity]}
+                                        </span>
+                                    {:else if column.formatter}
+                                        {@html column.formatter(entity[column.key as keyof typeof entity])}
+                                    {:else}
+                                        {entity[column.key as keyof typeof entity]}
+                                    {/if}
+                                </td>
+                            {/if}
+                        {/each}
+                        {#if isEncounterMode && activeTab === 'creature'}
+                            <td>
+                                {#if editingEncounter && entity.level !== undefined}
+                                {getExperienceFromLevel(editingEncounter.party_level, entity.level)}
+                                {/if}
+                            </td>
+                        {/if}
+                        {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
+                            <td class="actions">
+                                <button 
+                                    class="add-button"
+                                    on:click={(e) => { e.stopPropagation(); addToEncounter(
+                                        entity,
+                                        activeTab
+                                    ); }}
+                                >
+                                    Add to Encounter
+                                </button>
+                            </td>
+                        {/if}
+                    </tr>
+                    {#if expandedRow === entity.id}
+                        <tr class="detail-row" transition:slide>
+                            <td colspan={columns[activeTab].length + (isEncounterMode && activeTab === 'creature' ? 1 : 0) + 2}>
+                                <div class="entity-details">
+                                    {#if entity.description}
+                                        <div class="detail-section">
+                                            <h4>Description</h4>
+                                            <p>{entity.description}</p>
+                                        </div>
+                                    {/if}
+
+                                    <div class="detail-section detail-grid">
+                                        {#each Object.entries(entity) as [key, value]}
+                                            {#if !ignoredColumns[activeTab as keyof typeof ignoredColumns]?.includes(key) && value !== undefined && value !== null}
+                                                <div class="detail-item">
+                                                    <span class="detail-label">{formatDetailLabel(key)}</span>
+                                                    <span class="detail-value">
+                                                        {#if key === 'alignment'}
+                                                            {formatAlignment(value)}
+                                                        {:else if key === 'price'}
+                                                            {formatCurrency(value)}
+                                                        {:else if key === 'rarity'}
+                                                            <span class="rarity-label {value}">{value}</span>
+                                                        {:else if key === 'runes' && value.length > 0}
+                                                                {runeFormatter(value)}
+                                                        {:else if Array.isArray(value)}
+                                                            {value.join(', ')}
+                                                        {:else if typeof value === 'boolean'}
+                                                            {value ? '✔️' : '❌'}
+                                                        {:else}
+                                                            {value}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                            {/if}
+                                        {/each}
+                                    </div>
+
+                                    {#if entity.url}
+                                        <div class="detail-section">
+                                            <a href={getFullUrl(entity.url)} target="_blank" rel="noopener noreferrer">
+                                                View More Details ↗
+                                            </a>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </td>
+                        </tr>
+                    {/if}
+                {/each}
+            </tbody>
+        </table>
+
+        <InfiniteScroll
+            hasMore={hasMore}
+            threshold={100}
+            on:loadMore={() => {page++;fetchLibraryData()}}
+        />
+    </div>
+
+    {#if previewEntity && !expandedRow}
+        <div 
+            class="preview-card"
+            style="left: {previewPosition.x}px; top: {previewPosition.y}px"
+            transition:fade
+        >
+            <h3>{previewEntity.name}</h3>
+            {#if previewEntity.description}
+                <p>{previewEntity.description.substring(0, 200)}...</p>
+            {/if}
+        </div>
     {/if}
 
+    {#if loading}
+        <div class="loading">Loading more items...</div>
+    {/if}
 
-    <Library activeEncounterId={data.activeEncounterId} activeTab={activeTab} />
-
+    {#if notification}
+        <div class="notification" transition:fade>{notification}</div>
+    {/if}
 </div>
 
 <style>

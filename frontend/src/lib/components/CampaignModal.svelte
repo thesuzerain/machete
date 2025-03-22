@@ -6,6 +6,7 @@
     import { campaignStore } from '$lib/stores/campaigns';
     import { classStore, itemStore } from '$lib/stores/libraryStore';
     import LibrarySelector from './LibrarySelector.svelte';
+    import Modal from './Modal.svelte';
 
     interface Props {
         show: boolean;
@@ -171,398 +172,366 @@
     }
 </script>
 
-{#if show}
-    <div class="modal-backdrop" on:click={closeModal} transition:fade>
-        <div class="modal-content" on:click|stopPropagation>
-            <h2>{editingCampaign ? 'Edit' : 'New'} Campaign</h2>
+<Modal bind:show bind:error>
+    <h2>{editingCampaign ? 'Edit' : 'New'} Campaign</h2>
             
-            {#if !editingCampaign}
-                <div class="tabs">
-                    <button 
-                        class="tab-button" 
-                        class:active={activeTab === 'create'}
-                        on:click={() => activeTab = 'create'}
-                    >
-                        Create New
-                    </button>
-                    <button 
-                        class="tab-button" 
-                        class:active={activeTab === 'import'}
-                        on:click={() => activeTab = 'import'}
-                    >
-                        Import
-                    </button>
-                    <button 
-                        class="tab-button" 
-                        class:active={activeTab === 'initialize'}
-                        on:click={() => activeTab = 'initialize'}
-                    >
-                        Initialize Existing
-                    </button>
-                </div>
-            {/if}
-            
-            {#if error}
-                <div class="error-message">{error}</div>
-            {/if}
+    {#if !editingCampaign}
+        <div class="tabs">
+            <button 
+                class="tab-button" 
+                class:active={activeTab === 'create'}
+                on:click={() => activeTab = 'create'}
+            >
+                Create New
+            </button>
+            <button 
+                class="tab-button" 
+                class:active={activeTab === 'import'}
+                on:click={() => activeTab = 'import'}
+            >
+                Import
+            </button>
+            <button 
+                class="tab-button" 
+                class:active={activeTab === 'initialize'}
+                on:click={() => activeTab = 'initialize'}
+            >
+                Initialize Existing
+            </button>
+        </div>
+    {/if}
 
-            <form on:submit|preventDefault={handleSubmit}>
-                {#if activeTab === 'create'}
+    <form on:submit|preventDefault={handleSubmit}>
+        {#if activeTab === 'create'}
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    bind:value={name}
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea 
+                    id="description" 
+                    bind:value={description}
+                    rows="4"
+                ></textarea>
+            </div>
+            <button 
+            type="button"
+            class="finish-btn"
+            on:click={handleSubmit}
+        >
+            Initialize Campaign
+        </button>
+
+        {:else if activeTab === 'import'}
+            <div class="form-group">
+                <label for="import">Campaign JSON</label>
+                <textarea 
+                    id="import" 
+                    bind:value={importJson}
+                    rows="10"
+                    placeholder="Paste your campaign JSON here..."
+                    required
+                ></textarea>
+            </div>
+            <button 
+            type="button"
+            class="finish-btn"
+            on:click={handleSubmit}
+        >
+            Initialize Campaign
+        </button>
+
+        {:else if activeTab === 'initialize'}
+            <!-- Initialize Existing Campaign Wizard -->
+            <div class="wizard-container">
+                <div class="wizard-progress">
+                    {#each Array(totalSteps) as _, i}
+                        <div class="step" class:active={currentStep === i + 1} class:completed={currentStep > i + 1}>
+                            <div class="step-number">{i + 1}</div>
+                            <div class="step-label">
+                                {i === 0 ? 'Campaign Info' : 'Characters & Resources'}
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+                
+                <div class="progress-bar">
+                    <div class="progress" style="width: {((currentStep - 1) / (totalSteps - 1)) * 100}%"></div>
+                </div>
+            </div>
+            
+            <div class="wizard-content">
+                {#if currentStep === 1}
+                    <!-- Step 1: Campaign Info -->
                     <div class="form-group">
-                        <label for="name">Name</label>
+                        <label for="initName">Campaign Name</label>
                         <input 
                             type="text" 
-                            id="name" 
-                            bind:value={name}
+                            id="initName" 
+                            bind:value={initName}
                             required
                         />
                     </div>
 
                     <div class="form-group">
-                        <label for="description">Description</label>
+                        <label for="initDescription">Description</label>
                         <textarea 
-                            id="description" 
-                            bind:value={description}
-                            rows="4"
+                            id="initDescription" 
+                            bind:value={initDescription}
+                            rows="3"
                         ></textarea>
                     </div>
-                    <button 
-                    type="button"
-                    class="finish-btn"
-                    on:click={handleSubmit}
-                >
-                    Initialize Campaign
-                </button>
 
-                {:else if activeTab === 'import'}
-                    <div class="form-group">
-                        <label for="import">Campaign JSON</label>
-                        <textarea 
-                            id="import" 
-                            bind:value={importJson}
-                            rows="10"
-                            placeholder="Paste your campaign JSON here..."
-                            required
-                        ></textarea>
-                    </div>
-                    <button 
-                    type="button"
-                    class="finish-btn"
-                    on:click={handleSubmit}
-                >
-                    Initialize Campaign
-                </button>
-
-                {:else if activeTab === 'initialize'}
-                    <!-- Initialize Existing Campaign Wizard -->
-                    <div class="wizard-container">
-                        <div class="wizard-progress">
-                            {#each Array(totalSteps) as _, i}
-                                <div class="step" class:active={currentStep === i + 1} class:completed={currentStep > i + 1}>
-                                    <div class="step-number">{i + 1}</div>
-                                    <div class="step-label">
-                                        {i === 0 ? 'Campaign Info' : 'Characters & Resources'}
-                                    </div>
-                                </div>
-                            {/each}
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="currentLevel">Current Level</label>
+                            <input 
+                                type="number" 
+                                id="currentLevel" 
+                                bind:value={currentLevel}
+                                min="1"
+                                max="20"
+                                on:input={(e) => {
+                                    const val = parseInt(e.currentTarget.value);
+                                    if (val < 1) currentLevel = 1;
+                                    if (val > 20) currentLevel = 20;
+                                }}
+                                required
+                            />
                         </div>
+
+                        <div class="form-group">
+                            <label for="remainderXP">Experience into this level</label>
+                            <input 
+                                type="number" 
+                                id="remainderXP" 
+                                bind:value={remainderXP}
+                                min="0"
+                                max="999"
+                                required
+                            />
+                            <div class="help-text">
+                                Total XP: {(currentLevel - 1) * 1000 + remainderXP}
+                            </div>
+                        </div>
+                    </div>
+                {:else if currentStep === 2}
+                    <!-- Step 2: Characters and Resources -->
+                     <div class="description">
+                        Assign character's items and gold (and ones unassigned to any particular character). A basic encounter will be generated containing all of these. You will be able to edit this later, if you want to fill them in on a session-by-session basis.
+                     </div>
+                    <div class="characters-section">
+                        <button 
+                            type="button"
+                            class="add-character-btn"
+                            on:click={addCharacter}
+                        >
+                            Add Character
+                        </button>
                         
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {((currentStep - 1) / (totalSteps - 1)) * 100}%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="wizard-content">
-                        {#if currentStep === 1}
-                            <!-- Step 1: Campaign Info -->
-                            <div class="form-group">
-                                <label for="initName">Campaign Name</label>
-                                <input 
-                                    type="text" 
-                                    id="initName" 
-                                    bind:value={initName}
-                                    required
-                                />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="initDescription">Description</label>
-                                <textarea 
-                                    id="initDescription" 
-                                    bind:value={initDescription}
-                                    rows="3"
-                                ></textarea>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="currentLevel">Current Level</label>
-                                    <input 
-                                        type="number" 
-                                        id="currentLevel" 
-                                        bind:value={currentLevel}
-                                        min="1"
-                                        max="20"
-                                        on:input={(e) => {
-                                            const val = parseInt(e.currentTarget.value);
-                                            if (val < 1) currentLevel = 1;
-                                            if (val > 20) currentLevel = 20;
-                                        }}
-                                        required
-                                    />
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="remainderXP">Experience into this level</label>
-                                    <input 
-                                        type="number" 
-                                        id="remainderXP" 
-                                        bind:value={remainderXP}
-                                        min="0"
-                                        max="999"
-                                        required
-                                    />
-                                    <div class="help-text">
-                                        Total XP: {(currentLevel - 1) * 1000 + remainderXP}
+                        {#each characters as character, i}
+                            <div class="character-card">
+                                <div class="character-header" 
+                                     on:click={() => character.isCollapsed = !character.isCollapsed}>
+                                    <div class="header-content">
+                                        <h4>{character.name || 'New Character'}</h4>
+                                        <span class="collapse-indicator">
+                                            {character.isCollapsed ? '▼' : '▲'}
+                                        </span>
                                     </div>
+                                    {#if characters.length > 1}
+                                        <button 
+                                            type="button" 
+                                            class="remove-button"
+                                            on:click|stopPropagation={() => removeCharacter(i)}
+                                        >
+                                            Remove
+                                        </button>
+                                    {/if}
                                 </div>
-                            </div>
-                        {:else if currentStep === 2}
-                            <!-- Step 2: Characters and Resources -->
-                             <div class="description">
-                                Assign character's items and gold (and ones unassigned to any particular character). A basic encounter will be generated containing all of these. You will be able to edit this later, if you want to fill them in on a session-by-session basis.
-                             </div>
-                            <div class="characters-section">
-                                <button 
-                                    type="button"
-                                    class="add-character-btn"
-                                    on:click={addCharacter}
-                                >
-                                    Add Character
-                                </button>
                                 
-                                {#each characters as character, i}
-                                    <div class="character-card">
-                                        <div class="character-header" 
-                                             on:click={() => character.isCollapsed = !character.isCollapsed}>
-                                            <div class="header-content">
-                                                <h4>{character.name || 'New Character'}</h4>
-                                                <span class="collapse-indicator">
-                                                    {character.isCollapsed ? '▼' : '▲'}
-                                                </span>
+                                {#if !character.isCollapsed}
+                                    <div class="character-content">
+                                        <div class="character-basic-info">
+                                            <div class="form-group">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Character Name"
+                                                    bind:value={character.name}
+                                                    required
+                                                />
                                             </div>
-                                            {#if characters.length > 1}
-                                                <button 
-                                                    type="button" 
-                                                    class="remove-button"
-                                                    on:click|stopPropagation={() => removeCharacter(i)}
-                                                >
-                                                    Remove
-                                                </button>
-                                            {/if}
+                                            
+                                            <div class="form-group inline">
+                                                <label for={`charClass${i}`}>Class:</label>
+                                                <select id={`charClass${i}`} bind:value={character.class}>
+                                                    <option value={0}>Select Class</option>
+                                                    {#each Array.from($classStore.entities.values()) as classOption}
+                                                        <option value={classOption.id}>{classOption.name}</option>
+                                                    {/each}
+                                                </select>
+                                                
+                                                <label for={`charGold${i}`}>Gold:</label>
+                                                <input 
+                                                    type="number" 
+                                                    id={`charGold${i}`} 
+                                                    bind:value={character.gold}
+                                                    min="0"
+                                                />
+                                            </div>
                                         </div>
                                         
-                                        {#if !character.isCollapsed}
-                                            <div class="character-content">
-                                                <div class="character-basic-info">
-                                                    <div class="form-group">
-                                                        <input 
-                                                            type="text" 
-                                                            placeholder="Character Name"
-                                                            bind:value={character.name}
-                                                            required
-                                                        />
-                                                    </div>
-                                                    
-                                                    <div class="form-group inline">
-                                                        <label for={`charClass${i}`}>Class:</label>
-                                                        <select id={`charClass${i}`} bind:value={character.class}>
-                                                            <option value={0}>Select Class</option>
-                                                            {#each Array.from($classStore.entities.values()) as classOption}
-                                                                <option value={classOption.id}>{classOption.name}</option>
-                                                            {/each}
-                                                        </select>
-                                                        
-                                                        <label for={`charGold${i}`}>Gold:</label>
-                                                        <input 
-                                                            type="number" 
-                                                            id={`charGold${i}`} 
-                                                            bind:value={character.gold}
-                                                            min="0"
-                                                        />
-                                                    </div>
+                                        <div class="character-items">
+                                            <h5>Items</h5>
+                                            
+                                            {#if character.items.length > 0}
+                                                <div class="item-list">
+                                                    {#each character.items as itemId}
+                                                        {#if itemDetails.entities.get(itemId)}
+                                                            {@const item = itemDetails.entities.get(itemId)}
+                                                            {#if item}
+                                                                <div class="item-entry">
+                                                                    <div class="item-name">{item.name}</div>
+                                                                    <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
+                                                                    <button 
+                                                                        type="button"
+                                                                        class="remove-button"
+                                                                        on:click={() => {
+                                                                            character.items = character.items.filter(id => id !== itemId);
+                                                                        }}
+                                                                    >
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            {/if}
+                                                        {/if}
+                                                    {/each}
                                                 </div>
-                                                
-                                                <div class="character-items">
-                                                    <h5>Items</h5>
-                                                    
-                                                    {#if character.items.length > 0}
-                                                        <div class="item-list">
-                                                            {#each character.items as itemId}
-                                                                {#if itemDetails.entities.get(itemId)}
-                                                                    {@const item = itemDetails.entities.get(itemId)}
-                                                                    {#if item}
-                                                                        <div class="item-entry">
-                                                                            <div class="item-name">{item.name}</div>
-                                                                            <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
-                                                                            <button 
-                                                                                type="button"
-                                                                                class="remove-button"
-                                                                                on:click={() => {
-                                                                                    character.items = character.items.filter(id => id !== itemId);
-                                                                                }}
-                                                                            >
-                                                                                Remove
-                                                                            </button>
-                                                                        </div>
-                                                                    {/if}
-                                                                {/if}
-                                                            {/each}
-                                                        </div>
-                                                    {:else}
-                                                        <div class="help-text">No items added yet</div>
-                                                    {/if}
-                                                    
-                                                    <div class="form-group">
-                                                        <LibrarySelector
-                                                            entityType="item"
-                                                            onSelect={(id) => {
-                                                                character.items = [...character.items, id];
-                                                            }}
-                                                            placeholder="Search for items..."
-                                                        />
-                                                    </div>
-                                                </div>
+                                            {:else}
+                                                <div class="help-text">No items added yet</div>
+                                            {/if}
+                                            
+                                            <div class="form-group">
+                                                <LibrarySelector
+                                                    entityType="item"
+                                                    onSelect={(id) => {
+                                                        character.items = [...character.items, id];
+                                                    }}
+                                                    placeholder="Search for items..."
+                                                />
                                             </div>
-                                        {/if}
-                                    </div>
-                                {/each}
-                            </div>
-                            
-                            <div class="party-resources">
-                                <h4>Unassigned Party Resources</h4>
-                                
-                                <div class="form-group">
-                                    <label for="partyGold">Party Gold</label>
-                                    <input 
-                                        type="number" 
-                                        id="partyGold" 
-                                        bind:value={partyGold}
-                                        min="0"
-                                    />
-                                    <div class="help-text">
-                                        Gold that hasn't been assigned to specific characters
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label>Party Items</label>
-                                    
-                                    {#if partyItems.length > 0}
-                                        <div class="item-list">
-                                            {#each partyItems as itemId}
-                                                {#if itemDetails.entities.get(itemId)}
-                                                    {@const item = itemDetails.entities.get(itemId)}
-                                                    {#if item}
-                                                        <div class="item-entry">
-                                                            <div class="item-name">{item.name}</div>
-                                                            <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
-                                                            <button 
-                                                                type="button"
-                                                                class="remove-button"
-                                                                on:click={() => {
-                                                                    partyItems = partyItems.filter(id => id !== itemId);
-                                                                }}
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    {/if}
-                                                {/if}
-                                            {/each}
                                         </div>
-                                    {:else}
-                                        <div class="help-text">No party items added yet</div>
-                                    {/if}
-                                    
-                                    <div class="form-group">
-                                        <LibrarySelector
-                                            entityType="item"
-                                            onSelect={(id) => {
-                                                partyItems = [...partyItems, id];
-                                            }}
-                                            placeholder="Search for items..."
-                                        />
                                     </div>
-                                </div>
+                                {/if}
                             </div>
-                        {/if}
+                        {/each}
                     </div>
                     
-                    <div class="wizard-actions">
-                        {#if currentStep > 1}
-                            <button 
-                                type="button"
-                                class="prev-btn"
-                                on:click={prevStep}
-                            >
-                                Previous
-                            </button>
-                        {:else}
-                            <div></div> <!-- Empty div to maintain layout -->
-                        {/if}
+                    <div class="party-resources">
+                        <h4>Unassigned Party Resources</h4>
                         
-                        {#if currentStep < totalSteps}
-                            <button 
-                                type="button"
-                                class="next-btn"
-                                on:click={nextStep}
-                            >
-                                Next
-                            </button>
-                        {:else}
-                            <button 
-                                type="button"
-                                class="finish-btn"
-                                on:click={handleSubmit}
-                            >
-                                Initialize Campaign
-                            </button>
-                        {/if}
+                        <div class="form-group">
+                            <label for="partyGold">Party Gold</label>
+                            <input 
+                                type="number" 
+                                id="partyGold" 
+                                bind:value={partyGold}
+                                min="0"
+                            />
+                            <div class="help-text">
+                                Gold that hasn't been assigned to specific characters
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Party Items</label>
+                            
+                            {#if partyItems.length > 0}
+                                <div class="item-list">
+                                    {#each partyItems as itemId}
+                                        {#if itemDetails.entities.get(itemId)}
+                                            {@const item = itemDetails.entities.get(itemId)}
+                                            {#if item}
+                                                <div class="item-entry">
+                                                    <div class="item-name">{item.name}</div>
+                                                    <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
+                                                    <button 
+                                                        type="button"
+                                                        class="remove-button"
+                                                        on:click={() => {
+                                                            partyItems = partyItems.filter(id => id !== itemId);
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            {/if}
+                                        {/if}
+                                    {/each}
+                                </div>
+                            {:else}
+                                <div class="help-text">No party items added yet</div>
+                            {/if}
+                            
+                            <div class="form-group">
+                                <LibrarySelector
+                                    entityType="item"
+                                    onSelect={(id) => {
+                                        partyItems = [...partyItems, id];
+                                    }}
+                                    placeholder="Search for items..."
+                                />
+                            </div>
+                        </div>
                     </div>
                 {/if}
-                </form>
             </div>
-    </div>
-{/if}
+            
+            <div class="wizard-actions">
+                {#if currentStep > 1}
+                    <button 
+                        type="button"
+                        class="prev-btn"
+                        on:click={prevStep}
+                    >
+                        Previous
+                    </button>
+                {:else}
+                    <div></div> <!-- Empty div to maintain layout -->
+                {/if}
+                
+                {#if currentStep < totalSteps}
+                    <button 
+                        type="button"
+                        class="next-btn"
+                        on:click={nextStep}
+                    >
+                        Next
+                    </button>
+                {:else}
+                    <button 
+                        type="button"
+                        class="finish-btn"
+                        on:click={handleSubmit}
+                    >
+                        Initialize Campaign
+                    </button>
+                {/if}
+            </div>
+        {/if}
+        </form>
+
+    
+</Modal>
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        z-index: 1000;
-        padding: 2rem;
-        overflow-y: auto;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        width: 90%;
-        max-width: 1000px;
-        max-height: 90vh;
-        overflow-y: auto;
-        margin: auto;
-    }
-
     .form-group {
         margin-bottom: 1rem;
     }

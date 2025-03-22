@@ -7,6 +7,8 @@
     import { statsStore } from '$lib/stores/stats';
     import type { CharacterStats } from '$lib/types/stats';
     import { campaignStore } from '$lib/stores/campaigns';
+    import { id } from 'date-fns/locale';
+    import ConfirmationModal from './ConfirmationModal.svelte';
 
     export let selectedCampaignId: number;
     export let error: string | null;
@@ -19,6 +21,8 @@
 
     $: stats = $statsStore.get(selectedCampaignId);
     $: characterStats = stats?.character_stats || {};
+
+    let characterToDelete: number | null = null;
 
     function getCharacterStats(characterId: number): CharacterStats | undefined {
         return stats?.character_stats[characterId];
@@ -84,15 +88,13 @@
                             editingCharacter = character;
                             showNewCharacterModal = true;
                         }}>Edit</button>
-                        <button class="delete-btn" on:click={() => handleCharacterDelete(character.id)}>
+                        <button class="delete-btn" on:click={() => characterToDelete = character.id}>
                             Delete
                         </button>
                     </div>
                 </div>
 
                 <div class="character-content">
-
-
                     <div class="content-section">
                         <h4>Treasure & Items</h4>
                         {#if equity}
@@ -161,14 +163,29 @@
         } else {
             await characterStore.addCharacters(selectedCampaignId, [event.detail]);
         }
-        showNewCharacterModal = false;
         editingCharacter = null;
     }}
     on:close={() => {
-        showNewCharacterModal = false;
         editingCharacter = null;
     }}
 />
+
+<ConfirmationModal
+    show={characterToDelete !== null}
+    error={error}
+    on:confirm={() => {
+        if(characterToDelete) handleCharacterDelete(characterToDelete);
+        characterToDelete = null;
+    }}
+    on:close={() => {
+        characterToDelete = null
+    }}
+    confirmationString="Delete '{characters.find(c => c.id === characterToDelete)?.name}'"
+    >
+Are you sure you would like to delete the character "{
+    characters.find(c => c.id === characterToDelete)?.name
+}"?
+    </ConfirmationModal>
 
 <style>
     .characters-section {

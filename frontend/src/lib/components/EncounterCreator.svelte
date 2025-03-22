@@ -2,7 +2,7 @@
     import { requireAuth } from '$lib/guards/auth';
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
-    import type { Character } from '$lib/types/types';
+    import type { Character, LibraryEntity } from '$lib/types/types';
     import LibrarySelector from '$lib/components/LibrarySelector.svelte';
     import { id } from 'date-fns/locale';
     import { 
@@ -14,7 +14,7 @@
 
     } from '$lib/utils/encounter';
     import type { Encounter, CreateOrReplaceEncounter, EncounterStatus, CreateEncounterFinalized, EncounterEnemy, CreateOrReplaceEncounterExtended, EncounterType, SubsystemCategory, SkillCheck } from '$lib/types/encounters';
-    import { getFullUrl, getFullUrlWithAdjustment, type LibraryCreature, type LibraryHazard, type LibraryItem } from '$lib/types/library';
+    import { getFullUrl, getFullUrlWithAdjustment, type LibraryCreature, type LibraryEntityType, type LibraryHazard, type LibraryItem } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
     import {
@@ -36,6 +36,7 @@
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { goto } from '$app/navigation';
   import { skills } from '$lib/types/types';
+    import BrowseLibraryModal from './BrowseLibraryModal.svelte';
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -562,6 +563,41 @@
             subsystem_checks: []
         };
     }
+
+    let libraryTabs : LibraryEntityType[] = $state(['creature']);
+    let showLibraryModal = $state(false);
+    function openLibrary(entityType : LibraryEntityType) {
+        //TODO: reset
+        if (entityType === 'creature') {
+            libraryTabs = ['creature'];
+        } else if (entityType === 'hazard') {
+            libraryTabs = ['hazard'];
+        } else if (entityType === 'item') {
+            // TODO: Include spells for future use of scrolls, wands
+            libraryTabs = ['item', 'spell'];
+        } else {
+            return;
+        }
+        showLibraryModal = true;
+    }
+
+    // TODO: Edit this maybe with a better LibraryEntity definition
+    async function addEntityFromLibrary(entityType : LibraryEntityType, entity : LibraryEntity) {
+        // TODO: Maybe remove this? might be better to keep in library
+        return;
+        if (entityType === 'creature') {
+            wipEncounter.enemies = [...wipEncounter.enemies || [], { id: entity.id, level_adjustment: 0 }];
+        } else if (entityType === 'hazard') {
+            wipEncounter.hazards = [...wipEncounter.hazards || [], entity.id];
+        } else if (entityType === 'item') {
+            wipEncounter.treasure_items = [...wipEncounter.treasure_items || [], entity.id];
+        }
+
+        // TODO: Spells
+
+        // TODO: patch request here
+        // Do we want to do a patch request here? I dont think we need to
+    }
 </script>
 
 <div class="encounter-form">
@@ -855,12 +891,7 @@
                         placeholder="Search for enemies..."
                         initialIds={wipEncounter.enemies.map(e => e.id)}
                     />
-                    <a 
-                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=creature`}
-                        class="browse-library-button"
-                    >
-                        Browse Library
-                    </a>
+                    <button type="button" class="browse-library-button" on:click={() => openLibrary("creature")}>Browse Library</button>
                     </div>
                 </div>
             {/if}
@@ -911,12 +942,7 @@
                         placeholder="Search for hazards..."
                         initialIds={wipEncounter.hazards}
                     />
-                    <a 
-                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=hazard`}
-                        class="browse-library-button"
-                    >
-                        Browse Library
-                    </a>
+                    <button type="button" class="browse-library-button" on:click={() => openLibrary("hazard")}>Browse Library</button>
                     </div>
                 </div>
             {/if}
@@ -987,12 +1013,7 @@
                         placeholder="Search for items..."
                         initialIds={wipEncounter.treasure_items}
                     />
-                    <a 
-                        href={`library?activeEncounterId=${editingEncounter ? editingEncounter.id : ''}&tab=item`}
-                        class="browse-library-button"
-                    >
-                        Browse Library
-                    </a>
+                    <button type="button" class="browse-library-button" on:click={() => openLibrary("item")}>Browse Library</button>
                     </div>
                 </div>
             {/if}
@@ -1030,6 +1051,11 @@
         </button>
     </form>
 </div>
+
+<BrowseLibraryModal bind:show={showLibraryModal} 
+allowedTabs={libraryTabs} addEntityToEncounter={addEntityFromLibrary} 
+bind:editingEncounter={wipEncounter}
+/>
 
 <style>
     .encounters-page {

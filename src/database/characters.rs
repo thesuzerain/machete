@@ -186,6 +186,26 @@ pub async fn delete_character(
 
     sqlx::query!(
         r#"
+        DELETE FROM campaign_session_characters
+        WHERE character_id = $1
+        "#,
+        character_id.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_session_character_items
+        WHERE character_id = $1
+        "#,
+        character_id.0 as i32,
+    )
+    .execute(exec)
+    .await?;
+
+    sqlx::query!(
+        r#"
         DELETE FROM characters
         WHERE id = $1
         "#,
