@@ -4,7 +4,7 @@
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
   import type { Campaign } from '$lib/types/types';
-  import CampaignModal from './CampaignModal.svelte';
+  import CampaignModal from '../modals/CampaignModal.svelte';
   import { onMount } from 'svelte';
 
     export let error: string | null;

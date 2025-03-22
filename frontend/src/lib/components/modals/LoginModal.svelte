@@ -2,7 +2,7 @@
     import { API_URL } from '$lib/config';
     import { auth } from '$lib/stores/auth';
     import { createEventDispatcher } from 'svelte';
-    import Modal from './Modal.svelte';
+    import Modal from '../core/Modal.svelte';
 
     export let show = false;
 

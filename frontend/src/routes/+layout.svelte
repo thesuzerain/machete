@@ -1,10 +1,10 @@
 <script lang="ts">
-    import LoginModal from "$lib/components/LoginModal.svelte";
-    import SignupModal from "$lib/components/SignupModal.svelte";
+    import LoginModal from "$lib/components/modals/LoginModal.svelte";
+    import SignupModal from "$lib/components/modals/SignupModal.svelte";
     import { auth, isLoading } from '$lib/stores/auth';
     import { onMount } from 'svelte';
     import "../app.css";
-  import CampaignSelector from "$lib/components/CampaignSelector.svelte";
+  import CampaignSelector from "$lib/components/selectors/CampaignSelector.svelte";
 
   let error: string | null = null;
     let showLoginModal = false;

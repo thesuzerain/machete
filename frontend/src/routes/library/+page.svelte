@@ -16,7 +16,7 @@
     import { API_URL } from '$lib/config';
     import { goto } from '$app/navigation';
     import type { Encounter } from '$lib/types/encounters';
-    import Library from '$lib/components/Library.svelte';
+    import Library from '$lib/components/library/Library.svelte';
 
     export let data: { activeEncounterId: number | null, startTab: string | null };
 
@@ -361,9 +361,7 @@
         <div class="error" transition:fade>{error}</div>
     {/if}
 
-
-    <Library activeEncounterId={data.activeEncounterId} activeTab={activeTab} />
-
+    <Library activeTab={activeTab} />
 </div>
 
 <style>

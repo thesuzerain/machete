@@ -4,18 +4,16 @@
     import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
     import { characterStore } from '$lib/stores/characters';
     import type { Campaign, InsertEvent, Log } from '$lib/types/types';
-    import CampaignModal from '$lib/components/CampaignModal.svelte';
-    import CampaignCharactersTab from '$lib/components/CampaignCharactersTab.svelte';
-    import CampaignLogsTab from '$lib/components/CampaignLogsTab.svelte';
+    import CampaignModal from '$lib/components/modals/CampaignModal.svelte';
+    import CampaignCharactersTab from '$lib/components/tabs/CampaignCharactersTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
-    import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
-    import CampaignExportTab from '$lib/components/CampaignExportTab.svelte';
+    import CampaignExportTab from '$lib/components/tabs/CampaignExportTab.svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
-    import CampaignSessionsTab from '$lib/components/CampaignSessionsTab.svelte';
+    import CampaignSessionsTab from '$lib/components/tabs/CampaignSessionsTab.svelte';
   import { encounterStore } from '$lib/stores/encounters';
-  import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
+  import CampaignSummaryTab from '$lib/components/tabs/CampaignSummaryTab.svelte';
 import { statsStore } from '$lib/stores/stats';
     import { page } from '$app/stores';
 
@@ -23,7 +21,7 @@ import { statsStore } from '$lib/stores/stats';
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'summary' | 'sessions' | 'characters' | 'logs' | 'import' | 'export' = 'summary';
+    let activeTab: 'summary' | 'sessions' | 'characters' | 'export' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
@@ -191,19 +189,6 @@ import { statsStore } from '$lib/stores/stats';
     >
         Characters
     </button>
-
-        <button 
-            class="tab-button {activeTab === 'logs' ? 'active' : ''}"
-            on:click={() => activeTab = 'logs'}
-        >
-            Logs
-        </button>
-        <button 
-            class="tab-button {activeTab === 'import' ? 'active' : ''}"
-            on:click={() => activeTab = 'import'}
-        >
-            Import
-        </button>
         <button 
             class="tab-button {activeTab === 'export' ? 'active' : ''}"
             on:click={() => activeTab = 'export'}
@@ -226,24 +211,9 @@ import { statsStore } from '$lib/stores/stats';
                         {selectedCampaignId}
                         bind:error
             />
-        {:else if activeTab === 'logs'}
-            <CampaignLogsTab
-                {selectedCampaignId}
-                {campaignLogs}
-                {characters}
-                {fetchLogs}
-                bind:error
-            />
         {:else if activeTab === 'export'}
             <CampaignExportTab
                 campaignId={selectedCampaignId}
-            />
-        {:else}
-            <CampaignImportTab
-                {selectedCampaignId}
-                {characters}
-                bind:error
-                {fetchLogs}
             />
         {/if}
     {/if}

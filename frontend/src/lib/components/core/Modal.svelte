@@ -49,15 +49,16 @@
         z-index: 1000;
         padding: 2rem;
         overflow-y: auto;
+        
     }
 
     .modal-content {
         background: white;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 0.5rem;
-        width: 90%;
+        width: 100%;
         max-width: 1000px;
-        max-height: 90vh;
+        max-height: 100vh;
         overflow-y: auto;
         margin: auto;
     }

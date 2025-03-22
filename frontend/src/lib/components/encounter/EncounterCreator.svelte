@@ -3,7 +3,7 @@
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import type { Character, LibraryEntity } from '$lib/types/types';
-    import LibrarySelector from '$lib/components/LibrarySelector.svelte';
+    import LibrarySelector from '$lib/components/selectors/LibrarySelector.svelte';
     import { id } from 'date-fns/locale';
     import { 
         getExperienceFromLevel, 
@@ -29,14 +29,13 @@
   import { API_URL } from '$lib/config';
   import { encounterStore } from '$lib/stores/encounters';
   import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
-  import EncounterCreatorNlp from './EncounterCreatorNlp.svelte';
   import { writable, type Writable } from 'svelte/store';
   import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
   import { characterStore } from '$lib/stores/characters';
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { goto } from '$app/navigation';
   import { skills } from '$lib/types/types';
-    import BrowseLibraryModal from './BrowseLibraryModal.svelte';
+    import BrowseLibraryModal from '../modals/BrowseLibraryModal.svelte';
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -53,8 +52,6 @@
 
     let loading = $state(true);
     let error: string | null = $state(null);
-
-    let encounterCreatorNlp : EncounterCreatorNlp;
     
     // Add new state for auto-saving
     let saveTimeout: NodeJS.Timeout;
@@ -1053,7 +1050,7 @@
 </div>
 
 <BrowseLibraryModal bind:show={showLibraryModal} 
-allowedTabs={libraryTabs} addEntityToEncounter={addEntityFromLibrary} 
+allowedTabs={libraryTabs}
 bind:editingEncounter={wipEncounter}
 />
 

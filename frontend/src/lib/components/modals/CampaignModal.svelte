@@ -5,8 +5,8 @@
     import type { Campaign, InsertInitialCampaignData } from '$lib/types/types';
     import { campaignStore } from '$lib/stores/campaigns';
     import { classStore, itemStore } from '$lib/stores/libraryStore';
-    import LibrarySelector from './LibrarySelector.svelte';
-    import Modal from './Modal.svelte';
+    import LibrarySelector from '../selectors/LibrarySelector.svelte';
+    import Modal from '../core/Modal.svelte';
 
     interface Props {
         show: boolean;

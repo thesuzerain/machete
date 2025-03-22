@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { CampaignSession, CompiledRewards, AccomplishmentLevel } from '$lib/types/types';
+    import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
@@ -10,7 +10,8 @@
     import { onMount } from 'svelte';
     import RangeSlider from 'svelte-range-slider-pips';
     import { compile } from 'svelte/compiler';
-    import EncounterViewer from './EncounterViewer.svelte';
+    import EncounterViewer from '../encounter/EncounterViewer.svelte';
+    import type { AccomplishmentLevel, Encounter } from '$lib/types/encounters';
 
     interface Props {
         selectedCampaignId: number;
@@ -33,7 +34,7 @@
 
     let items = $derived($itemStore);
     let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
-    let selectedSession : CampaignSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
+    let selectedSession : CampaignSession | null = $derived(campaignSessions.find(s => s.id === selectedSessionId)|| null);
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
     let campaignCharacters = $derived(($characterStore.get(selectedCampaignId)) || []);
 
@@ -302,11 +303,11 @@
     }
 
     // Add these state variables
-    let viewingEncounter = $state(null);
+    let viewingEncounter : Encounter | null = $state(null);
     let showEncounterViewer = $state(false);
 
     // Add this function
-    function viewEncounter(encounter) {
+    function viewEncounter(encounter : Encounter) {
         viewingEncounter = encounter;
         showEncounterViewer = true;
     }
@@ -626,7 +627,7 @@
                         on:change={(e) => reassignGoldWithMaximum(cid)}
                         />
                         <RangeSlider value={compiledGoldRewards[cid]} all='label' 
-                        float="true" pipstep={Math.ceil(totalSessionRewards.currency/10)} springValues={[0.1, 0.1]} pips 
+                        float pipstep={Math.ceil(totalSessionRewards.currency/10)} springValues={[0.1, 0.1]} pips 
                         on:change={(e) => modifyGoldReward(cid, e)}
                         min={0} max={Math.ceil(totalSessionRewards.currency)} />
                         <p>gold</p>

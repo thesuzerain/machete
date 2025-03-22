@@ -1,14 +1,14 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
     import type { Character } from '$lib/types/types';
-    import CharacterModal from '$lib/components/CharacterModal.svelte';
+    import CharacterModal from '$lib/components/modals/CharacterModal.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
     import { statsStore } from '$lib/stores/stats';
     import type { CharacterStats } from '$lib/types/stats';
     import { campaignStore } from '$lib/stores/campaigns';
     import { id } from 'date-fns/locale';
-    import ConfirmationModal from './ConfirmationModal.svelte';
+    import ConfirmationModal from '../modals/ConfirmationModal.svelte';
 
     export let selectedCampaignId: number;
     export let error: string | null;
@@ -31,7 +31,7 @@
 
     $: allIndividualGold = Object.values(stats?.character_stats || {}).map(c => c.total_combined_treasure).reduce((acc, val) => acc + val, 0);
     // TODO: refactor with CampaignSummaryTab
-    function getEquityStats(character) {
+    function getEquityStats(character : Character) {
         const charStats = characterStats[character.id];
         if (!charStats) return null;
 

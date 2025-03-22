@@ -3,10 +3,10 @@
     import { fade } from 'svelte/transition';
     import { API_URL } from '$lib/config';
     import type { Character } from '$lib/types/types';
-    import LibrarySelector from './LibrarySelector.svelte';
+    import LibrarySelector from '../selectors/LibrarySelector.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
-    import Modal from './Modal.svelte';
+    import Modal from '../core/Modal.svelte';
 
     export let show = false;
     export let campaignId: number | null;

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { statsStore } from '$lib/stores/stats';
     import { characterStore } from '$lib/stores/characters';
-    import LineGraph from './LineGraph.svelte';
+    import LineGraph from '../core/LineGraph.svelte';
     import { onMount } from 'svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
 
@@ -80,7 +80,7 @@
         });
         
         return acc;
-    }, [] as Array<{level: number, actual: number, expected: number}>).reverse();
+    }, [] as Array<{level: number, actual: number, expected: number}>).reverse() || [];
 
     $: treasureByLevelCumulativeSeries = treasureByLevelCumulative.map(((data) => ({
         x: data.level,
@@ -194,7 +194,7 @@
                 <div class="value">{stats?.total_combined_treasure || 0}</div>
                 <div class="subtext">Expected by end of level: {stats?.total_expected_combined_treasure_end_of_level?.toFixed(1) || 0}</div>
             </div>
-            <div class="progress-bar" style="--color: {stats?.total_combined_treasure >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
+            <div class="progress-bar" style="--color: {stats?.total_combined_treasure ?? 0 >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
                 <div class="progress" style="width: {Math.min(treasureThisLevelFraction * 100, 100)}%"></div>
             </div>
             <div>

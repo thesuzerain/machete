@@ -23,7 +23,6 @@
 
     export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
     export let activeTab: LibraryEntityType  = allowedTabs[0];
-    export let addEntityToEncounter: ((entityType: LibraryEntityType, entity: LibraryEntity) => Promise<void>) | undefined;
     export let editingEncounter: CreateOrReplaceEncounter | null = null;
 
 
@@ -120,7 +119,7 @@
     let previewPosition = { x: 0, y: 0 };
 
     // Modify encounter state handling
-    $: isEncounterMode = addEntityToEncounter && editingEncounter;
+    $: isEncounterMode = editingEncounter;
 
     // Add state for notification
     let notification: string | null = null;
@@ -185,14 +184,8 @@
     }
 
     async function addToEncounter(entity: LibraryEntity, type: LibraryEntityType) {
-        console.log("addToEncounter", entity, type);
-        console.log("editingEncounter", editingEncounter);
-        // TODO: Remove
-        // if (addEntityToEncounter) {await addEntityToEncounter?.(type, entity) }
-
         // TODO: There may be a better way to do type assignemnts w.r.t LibraryEntity
         // currently: creatureStore.insertEntity(entity as LibraryCreature);
-
         if (!editingEncounter) return;
         switch (type) {
             case 'creature':
