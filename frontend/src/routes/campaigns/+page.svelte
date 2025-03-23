@@ -16,6 +16,7 @@
   import CampaignSummaryTab from '$lib/components/tabs/CampaignSummaryTab.svelte';
 import { statsStore } from '$lib/stores/stats';
     import { page } from '$app/stores';
+    import Card from '$lib/components/core/Card.svelte';
 
     let loading = true;
     let error: string | null = null;
@@ -129,8 +130,8 @@ import { statsStore } from '$lib/stores/stats';
     {#if selectedCampaignId && stats}
         <div class="campaign-metadata" transition:fade>
             <div class="metadata-item">
-                <div class="metadata-content">
-                    <span class="label">Campaign Level</span>
+                <Card tight>
+                    <h4>Campaign Level</h4>
                     <div class="value-group">
                         <span class="value">{stats.level}</span>
                         <div class="mini-progress-bar">
@@ -138,20 +139,20 @@ import { statsStore } from '$lib/stores/stats';
                         </div>
                         <div class="subtext">Experience: {stats?.experience_this_level || 0}</div>
                     </div>
-                </div>
+                </Card>
             </div>
             <div class="metadata-item">
-                <div class="metadata-content">
-                    <span class="label">Sessions</span>
+                <Card tight>
+                    <h4>Sessions</h4>
                     <div class="value-group">
                         <span class="value">{stats.num_sessions}</span>
                         <span class="subtext">({stats.num_combat_encounters} encounters)</span>
                     </div>
-                </div>
+                </Card>
             </div>
             <div class="metadata-item">
-                <div class="metadata-content">
-                    <span class="label">Treasure Balance</span>
+                <Card tight>
+                    <h4>Treasure Balance</h4>
                     <div class="values-group">
                         <div class="value-group">
                         <span class="value">
@@ -165,8 +166,7 @@ import { statsStore } from '$lib/stores/stats';
                         </span>
                         <span class="subtext">of approximate expected gold</span>
                     </div>
-                </div>
-                </div>
+                </Card>
             </div>
         </div>
 
@@ -262,13 +262,6 @@ import { statsStore } from '$lib/stores/stats';
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
-    }
-
-    .metadata-item .label {
-        font-size: 0.75rem;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
     }
 
     .values-group {

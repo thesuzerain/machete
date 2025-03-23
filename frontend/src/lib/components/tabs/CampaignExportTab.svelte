@@ -2,6 +2,7 @@
     import { fade } from 'svelte/transition';
     import { API_URL } from '$lib/config';
   import { campaignStore } from '$lib/stores/campaigns';
+    import Button from '../core/Button.svelte';
 
     export let campaignId: number;
     
@@ -57,20 +58,14 @@
     <div class="export-header">
         <h3>Export Campaign</h3>
         <div class="export-actions">
-            <button 
-                class="copy-btn" 
-                on:click={copyToClipboard}
-                disabled={!exportData || loading}
-            >
+            <Button colour="blue" onclick={copyToClipboard} disabled={!exportData || loading}>
                 {copied ? '✓ Copied!' : 'Copy to Clipboard'}
-            </button>
-            <button 
-                class="download-btn" 
-                on:click={downloadJson}
-                disabled={!exportData || loading}
-            >
+            </Button>
+
+            <Button colour="green" onclick={downloadJson} disabled={!exportData || loading}>
                 Download JSON
-            </button>
+            </Button>
+            
         </div>
     </div>
 

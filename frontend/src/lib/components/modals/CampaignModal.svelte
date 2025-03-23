@@ -7,6 +7,8 @@
     import { classStore, itemStore } from '$lib/stores/libraryStore';
     import LibrarySelector from '../selectors/LibrarySelector.svelte';
     import Modal from '../core/Modal.svelte';
+    import Button from '../core/Button.svelte';
+    import Card from '../core/Card.svelte';
 
     interface Props {
         show: boolean;
@@ -203,7 +205,7 @@
 
     <form on:submit|preventDefault={handleSubmit}>
         {#if activeTab === 'create'}
-            <div class="form-group">
+        <Card>
                 <label for="name">Name</label>
                 <input 
                     type="text" 
@@ -211,26 +213,19 @@
                     bind:value={name}
                     required
                 />
-            </div>
 
-            <div class="form-group">
                 <label for="description">Description</label>
                 <textarea 
                     id="description" 
                     bind:value={description}
                     rows="4"
                 ></textarea>
-            </div>
-            <button 
-            type="button"
-            class="finish-btn"
-            on:click={handleSubmit}
-        >
-            Initialize Campaign
-        </button>
+        </Card>
+        <Button onclick={handleSubmit} large colour='blue'>Initialize Campaign</Button>
 
         {:else if activeTab === 'import'}
-            <div class="form-group">
+
+            <Card>
                 <label for="import">Campaign JSON</label>
                 <textarea 
                     id="import" 
@@ -239,14 +234,9 @@
                     placeholder="Paste your campaign JSON here..."
                     required
                 ></textarea>
-            </div>
-            <button 
-            type="button"
-            class="finish-btn"
-            on:click={handleSubmit}
-        >
-            Initialize Campaign
-        </button>
+            </Card>
+            <Button onclick={handleSubmit} large colour='blue'>Initialize Campaign</Button>
+
 
         {:else if activeTab === 'initialize'}
             <!-- Initialize Existing Campaign Wizard -->
@@ -270,6 +260,7 @@
             <div class="wizard-content">
                 {#if currentStep === 1}
                     <!-- Step 1: Campaign Info -->
+                     <Card>
                     <div class="form-group">
                         <label for="initName">Campaign Name</label>
                         <input 
@@ -322,119 +313,109 @@
                             </div>
                         </div>
                     </div>
+                </Card>
                 {:else if currentStep === 2}
                     <!-- Step 2: Characters and Resources -->
-                     <div class="description">
+                     <Card outlined shadowed={false}>
                         Assign character's items and gold (and ones unassigned to any particular character). A basic encounter will be generated containing all of these. You will be able to edit this later, if you want to fill them in on a session-by-session basis.
-                     </div>
+                     </Card>
                     <div class="characters-section">
-                        <button 
-                            type="button"
-                            class="add-character-btn"
-                            on:click={addCharacter}
-                        >
-                            Add Character
-                        </button>
-                        
+                        <div class="characters-section-button">
+                        <Button colour='blue' onclick={addCharacter}>Add Character</Button>
+                    </div>
+
                         {#each characters as character, i}
-                            <div class="character-card">
-                                <div class="character-header" 
-                                     on:click={() => character.isCollapsed = !character.isCollapsed}>
-                                    <div class="header-content">
-                                        <h4>{character.name || 'New Character'}</h4>
-                                        <span class="collapse-indicator">
-                                            {character.isCollapsed ? '▼' : '▲'}
-                                        </span>
-                                    </div>
-                                    {#if characters.length > 1}
-                                        <button 
-                                            type="button" 
-                                            class="remove-button"
-                                            on:click|stopPropagation={() => removeCharacter(i)}
-                                        >
-                                            Remove
-                                        </button>
-                                    {/if}
+                            <Card bind:collapsed={character.isCollapsed} outlined shadowed={false}>
+                                <div slot="collapsed-header">
+                                        <div class="header-content">
+                                            <h4>{character.name || 'New Character'}</h4>
+                                        </div>
                                 </div>
-                                
-                                {#if !character.isCollapsed}
-                                    <div class="character-content">
-                                        <div class="character-basic-info">
-                                            <div class="form-group">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Character Name"
-                                                    bind:value={character.name}
-                                                    required
-                                                />
-                                            </div>
-                                            
-                                            <div class="form-group inline">
-                                                <label for={`charClass${i}`}>Class:</label>
-                                                <select id={`charClass${i}`} bind:value={character.class}>
-                                                    <option value={0}>Select Class</option>
-                                                    {#each Array.from($classStore.entities.values()) as classOption}
-                                                        <option value={classOption.id}>{classOption.name}</option>
-                                                    {/each}
-                                                </select>
-                                                
-                                                <label for={`charGold${i}`}>Gold:</label>
-                                                <input 
-                                                    type="number" 
-                                                    id={`charGold${i}`} 
-                                                    bind:value={character.gold}
-                                                    min="0"
-                                                />
-                                            </div>
+                                <div slot="header">
+                                        <div class="header-content">
+                                            <h4>{character.name || 'New Character'}</h4>
+                                        </div>
+                                </div>
+                                <div class="character-content">
+                                    <div class="character-basic-info">
+                                        <div class="form-group inline">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Character Name"
+                                                bind:value={character.name}
+                                                required
+                                            />
+                                            <Button colour='red' onclick={() => removeCharacter(i)}>Remove character</Button>
+
                                         </div>
                                         
-                                        <div class="character-items">
-                                            <h5>Items</h5>
+                                        <div class="form-group inline">
+                                            <label for={`charClass${i}`}>Class:</label>
+                                            <select id={`charClass${i}`} bind:value={character.class}>
+                                                <option value={0}>Select Class</option>
+                                                {#each Array.from($classStore.entities.values()) as classOption}
+                                                    <option value={classOption.id}>{classOption.name}</option>
+                                                {/each}
+                                            </select>
                                             
-                                            {#if character.items.length > 0}
-                                                <div class="item-list">
-                                                    {#each character.items as itemId}
-                                                        {#if itemDetails.entities.get(itemId)}
-                                                            {@const item = itemDetails.entities.get(itemId)}
-                                                            {#if item}
-                                                                <div class="item-entry">
-                                                                    <div class="item-name">{item.name}</div>
-                                                                    <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
-                                                                    <button 
-                                                                        type="button"
-                                                                        class="remove-button"
-                                                                        on:click={() => {
-                                                                            character.items = character.items.filter(id => id !== itemId);
-                                                                        }}
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
-                                                            {/if}
-                                                        {/if}
-                                                    {/each}
-                                                </div>
-                                            {:else}
-                                                <div class="help-text">No items added yet</div>
-                                            {/if}
-                                            
-                                            <div class="form-group">
-                                                <LibrarySelector
-                                                    entityType="item"
-                                                    onSelect={(id) => {
-                                                        character.items = [...character.items, id];
-                                                    }}
-                                                    placeholder="Search for items..."
-                                                />
-                                            </div>
+                                            <label for={`charGold${i}`}>Gold:</label>
+                                            <input 
+                                                type="number" 
+                                                id={`charGold${i}`} 
+                                                bind:value={character.gold}
+                                                min="0"
+                                            />
                                         </div>
                                     </div>
-                                {/if}
-                            </div>
+                                    
+                                    <div class="character-items">
+                                        <h5>Items</h5>
+                                        
+                                        {#if character.items.length > 0}
+                                            <div class="item-list">
+                                                {#each character.items as itemId}
+                                                    {#if itemDetails.entities.get(itemId)}
+                                                        {@const item = itemDetails.entities.get(itemId)}
+                                                        {#if item}
+                                                            <div class="item-entry">
+                                                                <div class="item-name">{item.name}</div>
+                                                                <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
+                                                                <button 
+                                                                    type="button"
+                                                                    class="remove-button"
+                                                                    on:click={() => {
+                                                                        character.items = character.items.filter(id => id !== itemId);
+                                                                    }}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        {/if}
+                                                    {/if}
+                                                {/each}
+                                            </div>
+                                        {:else}
+                                            <div class="help-text">No items added yet</div>
+                                        {/if}
+                                        
+                                        <div class="form-group">
+                                            <LibrarySelector
+                                                entityType="item"
+                                                onSelect={(id) => {
+                                                    character.items = [...character.items, id];
+                                                }}
+                                                placeholder="Search for items..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                           
                         {/each}
                     </div>
                     
-                    <div class="party-resources">
+                    <Card outlined shadowed={false} >
+                    
                         <h4>Unassigned Party Resources</h4>
                         
                         <div class="form-group">
@@ -490,39 +471,26 @@
                                 />
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 {/if}
             </div>
             
             <div class="wizard-actions">
                 {#if currentStep > 1}
-                    <button 
-                        type="button"
-                        class="prev-btn"
-                        on:click={prevStep}
-                    >
-                        Previous
-                    </button>
+                    <Button onclick={prevStep} large >Previous</Button>
+
                 {:else}
                     <div></div> <!-- Empty div to maintain layout -->
                 {/if}
                 
                 {#if currentStep < totalSteps}
-                    <button 
-                        type="button"
-                        class="next-btn"
-                        on:click={nextStep}
-                    >
-                        Next
-                    </button>
+                   
+                    <Button onclick={nextStep} large colour='blue'>Next</Button>
+
                 {:else}
-                    <button 
-                        type="button"
-                        class="finish-btn"
-                        on:click={handleSubmit}
-                    >
-                        Initialize Campaign
-                    </button>
+                    
+                    <Button onclick={handleSubmit} large colour='blue'>Initialize Campaign</Button>
+
                 {/if}
             </div>
         {/if}
@@ -532,9 +500,6 @@
 </Modal>
 
 <style>
-    .form-group {
-        margin-bottom: 1rem;
-    }
 
     .form-group label {
         display: block;
@@ -543,8 +508,8 @@
         font-weight: 500;
     }
 
-    .form-group input,
-    .form-group textarea {
+    input,
+    textarea {
         width: 100%;
         padding: 0.5rem;
         border: 1px solid #e5e7eb;
@@ -683,9 +648,7 @@
         gap: 0.5rem;
     }
     
-    .character-content {
-        padding: 1rem;
-    }
+
     
     .character-basic-info {
         display: flex;
@@ -783,6 +746,10 @@
 
     .characters-section {
         margin-bottom: 1.5rem;
+    }
+
+    .characters-section-button {
+        margin-top: 1.5rem;
     }
 
     .character-card {

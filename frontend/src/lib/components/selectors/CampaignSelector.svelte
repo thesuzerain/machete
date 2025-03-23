@@ -6,6 +6,7 @@
   import type { Campaign } from '$lib/types/types';
   import CampaignModal from '../modals/CampaignModal.svelte';
   import { onMount } from 'svelte';
+    import Button from '../core/Button.svelte';
 
     export let error: string | null;
 
@@ -38,17 +39,20 @@
                 <option value={id}>{campaign.name}</option>
             {/each}
         </select>
-        {#if $selectedCampaignStore}
-            <button class="new-campaign-btn" on:click={() => {
-                editingCampaign = selectedCampaign ? selectedCampaign : null
-                showNewCampaignModal = true
-            }}>
-                Edit Campaign
-            </button>
+
+    {#if $selectedCampaignStore}
+    <Button colour="blue" onclick={() => {
+        editingCampaign = selectedCampaign ? selectedCampaign : null
+        showNewCampaignModal = true
+    }}>
+        Edit Campaign
+    </Button>
+
         {/if}
-        <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
+
+        <Button colour="blue" onclick={() => showNewCampaignModal = true}>
             New Campaign
-        </button>
+        </Button>
     </div>
 </div>
 
@@ -73,7 +77,7 @@
     .campaign-selector {
         display: flex;
         gap: 1rem;
-        margin-bottom: 2rem;
+        /* margin-bottom: 2rem; */
     }
 
     .campaign-selector select {

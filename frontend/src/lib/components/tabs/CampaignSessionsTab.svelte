@@ -12,6 +12,9 @@
     import { compile } from 'svelte/compiler';
     import EncounterViewer from '../encounter/EncounterViewer.svelte';
     import type { AccomplishmentLevel, Encounter } from '$lib/types/encounters';
+    import Card from '../core/Card.svelte';
+    import Button from '../core/Button.svelte';
+    import Modal from '../core/Modal.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -382,12 +385,12 @@
                 <option value={session.id}>Session {ind}: {session.name}</option>
             {/each}
         </select>
-        <button class="edit-button" on:click={() => initializeSessionReorder()}>
+        <Button colour="blue" onclick={() => initializeSessionReorder()}>
             Edit sessions
-        </button>
-        <button class="add-button" on:click={createNewSession}>
+        </Button>
+        <Button colour="green" on:click={createNewSession}>
             New session
-        </button>
+        </Button>
     </div>
 
     {#if selectedSession}
@@ -423,14 +426,13 @@
             </div>
 
             <div class="character-selector">
-                <button 
-                    class="character-selector-toggle"
-                    on:click={() => showCharacterSelector = !showCharacterSelector}
-                >
+                <Button onclick={() => showCharacterSelector = !showCharacterSelector}>
                     {showCharacterSelector ? 'Hide' : 'Show'} Present Characters ({presentCharacters.size})
-                </button>
+
+                </Button>
+
                 {#if showCharacterSelector}
-                    <div class="character-selector-content" transition:fade>
+                    <Card>
                         <div class="character-checkboxes">
                             {#each campaignCharacters as character}
                                 <label class="character-checkbox">
@@ -443,7 +445,9 @@
                                 </label>
                             {/each}
                         </div>
-                    </div>
+
+                    </Card  >
+                    
                 {/if}
             </div>
         </div>
@@ -453,109 +457,103 @@
             <div class="section-header">
                 <h3>Session Encounters</h3>
                 <div class="header-buttons">
-                    <button 
-                        class="add-button" 
-                        class:active={showAccomplishmentForm} 
-                        on:click={() => showAccomplishmentForm = !showAccomplishmentForm}
-                    >
-                        {showAccomplishmentForm ? 'Cancel' : 'Add Accomplishment'}
-                    </button>
-                    <div>
-                    <button class="add-button" on:click={createNewEncounter}>
+                    {#if showAccomplishmentForm}
+
+                    <Button colour="red" onclick={() => showAccomplishmentForm = !showAccomplishmentForm}>
+                        Cancel
+                    </Button>
+                    {:else}
+                    <Button colour="green" onclick={() => showAccomplishmentForm = !showAccomplishmentForm}>
+                        Add Accomplishment
+                    </Button>
+                    {/if}
+                    <Button colour="green" onclick={createNewEncounter}>
                         Create New Encounter
-                    </button>
-                </div>
+                    </Button>
+                    
                 </div>
             </div>
 
             {#if showAccomplishmentForm}
-                <div class="quick-accomplishment" transition:fade>
-                    <form on:submit={addAccomplishment} class="accomplishment-inputs">
-                        <div class="name-description-row">
-                            <input 
-                                type="text" 
-                                placeholder="Name"
-                                bind:value={accomplishmentName}
-                            />
-
-                        </div>
-                        <div class="accomplishment-buttons">
-                            <button 
-                            type="button"
-                                class="accomplishment-buttons-button"
-                                class:selected={accomplishmentType === 'minor'}
-                                on:click={() => setAccomplishmentType('minor')}
-                            >Minor (10 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-                                class:selected={accomplishmentType === 'moderate'}
-                                on:click={() => setAccomplishmentType('moderate')}
-                            >Moderate (30 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-
-                                class:selected={accomplishmentType === 'major'}
-                                on:click={() => setAccomplishmentType('major')}
-                            >Major (80 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-
-                                class:selected={useCustomXP}
-                                on:click={() => setCustomXP()}
-                            >Custom XP</button>
-                        {#if useCustomXP}
-                            <div class="custom-xp">
+                <div transition:fade>
+                    <Card>
+                        <form on:submit={addAccomplishment} class="accomplishment-inputs">
+                            <div class="name-description-row">
                                 <input 
-                                    type="number" 
-                                    bind:value={customXPAmount}
-                                    min="0"
-                                    placeholder="Enter XP amount"
+                                    type="text" 
+                                    placeholder="Name"
+                                    bind:value={accomplishmentName}
                                 />
+    
                             </div>
-                        {/if}
-
-                        <button 
-                            class="submit-accomplishment" 
-                            disabled={!canAddAccomplishment}
-                        >
-                            Add Accomplishment
-                        </button>
-                    </div>
-                </form>
+                            <div class="accomplishment-buttons">
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'minor'} onclick={() => setAccomplishmentType('minor')}>
+                                    Minor (10 XP)                            
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'moderate'} onclick={() => setAccomplishmentType('moderate')}>
+                                    Moderate (30 XP)
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'major'} onclick={() => setAccomplishmentType('major')}>
+                                    Major (80 XP)
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={useCustomXP} onclick={() => setCustomXP()}>
+                                    Custom XP
+                                </Button>
+                            
+                            {#if useCustomXP}
+                                <div class="custom-xp">
+                                    <input 
+                                        type="number" 
+                                        bind:value={customXPAmount}
+                                        min="0"
+                                        placeholder="Enter XP amount"
+                                    />
+                                </div>
+                            {/if}
+                            <Button 
+                                colour="green" 
+                                onclick={addAccomplishment}
+                                disabled={!canAddAccomplishment}
+                            >
+                                Add Accomplishment
+                            </Button>
+                        </div>
+                    </form>                    </Card>
                 </div>
+
             {/if}
 
             <!-- Regular Encounters -->
             <div class="encounters-list">
                 <h4>Combat & Other Encounters</h4>
                 {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
-                    <div class="encounter-card">
+                    <Card><div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
                             <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
                         </div>
                         <div class="encounter-actions">
-                            <button class="view-button" on:click={() => viewEncounter(encounter)}>
+                            <Button colour="black" onclick={() => viewEncounter(encounter)}>
                                 View
-                            </button>
-                            <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
+                            </Button>
+                            <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
                                 Edit
-                            </button>
-                            <button class="remove-button" on:click={() => removeEncounterFromSession(encounter.id)}>
+                            </Button>
+                            <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
                                 Unlink
-                            </button>
+                            </Button>
                         </div>
                     </div>
+                    </Card>
                 {/each}
             </div>
             {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}
                 <div class="accomplishments-list accomplishments">
                     <h4>Accomplishments</h4>
                     {#each sessionEncounters.filter(e => e.encounter_type === 'accomplishment') as encounter}
-                        <div class="accomplishment-card accomplishment">
+                        <Card tight>
+
+                        <div class="accomplishment-card">
                             <div class="accomplishment-info">
                                 <h4>{encounter.name}</h4>
                                 {#if encounter.total_experience > 0}
@@ -568,14 +566,15 @@
                                 
                             </div>
                             <div class="encounter-actions">
-                                <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
+                                <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
                                     Edit
-                                </button>    
-                                <button class="remove-button" on:click={() => deleteEncounter(encounter.id)}>
+                                </Button>
+                                <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
                                     Remove
-                                </button>
+                                </Button>
                             </div>
                         </div>
+                    </Card>
                     {/each}
                 </div>
             {/if}
@@ -585,7 +584,7 @@
             <div class="reward-assignments-header">
                 <h3>Reward Assignments</h3>
             </div>
-            <div class="summary-box">
+            <Card>
                 <h4>Session Rewards</h4>
                 <div class="reward-details">
                     <p>Experience: {totalSessionRewards.xp} XP</p>
@@ -593,8 +592,7 @@
                     <p>Total item treasure value: {totalSessionRewards.total_items_value}</p>
                     <p>At end of session, we are level {selectedSession.level_at_end} with {selectedSession.experience_at_end} XP</p>
                 </div>
-            </div>
-
+            </Card>
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">
@@ -641,11 +639,10 @@
 </div>
 
 <!-- TODO: Extract to component?-->
-{#if showSessionOrderModal}
-    <div class="modal">
+    <Modal show={showSessionOrderModal}>
         <div class="modal-content">
             <h2>Reorder Sessions</h2>
-            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
+            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}" class="item-division-session-dnd">
                 {#each temporarySessionOrder as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
                         <span class="drag-handle">⋮⋮</span>
@@ -654,13 +651,14 @@
                 {/each}
             </div>
             <div class="modal-actions">
-                <button class="cancel-button" on:click={() => showSessionOrderModal = false}>
+                <Button colour="black" onclick={() => showSessionOrderModal = false}>
                     Close
-                </button>
+                </Button>
             </div>
         </div>
-    </div>
-{/if}
+
+    </Modal>
+
 
 <EncounterViewer 
     encounter={viewingEncounter}
@@ -738,18 +736,14 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.25rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
 
     .encounter-card {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
     }
 
     .encounter-actions {
@@ -810,8 +804,6 @@
         background: white;
         padding: 2rem;
         border-radius: 8px;
-        max-width: 500px;
-        width: 90%;
     }
 
     .section-header {
@@ -844,6 +836,15 @@
         overflow: hidden;
     }
 
+    .item-division-session-dnd {
+        flex: 1;
+        min-width: 80vh;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
     .gold-division {
         display: grid;
         grid-template-columns: 0.1fr 0.9fr 0.1fr;
@@ -866,7 +867,10 @@
     }
 
     .misc-section {
+        display: flex;
+        flex-direction: column;
         margin-top: 2rem;
+        gap: 1rem;
     }
 
     .reward-assignments-header {
@@ -902,13 +906,6 @@
 
     .name-description-row input {
         flex: 1;
-    }
-
-    .quick-accomplishment {
-        background: #f9fafb;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
     }
 
     .accomplishment-inputs {

@@ -7,8 +7,8 @@
 
     interface Props {
         show: boolean;
-        error: string | null;
-        confirmationString: string | null;
+        error?: string;
+        confirmationString?: string;
     }
 
     let { 
@@ -21,13 +21,13 @@
     const dispatch = createEventDispatcher();
     function confirm() {
         show = false;
-        error = null;
+        error = undefined;
         dispatch('confirm');
     }
     
     function cancel() {
         show = false;
-        error = null;
+        error = undefined;
         dispatch('close');
     }
 
@@ -41,11 +41,11 @@
     </div>
     <Card>
         <slot />
-    </Card>
-    <div class="modal-footer">
-        <Button large colour='black' onclick={cancel}>Cancel</Button>
-        <Button large colour='red' onclick={cancel}>{confirmationString ?? "OK"}}</Button>
-    </div>
+        <div class="modal-footer">
+            <Button large colour='black' onclick={cancel}>Cancel</Button>
+            <Button large colour='red' onclick={confirm}>{confirmationString ?? "OK"}</Button>
+        </div>
+        </Card>
 </Modal>
 </div>
 

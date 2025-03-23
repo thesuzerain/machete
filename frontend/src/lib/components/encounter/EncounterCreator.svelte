@@ -36,6 +36,8 @@
   import { goto } from '$app/navigation';
   import { skills } from '$lib/types/types';
     import BrowseLibraryModal from '../modals/BrowseLibraryModal.svelte';
+    import Card from '../core/Card.svelte';
+    import Button from '../core/Button.svelte';
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -113,9 +115,9 @@
     });
 
     // Add these variables near the top of the script section, with the other state variables
-    let enemiesSectionOpen = $state(true);
-    let hazardsSectionOpen = $state(true);
-    let treasureSectionOpen = $state(true);
+    let enemiesSectionClosed = $state(false);
+    let hazardsSectionClosed = $state(false);
+    let treasureSectionClosed = $state(false);
 
     // Subscribe to the stores
     let encounters = $derived($encounterStore);
@@ -462,14 +464,14 @@
         }
     }
 
-    function getAdjustmentClass(levelAdjustment: number) {
+    function getAdjustmentColour(levelAdjustment: number) {
         switch (levelAdjustment) {
             case 1:
-                return 'elite-button';
+                return 'red';
             case -1:
-                return 'weak-button';
+                return 'green';
             default:
-                return 'normal-button';
+                return 'grey';
         }
     }
 
@@ -597,134 +599,136 @@
     }
 </script>
 
-<div class="encounter-form">
-    <div class="encounter-header"><h2>Create New Encounter</h2>
-    <button type="button" on:click={resetToNewEncounter}>Reset to new encounter</button>
-</div>
-    <form on:submit={createEncounter} class="encounter-form">
-        <div class="encounter-form-container">
+<form on:submit={createEncounter}>
+    <Card>
+        <div class="encounter-header"><h2>Create New Encounter</h2>
+        <Button large colour='black' onclick={resetToNewEncounter}>Reset encounter editor</Button>
+        </div>
+            <div class="encounter-form-container">
+                <Card background="light">
+                    <div class="party-config">
 
-            <div class="party-config section">
-                <h3>Encounter Configuration</h3>
-
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input 
-                        type="text" 
-                        id="name" 
-                        class="name-input"
-                        bind:value={wipEncounter.name}
-                        required
-                    />
+                    <h3>Encounter Configuration</h3>
+    
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            class="name-input"
+                            bind:value={wipEncounter.name}
+                            required
+                        />
+                    </div>
+    
+                    <label for="description">Description</label>
+                    <div class="form-group">
+                        <textarea
+                            id="description"
+                            class="description-input"
+                            bind:value={wipEncounter.description}
+                        ></textarea>
+                    </div>
                 </div>
-
-                <label for="description">Description</label>
-                <div class="form-group">
-                    <textarea
-                        id="description"
-                        class="description-input"
-                        bind:value={wipEncounter.description}
-                    ></textarea>
-                </div>
-            </div>
-            
-                <div class="party-config section">
-
-                    <h3>Party Configuration</h3>
-                    <div class="party-config-row">
-                        <div class="party-config-input">
-                        <label for="playerCount">Number of Players</label>
-                            <input 
-                                type="number" 
-                                id="playerCount"
-                                disabled={editingEncounter ? true : false}
-                                bind:value={wipEncounter.party_size}
-                                min="1"
-                                max="6"
-                            /></div>
+                </Card>
+                <Card background="light">
+    
+                        <h3>Party Configuration</h3>
+                        <div class="party-config-row">
                             <div class="party-config-input">
-                            <label for="partyLevel">Party Level</label>
-                            <input 
-                                type="number" 
-                                id="partyLevel"
-                                disabled={editingEncounter ? true : false}
-                                bind:value={wipEncounter.party_level}
-                                min="1"
-                                max="20"
-                            /></div>
-
-                    </div>
-
-                        <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
-                        <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {wipEncounter.extra_experience})</div>
-                        {#if wipEncounter.encounter_type === 'combat'}
-                        This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{wipEncounter.party_size}</b> level <b>{wipEncounter.party_level}</b> players
-                        {/if}
-                    </div>
-
-                    </div>
-            
-        </div>
-
-        <!-- Encounter Type Selection -->
-        <div class="section">
-            <h3>Encounter Type</h3>
-            <div class="encounter-type-selector">
-                <div class="encounter-type-options">
-                    <label class="encounter-type-option">
-                        <input 
-                            type="radio" 
-                            name="encounterType" 
-                            value="combat" 
-                            bind:group={wipEncounter.encounter_type}
-                            on:change={handleEncounterTypeChange}
-                        />
-                        <span class="encounter-type-label">Combat</span>
-                        <span class="encounter-type-description">Standard encounter with enemies and/or hazards</span>
-                    </label>
-                    
-                    <label class="encounter-type-option">
-                        <input 
-                            type="radio" 
-                            name="encounterType" 
-                            value="accomplishment" 
-                            bind:group={wipEncounter.encounter_type}
-                            on:change={handleEncounterTypeChange}
-                        />
-                        <span class="encounter-type-label">Reward</span>
-                        <span class="encounter-type-description">Just treasure and XP, no combat</span>
-                    </label>
-                    
-                    <label class="encounter-type-option">
-                        <input 
-                            type="radio" 
-                            name="encounterType" 
-                            value="subsystem" 
-                            bind:group={wipEncounter.encounter_type}
-                            on:change={handleEncounterTypeChange}
-                        />
-                        <span class="encounter-type-label">Subsystem</span>
-                        <!-- TODO: Social may not actually be a subsystem. Double check this- I think its actually a whole other thing with enemies..?-->
-                        <span class="encounter-type-description">Chase, infiltration, research, or social challenge</span>
-                    </label>
-                </div>
+                            <label for="playerCount">Number of Players</label>
+                                <input 
+                                    type="number" 
+                                    id="playerCount"
+                                    disabled={editingEncounter ? true : false}
+                                    bind:value={wipEncounter.party_size}
+                                    min="1"
+                                    max="6"
+                                /></div>
+                                <div class="party-config-input">
+                                <label for="partyLevel">Party Level</label>
+                                <input 
+                                    type="number" 
+                                    id="partyLevel"
+                                    disabled={editingEncounter ? true : false}
+                                    bind:value={wipEncounter.party_level}
+                                    min="1"
+                                    max="20"
+                                /></div>
+    
+                        </div>
+    
+                            <div class="difficulty-indicator {encounterDifficulty.toLowerCase()}">
+                            <div class="xp-total">Total earned XP: <b>{totalEarnedXP}</b> ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount} + {wipEncounter.extra_experience})</div>
+                            {#if wipEncounter.encounter_type === 'combat'}
+                            This is a <b class="{getClassForDifficulty(encounterDifficulty)}">{encounterDifficulty.toLowerCase()}</b> difficulty encounter for <b>{wipEncounter.party_size}</b> level <b>{wipEncounter.party_level}</b> players
+                            {/if}
+                        </div>
+    
+                </Card>
             </div>
-        </div>
-
-
-        <!-- Subsystem section - Only shown for subsystem encounters -->
-        {#if wipEncounter.encounter_type === 'subsystem'}
-            <div class="section collapsible">
-                <div class="section-header" on:click={() => subsystemSectionOpen = !subsystemSectionOpen}>
-                    <h3>
-                        Subsystem Challenge
-                        <span class="toggle-icon">{subsystemSectionOpen ? '▼' : '▶'}</span>
-                    </h3>
+    
+            <!-- Encounter Type Selection -->
+            <Card background="light">
+                <h3>Encounter Type</h3>
+                <div class="encounter-type-selector">
+                    <div class="encounter-type-options">
+                        <label class="encounter-type-option">
+                            <input 
+                                type="radio" 
+                                name="encounterType" 
+                                value="combat" 
+                                bind:group={wipEncounter.encounter_type}
+                                on:change={handleEncounterTypeChange}
+                            />
+                            <span class="encounter-type-label">Combat</span>
+                            <span class="encounter-type-description">Standard encounter with enemies and/or hazards</span>
+                        </label>
+                        
+                        <label class="encounter-type-option">
+                            <input 
+                                type="radio" 
+                                name="encounterType" 
+                                value="accomplishment" 
+                                bind:group={wipEncounter.encounter_type}
+                                on:change={handleEncounterTypeChange}
+                            />
+                            <span class="encounter-type-label">Reward</span>
+                            <span class="encounter-type-description">Just treasure and XP, no combat</span>
+                        </label>
+                        
+                        <label class="encounter-type-option">
+                            <input 
+                                type="radio" 
+                                name="encounterType" 
+                                value="subsystem" 
+                                bind:group={wipEncounter.encounter_type}
+                                on:change={handleEncounterTypeChange}
+                            />
+                            <span class="encounter-type-label">Subsystem</span>
+                            <!-- TODO: Social may not actually be a subsystem. Double check this- I think its actually a whole other thing with enemies..?-->
+                            <span class="encounter-type-description">Chase, infiltration, research, or social challenge</span>
+                        </label>
+                    </div>
                 </div>
-                
-                {#if subsystemSectionOpen}
+            </Card>
+    
+    
+            <!-- Subsystem section - Only shown for subsystem encounters -->
+            {#if wipEncounter.encounter_type === 'subsystem'}
+                <Card background="light">
+                    <div slot="collapsed-header">
+                        <h3>
+                            Subsystem Challenge
+                        </h3>
+                    </div>
+                    <div slot="header">
+                        <h3>
+                            Subsystem Challenge
+                        </h3>
+                    </div>
                     <h2> TODO: Experience is not provided by subsystems, but will be added as accomplishments are added (either simulatenously, or as accomplishments directly). </h2>
-
+    
                     <div class="section-content" transition:fade>
                         <div class="form-group">
                             <label for="subsystemCategory">Challenge Type</label>
@@ -758,15 +762,9 @@
                                                 min="0"
                                             />
                                         </div>
-                                        <button 
-                                            type="button"
-                                            class="remove-button"
-                                            on:click={() => {
-                                                wipEncounter.subsystem_checks = wipEncounter.subsystem_checks?.filter((_, i) => i !== checkIndex);
-                                            }}
-                                        >
-                                            Remove Check
-                                        </button>
+                                        <Button colour='red' onclick={() => {
+                                            wipEncounter.subsystem_checks = wipEncounter.subsystem_checks?.filter((_, i) => i !== checkIndex);
+                                        }}>Remove Check</Button>
                                     </div>
                                     
                                     <div class="roll-options-list">
@@ -791,124 +789,107 @@
                                                         min="1"
                                                     />
                                                 </div>
-                                                
-                                                <button 
-                                                    type="button"
-                                                    class="remove-button"
-                                                    on:click={() => {
-                                                        check.roll_options = check.roll_options.filter((_, i) => i !== optionIndex);
-                                                        wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks || []];
-                                                    }}
-                                                >
-                                                    Remove
-                                                </button>
+        
+                                                <Button colour='red' onclick={() => {
+                                                    check.roll_options = check.roll_options.filter((_, i) => i !== optionIndex);
+                                                    wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks || []];
+                                                }}>Remove</Button>
                                             </div>
                                         {/each}
                                         
-                                        <button 
-                                            type="button"
-                                            class="add-roll-option-btn"
-                                            on:click={() => addRollOption(checkIndex)}
-                                        >
-                                            Add Roll Option
-                                        </button>
+                      
+                                        <Button colour='blue' onclick={() => addRollOption(checkIndex)}>Add Roll Option</Button>
                                     </div>
                                 </div>
                             {/each}
                             
-                            <button 
-                                type="button"
-                                class="add-skill-check-btn"
-                                on:click={addSkillCheck}
-                            >
-                                Add Skill Check
-                            </button>
+                        
+                            <Button colour='blue' onclick={addSkillCheck}>Add Skill Check</Button>
                         </div>
                     </div>
-                {/if}
-            </div>
-        {/if}
-
-        {#if wipEncounter.encounter_type === 'combat'}
-
-        <div class="section collapsible">
-            {#if wipEncounter.enemies}
-            <div class="section-header" on:click={() => enemiesSectionOpen = !enemiesSectionOpen}>
-                <h3>
-                    Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies} XP
-                    <span class="toggle-icon">{enemiesSectionOpen ? '▼' : '▶'}</span>
-                </h3>
-            </div>
+                </Card>
             {/if}
-            {#if enemiesSectionOpen && wipEncounter.enemies}
-                <div class="section-content" transition:fade>
-                    
-                    <div class="list-items">
-                        {#each wipEncounter.enemies as encounterEnemy, i}
-                            {#if getEnemyDetails(encounterEnemy.id)}
-                                <div class="list-item">
-                                    <div class="entity-adjustment">
-                                        <button 
-                                        type="button"
-                                            class="adjustment-button {getAdjustmentClass(encounterEnemy.level_adjustment)}"
-                                        on:click={() => {toggleEnemyAdjustment(i)}}
-                                        >{getAdjustmentName(encounterEnemy.level_adjustment)}</button>
-                                    </div>
-                                    <div class="entity-name">{getEnemyDetails(encounterEnemy.id)?.name}</div>
-                                    <div class="entity-link">
-                                        <a href={getFullUrlWithAdjustment(getEnemyDetails(encounterEnemy.id)?.url || '', encounterEnemy.level_adjustment)} target="_blank" rel="noopener noreferrer">
-                                            <FontAwesomeIcon icon={['fas', 'link']} />
-                                        </a>
-                                    </div>
-                                    <div class="entity-xp">XP: {getExperienceFromLevel(wipEncounter.party_level, (getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)}</div>
-                                    <div class="entity-level">Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment}</div>
-                                    <button 
-                                        type="button" 
-                                        class="remove-button"
-                                        on:click={() => {
+    
+            {#if wipEncounter.encounter_type === 'combat'}
+                {#if wipEncounter.enemies}
+                    <Card background='light' bind:collapsed={enemiesSectionClosed}>
+                    <div slot="collapsed-header">
+                        <h3>
+                            Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies} XP
+                        </h3>
+                    </div>
+                    <div slot="header">
+                        <h3>
+                            Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies} XP
+                        </h3>
+                    </div>
+                    <div class="section-content">
+                        {#if wipEncounter.enemies}
+                        
+                        <div class="list-items">
+                            {#each wipEncounter.enemies as encounterEnemy, i}
+                                {#if getEnemyDetails(encounterEnemy.id)}
+                                <Card tight>
+                                    <div class="list-item">
+                                        <div class="entity-adjustment">
+                                            <Button tight colour={getAdjustmentColour(encounterEnemy.level_adjustment)} onclick={() => {toggleEnemyAdjustment(i)}}>{getAdjustmentName(encounterEnemy.level_adjustment)}</Button>
+                                        </div>
+                                        <div class="entity-name">{getEnemyDetails(encounterEnemy.id)?.name}</div>
+                                        <div class="entity-link">
+                                            <a href={getFullUrlWithAdjustment(getEnemyDetails(encounterEnemy.id)?.url || '', encounterEnemy.level_adjustment)} target="_blank" rel="noopener noreferrer">
+                                                <FontAwesomeIcon icon={['fas', 'link']} />
+                                            </a>
+                                        </div>
+                                        <div class="entity-xp">XP: {getExperienceFromLevel(wipEncounter.party_level, (getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment)}</div>
+                                        <div class="entity-level">Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment}</div>
+                                      
+                                        <Button colour='red' onclick={() => {
                                             if (wipEncounter.enemies) wipEncounter.enemies = wipEncounter.enemies.filter((_, index) => index !== i);
-                                        }}
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
-                            {/if}
-                        {/each}
+                                        }}>Remove</Button>
+                                    </div>
+    
+                                </Card>
+                                {/if}
+                            {/each}
+                        </div>
+                        <div class="library-selector-container">
+                        <LibrarySelector
+                            entityType="creature"
+                            onSelect={(id) => {
+                                let newEnemy : EncounterEnemy = {
+                                    id: id,
+                                    level_adjustment: 0
+                                };
+                                wipEncounter.enemies = [...wipEncounter.enemies || [], newEnemy];
+                            }}
+                            placeholder="Search for enemies..."
+                            initialIds={wipEncounter.enemies.map(e => e.id)}
+                        />
+                        <!-- TODO: This should be maybe extracted into the libraryselector modal itself as an option-->
+                        <Button colour='blue' onclick={() => openLibrary("creature")}>📚 Browse Library</Button>
                     </div>
-                    <div class="library-selector-container">
-                    <LibrarySelector
-                        entityType="creature"
-                        onSelect={(id) => {
-                            let newEnemy : EncounterEnemy = {
-                                id: id,
-                                level_adjustment: 0
-                            };
-                            wipEncounter.enemies = [...wipEncounter.enemies || [], newEnemy];
-                        }}
-                        placeholder="Search for enemies..."
-                        initialIds={wipEncounter.enemies.map(e => e.id)}
-                    />
-                    <button type="button" class="browse-library-button" on:click={() => openLibrary("creature")}>Browse Library</button>
+                        {/if}
                     </div>
-                </div>
+                    </Card>
             {/if}
-        </div>
-
-        <div class="section collapsible">
+                
             {#if wipEncounter.hazards}
-            <div class="section-header" on:click={() => hazardsSectionOpen = !hazardsSectionOpen}>
-                <h3>
-                    Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
-                    <span class="toggle-icon">{hazardsSectionOpen ? '▼' : '▶'}</span>
-                </h3>
-            </div>
-            {/if}
-            
-            {#if hazardsSectionOpen}
-                <div class="section-content" transition:fade>
+            <Card background='light' bind:collapsed={hazardsSectionClosed}>
+                <div slot="collapsed-header">
+                    <h3>
+                        Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
+                    </h3>
+                </div>
+                <div slot="header">
+                    <h3>
+                        Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards} XP
+                    </h3>
+                </div>
+                <div class="section-content">
                     <div class="list-items">
                         {#each wipEncounter.hazards || [] as hazardId}
                             {#if getHazardDetails(hazardId)}
+                                <Card tight>
                                 <div class="list-item">
                                     <div class="entity-name">{getHazardDetails(hazardId)?.name}</div>
                                     <div class="entity-link">
@@ -918,15 +899,12 @@
                                     </div>
                                     <div class="entity-xp">XP: {getExperienceFromLevel(wipEncounter.party_level, getHazardDetails(hazardId)?.level || 0)}</div>
                                     <div class="entity-level">Level {getHazardDetails(hazardId)?.level}</div>
-                                    <button 
-                                        type="button" 
-                                        on:click={() => {
-                                            if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter((_, index) => index !== i);
-                                        }}
-                                    >
-                                        Remove
-                                    </button>
+                                 
+                                    <Button colour='red' onclick={() => {
+                                        if (wipEncounter.hazards) wipEncounter.hazards = wipEncounter.hazards.filter((_, index) => index !== i);
+                                    }}>Remove</Button>
                                 </div>
+                            </Card>
                             {/if}
                         {/each}
                     </div>
@@ -939,115 +917,117 @@
                         placeholder="Search for hazards..."
                         initialIds={wipEncounter.hazards}
                     />
-                    <button type="button" class="browse-library-button" on:click={() => openLibrary("hazard")}>Browse Library</button>
-                    </div>
+                        <Button colour='blue' onclick={() => openLibrary("hazard")}>📚 Browse Library</Button>
                 </div>
+                </div>
+    
+                </Card>
             {/if}
-        </div>
-
-        {/if}
-
-        <div class="section collapsible">
-            <div class="section-header" on:click={() => treasureSectionOpen = !treasureSectionOpen}>
-                <h3>
-                    Treasure - {totalTreasure} gold
-                    <span class="toggle-icon">{treasureSectionOpen ? '▼' : '▶'}</span>
-                </h3>
-            </div>
-            
-            {#if treasureSectionOpen}
-                <div class="section-content" transition:fade>
-                    <div class="form-group-treasure-row">
-                        <label for="currency">Currency</label>
-                        <input 
-                            type="number"
-                            id="currency"
-                            class="currency-input"
-                            bind:value={wipEncounter.treasure_currency}
-                            min="0"
-                        />
+            {/if}
+    
+                <Card background='light' bind:collapsed={treasureSectionClosed}>
+                    <div slot="collapsed-header">
+                        <h3>
+                            Treasure - {totalTreasure} gold
+                        </h3>
                     </div>
-                    <div class="form-group-treasure-row">
-                        <label for="currency">Experience</label>
-                        <input 
-                            type="number"
-                            id="currency"
-                            class="currency-input"
-                            bind:value={wipEncounter.extra_experience}
-                        />
+                    <div slot="header">
+                        <h3>
+                            Treasure - {totalTreasure} gold
+                        </h3>
                     </div>
-
-
-                    <h4>Items</h4>
-                    <div class="list-items">
-                        {#each wipEncounter.treasure_items as itemId, i}
-                            {#if getItemDetails(itemId)}
-                                <div class="list-item">
-                                    <span>{getItemDetails(itemId)?.name}</span> 
-                                    <div class="entity-link">
-                                        <a href={getFullUrl(getItemDetails(itemId)?.url || '')} target="_blank" rel="noopener noreferrer">
-                                            <FontAwesomeIcon icon={['fas', 'link']} />
-                                        </a>
-                                    </div>
-                                    <button 
-                                        type="button" 
-                                        on:click={() => {
+                    <div class="section-content">
+                        <div class="form-group-treasure-row">
+                            <label for="currency">Currency</label>
+                            <input 
+                                type="number"
+                                id="currency"
+                                class="currency-input"
+                                bind:value={wipEncounter.treasure_currency}
+                                min="0"
+                            />
+                        </div>
+                        <div class="form-group-treasure-row">
+                            <label for="currency">Experience</label>
+                            <input 
+                                type="number"
+                                id="currency"
+                                class="currency-input"
+                                bind:value={wipEncounter.extra_experience}
+                            />
+                        </div>
+    
+    
+                        <h4>Items</h4>
+                        <div class="list-items">
+                            {#each wipEncounter.treasure_items as itemId, i}
+                                {#if getItemDetails(itemId)}
+                                    <Card tight>
+                                    <div class="list-item">
+                                        <span>{getItemDetails(itemId)?.name}</span> 
+                                        <div class="entity-link">
+                                            <a href={getFullUrl(getItemDetails(itemId)?.url || '')} target="_blank" rel="noopener noreferrer">
+                                                <FontAwesomeIcon icon={['fas', 'link']} />
+                                            </a>
+                                        </div>
+                                        {#if getItemDetails(itemId)?.price}
+                                        <span>Value: {getItemDetails(itemId)?.price}g</span>
+                                        {:else}
+                                        <span>Value: Priceless</span>
+                                        {/if}
+                                        
+                                        <Button colour='red' onclick={() => {
                                             if (wipEncounter.treasure_items) wipEncounter.treasure_items = wipEncounter.treasure_items.filter((_, index) => index !== i);
-                                        }}
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
-                            {/if}
+                                        }}>Remove</Button>
+                                    </div>
+                                </Card>
+                                {/if}
+                            {/each}
+                        </div>
+                        <div class="library-selector-container">
+                        <LibrarySelector
+                            entityType="item"
+                            onSelect={(id) => {
+                                wipEncounter.treasure_items = [...wipEncounter.treasure_items, id];
+                            }}
+                            placeholder="Search for items..."
+                            initialIds={wipEncounter.treasure_items}
+                        />
+                        <Button colour='blue' onclick={() => openLibrary("item")}>📚 Browse Library</Button>
+                        </div>
+                    </div>        
+                </Card>
+        
+            <!-- Session selection -->
+            {#if campaignSessions && campaignSessions.length > 0}
+                <div class="session-selector">
+                    {#if editingEncounter && campaignSessions[chosenSessionIndex]}
+                    <label for="sessionSelect">Linked to session {chosenSessionIndex + 1}: {campaignSessions[chosenSessionIndex].name}</label>
+                    
+                    <Button colour='red' onclick={() => {
+                        encounterStore.unlinkEncounterFromSession(editingEncounter!.id);
+                    }}>Unlink from session</Button>
+    
+    
+                    {:else}
+                    <label for="sessionSelect">Add to Session:</label>
+                    <select id="sessionSelect" bind:value={chosenSessionId}>
+                        <option value={null}>None</option>
+                        {#each campaignSessions as session, i}
+                            <option value={session.id}>Session {i}: {session.name}</option>
                         {/each}
-                    </div>
-                    <div class="library-selector-container">
-                    <LibrarySelector
-                        entityType="item"
-                        onSelect={(id) => {
-                            wipEncounter.treasure_items = [...wipEncounter.treasure_items, id];
-                        }}
-                        placeholder="Search for items..."
-                        initialIds={wipEncounter.treasure_items}
-                    />
-                    <button type="button" class="browse-library-button" on:click={() => openLibrary("item")}>Browse Library</button>
-                    </div>
+                    </select>
+    
+                    {/if}
                 </div>
             {/if}
-        </div>
+    
+            <!-- Submit button -->
+            <Button large submit colour='blue'>{editingEncounter ? 'Update' : 'Create'} Encounter</Button>
 
-        <!-- Session selection -->
-        {#if campaignSessions && campaignSessions.length > 0}
-            <div class="session-selector">
-                {#if editingEncounter && campaignSessions[chosenSessionIndex]}
-                <label for="sessionSelect">Linked to session {chosenSessionIndex + 1}: {campaignSessions[chosenSessionIndex].name}</label>
-                <button 
-                    class="remove-button"
-                    on:click={() => encounterStore.unlinkEncounterFromSession(editingEncounter!.id)}
-                >
-                    Unlink from session
-                </button>
-
-
-                {:else}
-                <label for="sessionSelect">Add to Session:</label>
-                <select id="sessionSelect" bind:value={chosenSessionId}>
-                    <option value={null}>None</option>
-                    {#each campaignSessions as session, i}
-                        <option value={session.id}>Session {i}: {session.name}</option>
-                    {/each}
-                </select>
-
-                {/if}
-            </div>
-        {/if}
-
-        <!-- Submit button -->
-        <button type="submit" class="create-button">
-            {editingEncounter ? 'Update' : 'Create'} Encounter
-        </button>
-    </form>
-</div>
+</Card>
+</form>
+    
 
 <BrowseLibraryModal bind:show={showLibraryModal} 
 allowedTabs={libraryTabs}
@@ -1061,32 +1041,16 @@ bind:editingEncounter={wipEncounter}
         margin: 0 auto;
     }
 
-    .encounter-form {
-        background: #f8f8f8;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
-    }
-
     .encounter-header {
         display: flex;
-    }
-
-    .section {
-        margin: 1.5rem 0;
-        padding: 1rem;
-        background: #fff;
-        border-radius: 4px;
     }
 
     .list-item {
         display: grid;
         grid-template-columns: auto minmax(200px, 1fr)  auto auto auto auto;
         gap: 1rem;
-        padding: 0.5rem 1rem;
         background: #f8f8f8;
         border-radius: 4px;
-        margin-bottom: 0.5rem;
         align-items: center;
     }
 
@@ -1391,9 +1355,6 @@ bind:editingEncounter={wipEncounter}
         padding-top: 1rem;
     }
 
-    .collapsible {
-        transition: all 0.3s ease;
-    }
 
     .library-selector-container {
         margin-top: 1rem;
@@ -1456,7 +1417,8 @@ bind:editingEncounter={wipEncounter}
     .session-selector {
         display: flex;
         gap: 1rem;
-        margin-bottom: 2rem;
+        margin: 1rem;
+        align-items: center;
     }
 
     .session-selector select {

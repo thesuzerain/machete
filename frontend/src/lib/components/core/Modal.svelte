@@ -4,20 +4,18 @@
 
     interface Props {
         show: boolean;
-        error: string | null;
+        error?: string;
     }
 
     let { 
         show = $bindable(),
         error = $bindable(),
-        ...other
     } : Props = $props();
-
     
     const dispatch = createEventDispatcher();
     function closeModal() {
         show = false;
-        error = null;
+        error = undefined;
         dispatch('close');
     }
 </script>
@@ -52,12 +50,26 @@
         
     }
 
+    /*
+    Decide what to set width, etc. Some contenders:
+    - login modal
+    - signup modal
+    -new character modal
+    - edit campaign/new campaign modal
+    - reorder modal
+    - library modal
+    - encounterviewer modal
+    -n ew campaign modal
+
+    Needs to look good with all of them
+
+    */
+
     .modal-content {
         background: white;
         padding: 1.5rem;
         border-radius: 0.5rem;
-        width: 100%;
-        max-width: 1000px;
+        max-width: 95vh;
         max-height: 100vh;
         overflow-y: auto;
         margin: auto;

@@ -5,6 +5,7 @@
     import { onMount } from 'svelte';
     import "../app.css";
   import CampaignSelector from "$lib/components/selectors/CampaignSelector.svelte";
+    import Button from "$lib/components/core/Button.svelte";
 
   let error: string | null = null;
     let showLoginModal = false;
@@ -45,8 +46,8 @@
                             </div>
                         </div>
                     {:else}
-                        <button class="login-btn" on:click={() => showLoginModal = true}>Login</button>
-                        <button class="signup-btn" on:click={() => showSignupModal = true}>Sign Up</button>
+                        <Button colour="black" onclick={() => showLoginModal = true}>Login</Button>
+                        <Button colour="blue" onclick={() => showLoginModal = true}>Sign up</Button>
                     {/if}
                 </div>
             </div>

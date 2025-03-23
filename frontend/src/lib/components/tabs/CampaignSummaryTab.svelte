@@ -4,6 +4,7 @@
     import LineGraph from '../core/LineGraph.svelte';
     import { onMount } from 'svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import Card from '../core/Card.svelte';
 
     export let selectedCampaignId: number;
     
@@ -228,7 +229,7 @@
     </div>
 
     <div class="graphs-container">
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Cumulative Treasure by Level</h3>
             <LineGraph 
                 data={[
@@ -238,40 +239,40 @@
                 xLabel="Level" 
                 yLabel="Treasure" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Experience Growth by Encounter</h3>
             <LineGraph 
                 data={[{ id: 'XP', data: xpGrowthEncountersSeries }]} 
                 xLabel="Encounters" 
                 yLabel="Experience" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>XP per Session</h3>
             <LineGraph 
                 data={[{ id: 'Session XP', data: sessionXPArray }]} 
                 xLabel="Session" 
                 yLabel="Experience" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Experience Growth by Session</h3>
             <LineGraph 
                 data={[{ id: 'XP', data: xpGrowthSessionSeries }]} 
                 xLabel="Sessions" 
                 yLabel="Level" 
             />
-        </div>
+        </Card>
     </div>
 
-    <div class="distribution-section">
+    <Card background="light" softHeaders>
         <h3>Item Distribution Analysis</h3>
         <div class="distribution-grid">
-            <div class="distribution-card">
+            <Card>
                 <h4>Permanent Items by Level</h4>
                 <table>
                     <thead>
@@ -293,9 +294,8 @@
                         {/each}
                     </tbody>
                 </table>
-            </div>
-
-            <div class="distribution-card">
+            </Card>
+            <Card>
                 <h4>Consumable Items by Level</h4>
                 <table>
                     <thead>
@@ -317,17 +317,17 @@
                         {/each}
                     </tbody>
                 </table>
-            </div>
+            </Card>
         </div>
-    </div>
+    </Card>
 
-    <div class="equity-section">
+    <Card background="light" softHeaders>
         <h3>Character Equity Analysis</h3>
         <div class="equity-grid">
             {#each characterEquity as char}
-                <div class="equity-card">
+                <Card>
                     <h4>{char.name}</h4>
-                    <div class="equity-stats">
+                    <Card background="light" tight softHeaders>
                         <div class="equity-stat" class:deficit={char.goldShare < char.expectedGoldShare}
                                               class:surplus={char.goldShare >= char.expectedGoldShare}>
                             <span class="label">Gold Share</span>
@@ -336,6 +336,8 @@
                             <span class="value">{((char.goldShare / char.expectedGoldShare || 0) * 100).toFixed(1)}%</span>
                             <span class="subtext">of fair share</span>
                         </div>
+                    </Card>
+                    <Card background="light" tight softHeaders>
                         <div class="equity-stat" class:deficit={char.itemCount < char.expectedItemCount}
                                               class:surplus={char.itemCount >= char.expectedItemCount}>
                             <span class="label">Permanent Items</span>
@@ -346,11 +348,11 @@
                             <span class="label">Available Boosts</span>
                             <span class="value">{char.boostCount}/{char.expectedBoostCount}</span>
                         </div>
-                    </div>
-                </div>
+                        </Card>
+                    </Card>
             {/each}
         </div>
-    </div>
+    </Card>
 </div>
 
 <style>
@@ -483,7 +485,7 @@
 
     .distribution-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
     }
 

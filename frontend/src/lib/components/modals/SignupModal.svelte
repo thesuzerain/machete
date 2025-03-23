@@ -3,6 +3,7 @@
     import { auth } from '$lib/stores/auth';
     import { createEventDispatcher } from 'svelte';
     import Modal from '../core/Modal.svelte';
+    import Button from '../core/Button.svelte';
 
     export let show = false;
     const dispatch = createEventDispatcher();
@@ -56,8 +57,9 @@
             <div class="error">{error}</div>
         {/if}
         <div class="buttons">
-            <button type="submit">Sign Up</button>
-            <button type="button" on:click={() => dispatch('close')}>Cancel</button>
+            <Button submit colour='blue'>Sign Up</Button>
+            <Button onclick={() => dispatch('close')}>Cancel</Button>
+
         </div>
     </form>
 </Modal>

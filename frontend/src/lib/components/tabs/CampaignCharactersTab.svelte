@@ -9,6 +9,7 @@
     import { campaignStore } from '$lib/stores/campaigns';
     import { id } from 'date-fns/locale';
     import ConfirmationModal from '../modals/ConfirmationModal.svelte';
+    import Button from '../core/Button.svelte';
 
     export let selectedCampaignId: number;
     export let error: string | null;
@@ -67,9 +68,7 @@
 <div class="characters-section" transition:fade>
     <div class="characters-header">
         <h2>Characters</h2>
-        <button class="add-character-btn" on:click={() => showNewCharacterModal = true}>
-            Add Character
-        </button>
+        <Button colour="green" onclick={() => showNewCharacterModal = true}>Add Character</Button>
     </div>
 
     <div class="character-list">
@@ -84,13 +83,13 @@
                         </div>
                     </div>
                     <div class="character-actions">
-                        <button class="edit-btn" on:click={() => {
+                        <Button colour="blue" onclick={() => {
                             editingCharacter = character;
                             showNewCharacterModal = true;
-                        }}>Edit</button>
-                        <button class="delete-btn" on:click={() => characterToDelete = character.id}>
+                        }}>Edit</Button>
+                        <Button colour="red" onclick={() => characterToDelete = character.id}>
                             Delete
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

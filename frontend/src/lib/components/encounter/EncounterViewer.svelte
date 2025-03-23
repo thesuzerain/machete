@@ -6,6 +6,7 @@
     import { EncounterDifficulty, getExperienceFromLevel, getSeverityFromFinalExperience } from '$lib/utils/encounter';
     import { getFullUrl } from '$lib/types/library';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+    import Modal from '../core/Modal.svelte';
 
     interface Props {
         show: boolean;
@@ -62,142 +63,118 @@
     }
 </script>
 
-{#if show && encounter}
-    <div class="modal" transition:fade on:click|self={closeModal}>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>{encounter.name}</h2>
-                <button class="close-button" on:click={closeModal}>×</button>
-            </div>
+<Modal show={show && !!encounter}>
+    <div class="modal-header">
+        <h2>{encounter.name}</h2>
+        <button class="close-button" on:click={closeModal}>×</button>
+    </div>
 
-            <div class="encounter-meta">
-                <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
-                <span class="xp">XP: {encounter.total_experience} 
-                    (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}"
-                    >{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience)}</span>)
-                </span>
-                <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
-            </div>
+    <div class="encounter-meta">
+        <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
+        <span class="xp">XP: {encounter.total_experience} 
+            (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}"
+            >{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience)}</span>)
+        </span>
+        <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
+    </div>
 
-            <div class="encounter-description">
-                <p>{encounter.description}</p>
-            </div>
+    <div class="encounter-description">
+        <p>{encounter.description}</p>
+    </div>
 
-            <div class="encounter-details">
-                {#if encounter.enemies && encounter.enemies.length > 0}
-                    <div class="detail-section">
-                        <h3>Enemies ({encounter.enemies.length})</h3>
-                        <ul>
-                            {#each encounter.enemies as enemy}
-                                {#if getEnemyDetails(enemy.id)}
-                                    <li class="enemy-item">
-                                        <span class="enemy-name">{getEnemyDetails(enemy.id)?.name}</span>
-                                        {#if enemy.level_adjustment !== 0}
-                                            <span class="adjustment">({getAdjustmentName(enemy.level_adjustment)})</span>
-                                        {/if}
-                                        <span class="enemy-level">Level {(getEnemyDetails(enemy.id)?.level || 0) + enemy.level_adjustment}</span>
-                                        <span class="enemy-xp">XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(enemy.id)?.level || 0)}</span>
-                                        <a href={getFullUrl(getEnemyDetails(enemy.id)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
-                                            <FontAwesomeIcon icon={faLink} />
-                                        </a>
-                                    </li>
+    <div class="encounter-details">
+        {#if encounter.enemies && encounter.enemies.length > 0}
+            <div class="detail-section">
+                <h3>Enemies ({encounter.enemies.length})</h3>
+                <ul>
+                    {#each encounter.enemies as enemy}
+                        {#if getEnemyDetails(enemy.id)}
+                            <li class="enemy-item">
+                                <span class="enemy-name">{getEnemyDetails(enemy.id)?.name}</span>
+                                {#if enemy.level_adjustment !== 0}
+                                    <span class="adjustment">({getAdjustmentName(enemy.level_adjustment)})</span>
                                 {/if}
-                            {/each}
-                        </ul>
-                    </div>
-                {/if}
-
-                {#if encounter.hazards && encounter.hazards.length > 0}
-                    <div class="detail-section">
-                        <h3>Hazards ({encounter.hazards.length})</h3>
-                        <ul>
-                            {#each encounter.hazards as hazardId}
-                                {#if getHazardDetails(hazardId)}
-                                    <li class="hazard-item">
-                                        <span class="hazard-name">{getHazardDetails(hazardId)?.name}</span>
-                                        <span class="hazard-xp">XP: {getExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)}</span>
-                                        <a href={getFullUrl(getHazardDetails(hazardId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
-                                            <FontAwesomeIcon icon={faLink} />
-                                        </a>
-                                    </li>
-                                {/if}
-                            {/each}
-                        </ul>
-                    </div>
-                {/if}
-
-                {#if encounter.subsystem_type}
-                    <div class="detail-section">
-                        <h3>Subsystem Challenge</h3>
-                        <p class="subsystem-type">Type: {encounter.subsystem_type}</p>
-                        {#if encounter.subsystem_checks && encounter.subsystem_checks.length > 0}
-                            <ul>
-                                {#each encounter.subsystem_checks as check}
-                                    <li class="check-item">
-                                        <div class="check-header">
-                                            <span class="check-name">{check.name}</span>
-                                            <span class="check-vp">VP: {check.vp}</span>
-                                        </div>
-                                        <div class="check-options">
-                                            {#each check.roll_options as roll, i}
-                                                <span class="roll-option">
-                                                    {roll.skill} DC {roll.dc}{#if i < check.roll_options.length - 1},&nbsp;{/if}
-                                                </span>
-                                            {/each}
-                                        </div>
-                                    </li>
-                                {/each}
-                            </ul>
+                                <span class="enemy-level">Level {(getEnemyDetails(enemy.id)?.level || 0) + enemy.level_adjustment}</span>
+                                <span class="enemy-xp">XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(enemy.id)?.level || 0)}</span>
+                                <a href={getFullUrl(getEnemyDetails(enemy.id)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
+                                    <FontAwesomeIcon icon={faLink} />
+                                </a>
+                            </li>
                         {/if}
-                    </div>
-                {/if}
-
-                <div class="detail-section">
-                    <h3>Treasure</h3>
-                    <p class="currency">Currency: {encounter.treasure_currency}gp</p>
-                    {#if encounter.treasure_items && encounter.treasure_items.length > 0}
-                        <ul>
-                            {#each encounter.treasure_items as itemId}
-                                {#if getItemDetails(itemId)}
-                                    <li class="item-entry">
-                                        <span class="item-name">{getItemDetails(itemId)?.name}</span>
-                                        <a href={getFullUrl(getItemDetails(itemId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
-                                            <FontAwesomeIcon icon={faLink} />
-                                        </a>
-                                    </li>
-                                {/if}
-                            {/each}
-                        </ul>
-                    {/if}
-                </div>
+                    {/each}
+                </ul>
             </div>
+        {/if}
+
+        {#if encounter.hazards && encounter.hazards.length > 0}
+            <div class="detail-section">
+                <h3>Hazards ({encounter.hazards.length})</h3>
+                <ul>
+                    {#each encounter.hazards as hazardId}
+                        {#if getHazardDetails(hazardId)}
+                            <li class="hazard-item">
+                                <span class="hazard-name">{getHazardDetails(hazardId)?.name}</span>
+                                <span class="hazard-xp">XP: {getExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)}</span>
+                                <a href={getFullUrl(getHazardDetails(hazardId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
+                                    <FontAwesomeIcon icon={faLink} />
+                                </a>
+                            </li>
+                        {/if}
+                    {/each}
+                </ul>
+            </div>
+        {/if}
+
+        {#if encounter.subsystem_type}
+            <div class="detail-section">
+                <h3>Subsystem Challenge</h3>
+                <p class="subsystem-type">Type: {encounter.subsystem_type}</p>
+                {#if encounter.subsystem_checks && encounter.subsystem_checks.length > 0}
+                    <ul>
+                        {#each encounter.subsystem_checks as check}
+                            <li class="check-item">
+                                <div class="check-header">
+                                    <span class="check-name">{check.name}</span>
+                                    <span class="check-vp">VP: {check.vp}</span>
+                                </div>
+                                <div class="check-options">
+                                    {#each check.roll_options as roll, i}
+                                        <span class="roll-option">
+                                            {roll.skill} DC {roll.dc}{#if i < check.roll_options.length - 1},&nbsp;{/if}
+                                        </span>
+                                    {/each}
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
+                {/if}
+            </div>
+        {/if}
+
+        <div class="detail-section">
+            <h3>Treasure</h3>
+            <p class="currency">Currency: {encounter.treasure_currency}gp</p>
+            {#if encounter.treasure_items && encounter.treasure_items.length > 0}
+                <ul>
+                    {#each encounter.treasure_items as itemId}
+                        {#if getItemDetails(itemId)}
+                            <li class="item-entry">
+                                <span class="item-name">{getItemDetails(itemId)?.name}</span>
+                                <a href={getFullUrl(getItemDetails(itemId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
+                                    <FontAwesomeIcon icon={faLink} />
+                                </a>
+                            </li>
+                        {/if}
+                    {/each}
+                </ul>
+            {/if}
         </div>
     </div>
-{/if}
+
+</Modal>
+
 
 <style>
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal-content {
-        background: white;
-        border-radius: 8px;
-        padding: 2rem;
-        max-width: 800px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
 
     .modal-header {
         display: flex;

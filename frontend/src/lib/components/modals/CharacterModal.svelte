@@ -7,6 +7,7 @@
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
     import Modal from '../core/Modal.svelte';
+    import Button from '../core/Button.svelte';
 
     export let show = false;
     export let campaignId: number | null;
@@ -126,12 +127,12 @@
         </div> 
 
         <div class="modal-actions">
-            <button type="button" class="cancel-btn" on:click={closeModal}>
+            <Button onclick={closeModal} colour="red">
                 Cancel
-            </button>
-            <button type="submit" class="save-btn">
+            </Button>
+            <Button submit colour="green">
                 {editingCharacter ? 'Save' : 'Create'} Character
-            </button>
+            </Button>
         </div> 
     </form>
 
