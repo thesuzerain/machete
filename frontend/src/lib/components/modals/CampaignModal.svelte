@@ -325,11 +325,6 @@
 
                         {#each characters as character, i}
                             <Card bind:collapsed={character.isCollapsed} outlined shadowed={false}>
-                                <div slot="collapsed-header">
-                                        <div class="header-content">
-                                            <h4>{character.name || 'New Character'}</h4>
-                                        </div>
-                                </div>
                                 <div slot="header">
                                         <div class="header-content">
                                             <h4>{character.name || 'New Character'}</h4>

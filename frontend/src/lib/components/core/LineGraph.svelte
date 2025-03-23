@@ -205,7 +205,7 @@
     .chart-container {
       justify-content: center;
       align-items: center;
-      margin-top: 50px;
+      margin-top: 1rem;
       margin-left: 8
       0px;
     }

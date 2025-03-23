@@ -64,6 +64,12 @@
     background-color: var(--color-red);
     color: var(--color-text-light);
 }
+.color-red.selected {
+    background-color: var(--color-red-selected);
+}
+.color-red:hover {
+    background-color: var(--color-red-hover);
+}
 
 .color-green {
     background-color: var(--color-green);
@@ -74,11 +80,18 @@
     background-color: var(--color-green-selected);
 }
 
+.color-green:hover {
+    background-color: var(--color-green-hover);
+}
+
 .color-black {
     background:var(--color-dark-grey);
 }
 .color-black.selected {
     background-color: var(--color-dark-grey-selected);
+}
+.color-black:hover {
+    background-color: var(--color-dark-grey-hover);
 }
 
 .color-blue {
@@ -88,6 +101,9 @@
 .color-blue.selected {
     background-color: var(--color-blue-selected);
 }
+.color-blue:hover {
+    background-color: var(--color-blue-hover);
+}
 
 .color-white {
     background-color: var(--color-white);
@@ -96,13 +112,18 @@
 .color-white.selected {
     background: var(--color-white-selected);
 }
-
+.color-white:hover {
+    background: var(--color-white-hover);
+}
 .color-grey {
     background: var(--color-grey);
     color: var(--color-text-light);
 }
 .color-grey.selected {
     background: var(--color-grey-selected);
+}
+.color-grey:hover {
+    background: var(--color-grey-hover);
 }
 
 .disabled {

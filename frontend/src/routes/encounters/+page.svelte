@@ -256,11 +256,6 @@ library.add(faLink)
         <div class="loading">Loading encounters...</div>
     {:else}
         <Card bind:collapsed={encountersListClosed}>
-            <div slot="collapsed-header">
-                <h2>
-                    Existing Encounters ({filteredAndSortedEncounters.length})
-                </h2>
-            </div>
             <div slot="header">
                 <h2>
                     Existing Encounters ({filteredAndSortedEncounters.length})
@@ -292,17 +287,6 @@ library.add(faLink)
                         () => encounterOpenStates[encounter.id]  ?? true,
                         (val) => encounterOpenStates[encounter.id] = val}
                     >
-                    <div slot="collapsed-header" class="encounter-summary">
-                        <h3>{encounter.name}</h3>
-                        <div class="encounter-meta">
-                            <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
-                            <span class="xp">XP: {encounter.total_experience} (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}">{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience).toWellFormed()}</span>)</span>
-                            <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
-                            {#if encounter.session_id}
-                                <span class="session">Session: {sessionIx.get(encounter.session_id)}</span>
-                            {/if}
-                        </div>
-                    </div>
                     <div slot="header" class="encounter-summary">
                         <h3>{encounter.name}</h3>
                         <div class="encounter-meta">

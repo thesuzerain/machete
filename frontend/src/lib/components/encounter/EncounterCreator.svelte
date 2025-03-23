@@ -828,10 +828,7 @@
 
         <!-- Subsystem section - Only shown for subsystem encounters -->
         {#if wipEncounter.encounter_type === "subsystem"}
-            <Card background="light">
-                <div slot="collapsed-header">
-                    <h3>Subsystem Challenge</h3>
-                </div>
+            <Card background="light" collapsed={subsystemSectionOpen}>
                 <div slot="header">
                     <h3>Subsystem Challenge</h3>
                 </div>
@@ -956,12 +953,6 @@
         {#if wipEncounter.encounter_type === "combat"}
             {#if wipEncounter.enemies}
                 <Card background="light" bind:collapsed={enemiesSectionClosed}>
-                    <div slot="collapsed-header">
-                        <h3>
-                            Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies}
-                            XP
-                        </h3>
-                    </div>
                     <div slot="header">
                         <h3>
                             Enemies ({wipEncounter.enemies.length}) - {subtotalXPEnemies}
@@ -973,7 +964,7 @@
                             <div class="list-items">
                                 {#each wipEncounter.enemies as encounterEnemy, i}
                                     {#if getEnemyDetails(encounterEnemy.id)}
-                                        <Card tight>
+                                    <Card tight>
                                             <div class="list-item">
                                                 <div class="entity-adjustment">
                                                     <Button
@@ -1085,12 +1076,6 @@
 
             {#if wipEncounter.hazards}
                 <Card background="light" bind:collapsed={hazardsSectionClosed}>
-                    <div slot="collapsed-header">
-                        <h3>
-                            Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards}
-                            XP
-                        </h3>
-                    </div>
                     <div slot="header">
                         <h3>
                             Hazards ({wipEncounter.hazards.length}) - {subtotalXPHazards}
@@ -1175,11 +1160,6 @@
         {/if}
 
         <Card background="light" bind:collapsed={treasureSectionClosed}>
-            <div slot="collapsed-header">
-                <h3>
-                    Treasure - {totalTreasure} gold
-                </h3>
-            </div>
             <div slot="header">
                 <h3>
                     Treasure - {totalTreasure} gold
@@ -1324,10 +1304,6 @@
         margin: 0 auto;
     }
 
-    .encounter-header {
-        display: flex;
-    }
-
     .list-item {
         display: grid;
         grid-template-columns: auto minmax(200px, 1fr) auto auto auto auto;
@@ -1358,14 +1334,14 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1rem 1.5rem;
-        cursor: pointer;
-        user-select: none;
         border-radius: 4px;
     }
 
     .list-items {
+        display: flex;
+        flex-direction: column;
         margin-bottom: 1rem;
+        gap: 0.25rem;
     }
 
     .section-content {

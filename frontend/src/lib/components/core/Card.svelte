@@ -12,9 +12,6 @@
         outlined?: boolean | undefined;
         shadowed?: boolean | undefined;
         tight?: boolean | undefined;
-
-        // TODO: Not sure if I like this solution, as it still uses global variables and messes with inner components
-        softHeaders?: boolean | undefined;
     }
 
     let { 
@@ -23,18 +20,17 @@
         tight = false,
         outlined = false,
         shadowed = true,
-        softHeaders = false
     } : Props = $props();
 
     let tightness = tight ? 'tight' : 'loose';
 
 </script>
 
-<div class="card-{tightness} colour-{background} class:soft-headers={softHeaders}" class:outlined={outlined} class:shadowed={shadowed}>
+<div class="card-{tightness} colour-{background}" class:outlined={outlined} class:shadowed={shadowed}>
     {#if collapsed !== undefined}
         <div class="collapse-header" on:click={() => collapsed = !collapsed}>
             {#if collapsed}
-            <slot name="collapsed-header" />
+            <slot name="collapsed-header"><slot name="header" /></slot>
             {:else}
             <slot name="header" />
             {/if}
@@ -111,35 +107,4 @@
     .shadowed {
         box-shadow: var(--shadow);
     }
-
-
-/* 
-TODO: Double check if global is best approch here. May be bad practice if ew
- */
-.soft-headers :global(h4), .soft-headers :global(h3), .soft-headers :global(h2), .soft-headers :global(h1) {
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #64748b;
-}
-
-/* .card :global(h4) {
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.card :global(h3) {
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.card :global(h2) {
-    font-size: 1.5rem;
-    font-weight: 500;
-}
-
-.card :global(h1) {
-    font-size: 2rem;
-    font-weight: 500;
-} */
 </style> 
