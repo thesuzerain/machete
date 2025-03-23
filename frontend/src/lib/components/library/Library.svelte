@@ -329,7 +329,7 @@
                 class="search-input"
             />
 
-            <select bind:value={filterRarity} class="filter-select">
+            <select bind:value={filterRarity}>
                 <option value="">All Rarities</option>
                 <option value="common">Common</option>
                 <option value="uncommon">Uncommon</option>
@@ -337,7 +337,7 @@
                 <option value="unique">Unique</option>
             </select>
 
-            <select bind:value={minLevel} class="filter-select">
+            <select bind:value={minLevel}>
                 <option value=-2>Min Level</option>
                 {#each Array(33) as _, i}
                     {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
@@ -346,7 +346,7 @@
                 {/each}
             </select>
 
-            <select bind:value={maxLevel} class="filter-select">
+            <select bind:value={maxLevel}>
                 <option value=-2>Max Level</option>
                 {#each Array(33) as _, i}
                     {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
@@ -355,7 +355,7 @@
                 {/each}
             </select>
 
-            <select bind:value={filterLegacy} class="filter-select">
+            <select bind:value={filterLegacy}>
                 <option value="remaster">Remastered</option>
                 <option value="remaster">Legacy</option>
                 <option value="all">All Versions</option>
@@ -597,14 +597,6 @@
         font-size: 0.875rem;
     }
 
-    .filter-select {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        min-width: 150px;
-    }
-
     .table-container {
         background: white;
         border-radius: 0.5rem;
@@ -669,16 +661,6 @@
         text-align: center;
         color: var(--color-text);
         padding: 2rem;
-    }
-
-    @media (max-width: 768px) {
-        .filters {
-            flex-direction: column;
-        }
-
-        .filter-select {
-            width: 100%;
-        }
     }
 
     .results-count {

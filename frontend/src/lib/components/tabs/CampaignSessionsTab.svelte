@@ -672,14 +672,6 @@
         margin-bottom: 2rem;
     }
 
-    .session-selector select {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-    }
-
     .characters-section {
         background:vare(--color-bg);
         border-radius: 0.5rem;

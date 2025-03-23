@@ -447,7 +447,7 @@ library.add(faLink)
 
     <p>Choose a session to link this encounter to:</p>
 
-    <select bind:value={selectedLinkingSession} class='modal-select'>
+    <select bind:value={selectedLinkingSession}>
         <option value={null}>Select a session...</option>
         {#each campaignSessions as session, ix}
             <option value={session.id}>Session {ix}: {session.name}</option>
@@ -566,14 +566,6 @@ library.add(faLink)
         align-items: center;
     }
 
-    .sort-controls select {
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        min-width: 150px;
-    }
-
     .detail-section {
         margin-bottom: 1.5rem;
     }
@@ -611,16 +603,6 @@ library.add(faLink)
         gap: 1rem;
         margin-top: 1.5rem;
         justify-content: flex-end;
-    }
-
-    /* TODO: all selects*/
-    .modal-select {
-        width: 100%;
-        padding: 0.5rem;
-        margin-bottom: 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        font-size: 1rem;
     }
 
 
