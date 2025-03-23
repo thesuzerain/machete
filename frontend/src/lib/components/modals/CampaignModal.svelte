@@ -239,23 +239,22 @@
 
 
         {:else if activeTab === 'initialize'}
-            <!-- Initialize Existing Campaign Wizard -->
-            <div class="wizard-container">
-                <div class="wizard-progress">
-                    {#each Array(totalSteps) as _, i}
-                        <div class="step" class:active={currentStep === i + 1} class:completed={currentStep > i + 1}>
-                            <div class="step-number">{i + 1}</div>
-                            <div class="step-label">
-                                {i === 0 ? 'Campaign Info' : 'Characters & Resources'}
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-                
-                <div class="progress-bar">
-                    <div class="progress" style="width: {((currentStep - 1) / (totalSteps - 1)) * 100}%"></div>
+        <Card>
+            <div class="wizard-progress">
+
+            {#each Array(totalSteps) as _, i}
+            <div class="step" class:active={currentStep === i + 1} class:completed={currentStep > i + 1}>
+                <div class="step-number">{i + 1}</div>
+                <div class="step-label">
+                    {i === 0 ? 'Campaign Info' : 'Characters & Resources'}
                 </div>
             </div>
+            
+        {/each}
+    </div>
+
+        </Card>
+ 
             
             <div class="wizard-content">
                 {#if currentStep === 1}
@@ -368,7 +367,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="character-items">
+                                    <div>
                                         <h5>Items</h5>
                                         
                                         {#if character.items.length > 0}
@@ -380,15 +379,12 @@
                                                             <div class="item-entry">
                                                                 <div class="item-name">{item.name}</div>
                                                                 <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
-                                                                <button 
-                                                                    type="button"
-                                                                    class="remove-button"
-                                                                    on:click={() => {
-                                                                        character.items = character.items.filter(id => id !== itemId);
-                                                                    }}
-                                                                >
-                                                                    Remove
-                                                                </button>
+                                                                <Button colour='red'
+                                                                onclick={() => {
+                                                                    // TODO: This doesn't work with duplicates- no filters!
+                                                                    character.items = character.items.filter(id => id !== itemId);
+                                                                }}
+                                                                >Remove</Button>
                                                             </div>
                                                         {/if}
                                                     {/if}
@@ -443,15 +439,10 @@
                                                 <div class="item-entry">
                                                     <div class="item-name">{item.name}</div>
                                                     <div class="item-details">Level {item.level} • {#if item.price}{item.price} gp{/if}</div>
-                                                    <button 
-                                                        type="button"
-                                                        class="remove-button"
-                                                        on:click={() => {
-                                                            partyItems = partyItems.filter(id => id !== itemId);
-                                                        }}
-                                                    >
-                                                        Remove
-                                                    </button>
+                                                    
+                                                    <Button colour='red' onclick={() => {
+                                                        partyItems = partyItems.filter(id => id !== itemId);
+                                                    }}>Remove</Button>
                                                 </div>
                                             {/if}
                                         {/if}
@@ -517,40 +508,11 @@
         font-size: 1rem;
     }
 
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .cancel-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #6b7280;
-        color: white;
-    }
-
-    .save-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #22c55e;
-        color: white;
-    }
-
-    .error-message {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 1rem;
-        border-radius: 0.375rem;
-        margin-bottom: 1rem;
-    }
-
     .tabs {
         display: flex;
         gap: 0.5rem;
         margin-bottom: 1.5rem;
-        border-bottom: 2px solid #e5e7eb;
+        border-bottom: 2px solid var(--color-bg-light-raised-border);
         padding-bottom: 0.5rem;
     }
 
@@ -560,37 +522,29 @@
         background: none;
         cursor: pointer;
         font-size: 1rem;
-        color: #6b7280;
+        color: var(--color-text);
         border-radius: 0.375rem;
         transition: all 0.2s;
     }
 
     .tab-button:hover {
-        background: #f3f4f6;
-        color: #111827;
+        background: var(--color-bg-hover);
     }
 
     .tab-button.active {
-        background: #3b82f6;
-        color: white;
+        background: var(--color-bg-selected);
+        color: var(--color-text-light);
     }
 
     textarea#import {
         font-family: monospace;
         font-size: 0.875rem;
     }
-
-    .wizard-container {
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        border: 1px solid #e5e7eb;
-    }
     
     .wizard-progress {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1rem;
     }
     
     .step {
@@ -601,45 +555,23 @@
         background: none;
         cursor: pointer;
         font-size: 1rem;
-        color: #6b7280;
+        color: var(--color-text-secondary);
         transition: all 0.2s;
     }
     
     .step.active {
-        background: #3b82f6;
-        color: white;
+        background: var(--color-bg-selected);
+        color: var(--color-text-light);
     }
     
     .step.completed {
-        background: #d1d5db;
-        color: #6b7280;
-    }
-    
-    .progress-bar {
-        height: 0.25rem;
-        background: #e5e7eb;
-        border-radius: 0.125rem;
-        overflow: hidden;
-    }
-    
-    .progress {
-        height: 100%;
-        background: #3b82f6;
+        background: var(--color-bg);
+        color: var(--color-text-secondary);
     }
     
     .wizard-content {
         padding: 1.5rem;
         margin-bottom: 1rem;
-    }
-    
-    .character-header {
-        padding: 1rem;
-        cursor: pointer;
-        background: #f9fafb;
-        border-radius: 0.5rem 0.5rem 0 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
     }
     
     .header-content {
@@ -649,7 +581,6 @@
     }
     
 
-    
     .character-basic-info {
         display: flex;
         flex-direction: column;
@@ -661,17 +592,6 @@
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 1rem;
-    }
-    
-    .character-items {
-        margin-top: 1rem;
-    }
-    
-    .character-items h5 {
-        margin-top: 0;
-        margin-bottom: 0.75rem;
-        color: #4b5563;
-        font-size: 0.875rem;
     }
     
     .item-list {
@@ -700,68 +620,18 @@
         font-size: 0.875rem;
     }
     
-    .add-character-btn {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-        cursor: pointer;
-        margin-bottom: 1.5rem;
-    }
-    
-    .remove-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        cursor: pointer;
-    }
-    
     .help-text {
         font-size: 0.875rem;
-        color: #6b7280;
+        color: var(--color-text-secondary);
         margin-top: 0.25rem;
     }
     
-    .party-resources {
-        background: #f9fafb;
-        border-radius: 0.5rem;
-        padding: 1.5rem;
-        margin-top: 1.5rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    .description { 
-        background: #f9fafb;
-        border-radius: 0.5rem;
-        padding: 1.5rem;
-        margin-top: 1.5rem;
-        margin-bottom: 1.5rem;
-        border: 1px solid #e5e7eb;
-    }
-
     .characters-section {
         margin-bottom: 1.5rem;
     }
 
     .characters-section-button {
         margin-top: 1.5rem;
-    }
-
-    .character-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        background: white;
-    }
-
-    .collapse-indicator {
-        color: #6b7280;
-        margin-left: 0.5rem;
     }
 
     .form-group.inline {

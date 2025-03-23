@@ -681,9 +681,9 @@
     }
 
     .characters-section {
-        background: white;
+        background:vare(--color-bg);
         border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
         padding: 1.5rem;
     }
 
@@ -706,14 +706,6 @@
         border-radius: 0.375rem;
         resize: vertical;
     }
-
-    .summary-box {
-        background: #f9fafb;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 2rem;
-    }
-
     .reward-details {
         display: flex;
         gap: 2rem;
@@ -756,52 +748,21 @@
         align-items: center;
         gap: 1rem;
         padding: 0.75rem;
-        background: white;
-        border: 1px solid #e5e7eb;
+        background: var(--color-bg);
+        border: 1px solid var(--color-bg-light-raised-border);
         margin-bottom: 0.5rem;
         border-radius: 0.375rem;
         cursor: move;
     }
 
     .drag-handle {
-        color: #9ca3af;
+        color: var(--color-text);
         cursor: move;
     }
 
 
-
-    .edit-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-    .remove-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     .modal-content {
-        background: white;
+        background: var(--color-bg);
         padding: 2rem;
         border-radius: 8px;
     }
@@ -830,8 +791,8 @@
 
     .item-division-character-dnd {
         flex: 1;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
+        background: var(--color-bg-light-raised);
+        border: 1px solid var(--color-bg-light-raised-border);
         border-radius: 0.5rem;
         overflow: hidden;
     }
@@ -839,8 +800,8 @@
     .item-division-session-dnd {
         flex: 1;
         min-width: 80vh;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
+        background: var(--color-bg-light-raised);
+        border: 1px solid var(--color-bg-light-raised-border);
         border-radius: 0.5rem;
         overflow: hidden;
     }
@@ -877,26 +838,9 @@
         margin-bottom: 1rem;
     }
 
-    .view-button {
-        background: #4b5563;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .view-button:hover {
-        background: #374151;
-    }
-
     .header-buttons {
         display: flex;
         gap: 0.5rem;
-    }
-
-    .add-button.active {
-        background: #dc2626;
     }
 
     .name-description-row {
@@ -921,23 +865,6 @@
         flex-wrap: wrap;
     }
 
-    .accomplishment-buttons-button {
-        flex: 1;
-        min-width: 120px;
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.375rem;
-        background: white;
-        color: #4b5563;
-        cursor: pointer;
-    }
-
-    .accomplishment-buttons-button.selected {
-        background: #3b82f6;
-        color: white;
-        border-color: #3b82f6;
-    }
-
     .custom-xp {
         display: flex;
         justify-content: center;
@@ -951,36 +878,9 @@
         text-align: center;
     }
 
-    .submit-accomplishment {
-        align-self: center;
-        width: fit-content;
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-
-    .encounter-card .description {
-        color: #6b7280;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-
     .encounters-list h4 {
         margin-bottom: 0.75rem;
-        color: #4b5563;
-    }
-
-    .add-button {
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
+        color: var(--color-text-secondary);
     }
 
     .accomplishment-info {
@@ -990,28 +890,6 @@
 
     .character-selector {
         margin: 1rem 0;
-    }
-
-    .character-selector-toggle {
-        background: #4b5563;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .character-selector-toggle:hover {
-        background: #374151;
-    }
-
-    .character-selector-content {
-        margin-top: 0.5rem;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
-        border: 1px solid #e5e7eb;
     }
 
     .character-checkboxes {

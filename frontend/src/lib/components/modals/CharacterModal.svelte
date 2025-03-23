@@ -140,27 +140,6 @@
 
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        width: 90%;
-        max-width: 500px;
-    }
-
     .form-group {
         margin-bottom: 1rem;
     }
@@ -168,7 +147,7 @@
     .form-group label {
         display: block;
         margin-bottom: 0.5rem;
-        color: #4b5563;
+        color: var(--color-text-secondary);
         font-weight: 500;
     }
 
@@ -185,28 +164,6 @@
         justify-content: flex-end;
         gap: 1rem;
         margin-top: 2rem;
-    }
-
-    .cancel-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #6b7280;
-        color: white;
-    }
-
-    .save-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #22c55e;
-        color: white;
-    }
-
-    .error-message {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 1rem;
-        border-radius: 0.375rem;
-        margin-bottom: 1rem;
     }
 
     .form-group.inline {

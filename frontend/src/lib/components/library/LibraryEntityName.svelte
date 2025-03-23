@@ -38,23 +38,19 @@
 {:else if entity}
     <span class="entity-name">{entity.name}</span>
 {:else}
-    <span class="not-found">Unknown {entityType}</span>
+    <span>Unknown {entityType}</span>
 {/if}
 
 <style>
     .loading {
-        color: #666;
         font-style: italic;
     }
 
     .error {
-        color: #ef4444;
+        color: var(--color-text-error);
         cursor: help;
     }
 
-    .not-found {
-        color: #666;
-    }
 
     .entity-name {
         font-weight: 500;

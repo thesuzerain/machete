@@ -28,9 +28,15 @@
     
     let classSelectedColour = $derived(selectedColour ? `color-${selectedColour}` : classColour);
     let shouldSelectedColourVersion = $derived(!selectedColour && selected);
+
+    function onClick(e: MouseEvent) {
+        if (disabled) return;
+        e.stopPropagation();
+        if (onclick) onclick();
+    }
 </script>
 
-<button type={submit ? "submit":"button"} {onclick} disabled={disabled ?? false} class="{classLargeness} {selected ? classSelectedColour : classColour}" class:selected={shouldSelectedColourVersion}
+<button type={submit ? "submit":"button"} onclick={(e) => onClick(e)} disabled={disabled ?? false} class="{classLargeness} {selected ? classSelectedColour : classColour}" class:selected={shouldSelectedColourVersion}
     class:disabled={disabled} class:tight={tight}
 >
         <slot />
@@ -55,55 +61,53 @@
 }
 
 .color-red {
-    background-color: #f44336;
-    color: white;
+    background-color: var(--color-red);
+    color: var(--color-text-light);
 }
 
 .color-green {
-    background-color: #4CAF50;
-    color: white;
+    background-color: var(--color-green);
+    color: var(--color-text-light);
 }
 
 .color-green.selected {
-    background-color: #2d6a4f;
+    background-color: var(--color-green-selected);
 }
 
 .color-black {
-    background: #4b5563;
-        color: white;
+    background:var(--color-dark-grey);
 }
 .color-black.selected {
-    background-color: #000;
+    background-color: var(--color-dark-grey-selected);
 }
 
 .color-blue {
-    background: #3b82f6;
-    color: white;
+    background-color: var(--color-blue);
+    color: var(--color-text-light);
 }
 .color-blue.selected {
-    background: #1e40af;
+    background-color: var(--color-blue-selected);
 }
 
 .color-white {
-    background: white;
-    color: rgb(63, 63, 63);
-    border: 1px solid #e6e6e6;
+    background-color: var(--color-white);
+    color: var(--color-text-dark);
 }
 .color-white.selected {
-    background: #f3f4f6;
+    background: var(--color-white-selected);
 }
 
 .color-grey {
-    background: #999999;
-    color: white;
+    background: var(--color-grey);
+    color: var(--color-text-light);
 }
 .color-grey.selected {
-    background: #666666;
+    background: var(--color-grey-selected);
 }
 
 .disabled {
     cursor: not-allowed;
-    background: #9ca3af;
+    background-color: #9ca3af;
     color: white;
 }
 

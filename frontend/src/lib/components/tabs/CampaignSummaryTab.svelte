@@ -173,7 +173,9 @@
 
 <div class="summary-container">
     <div class="stats-overview">
-        <div class="stat-card">
+        <Card>
+            <div class="stat-card">
+
             <h3>Campaign Level</h3>
             <div class="value">{stats?.level || 0}</div>
             <div class="progress-bar">
@@ -183,19 +185,23 @@
             <div class="subtext">{stats?.experience_this_level || 0}/1000 XP</div>
         </div>
 
+        </Card>
+        <Card>
+
         <div class="stat-card">
             <h3>Sessions</h3>
             <div class="value">{stats?.num_sessions || 0}</div>
             <div class="subtext">Total encounters: {stats?.num_combat_encounters || 0}</div>
         </div>
-
+        </Card>
+        <Card>
         <div class="stat-card">
             <h3>Total Treasure</h3>
             <div class="stat-line">
                 <div class="value">{stats?.total_combined_treasure || 0}</div>
                 <div class="subtext">Expected by end of level: {stats?.total_expected_combined_treasure_end_of_level?.toFixed(1) || 0}</div>
             </div>
-            <div class="progress-bar" style="--color: {stats?.total_combined_treasure ?? 0 >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
+            <div class="progress-bar">
                 <div class="progress" style="width: {Math.min(treasureThisLevelFraction * 100, 100)}%"></div>
             </div>
             <div>
@@ -226,6 +232,7 @@
                 </div>
             </div>
         </div>
+    </Card>
     </div>
 
     <div class="graphs-container">
@@ -368,16 +375,9 @@
         gap: 1.5rem;
     }
 
-    .stat-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
     .stat-card h3 {
         margin: 0;
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -395,55 +395,44 @@
     .value {
         font-size: 2rem;
         font-weight: 600;
-        color: #1e293b;
+        color: var(--color-text);
         margin: 0.1rem 0;
     }
 
-    .value-subtype {
-        font-size: 1.2rem;
-        font-weight: 400;
-        color: #1e293b;
-        margin: 0.3rem 0;
-    }
 
     .large-deficit-colour {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
     .small-deficit-colour {
-        color: rgb(250, 107, 107);
+        color: var(--color-small-deficit);
     }
-
-
     .no-deficit-colour {
-        color: rgb(99, 192, 133);
+        color: var(--color-no-deficit);
     }
-
     .small-surplus-colour {
-        color: #ca9a22;
+        color: var(--color-small-surplus);
     }
-
     .large-surplus-colour {
-        color: #f0de0d;
+        color: var(--color-large-surplus);
     }
 
     .subtext {
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
     }
 
     .progress-bar {
         width: 100%;
         height: 0.5rem;
-        background: #e2e8f0;
+        background: var(--color-bg-raised);
         border-radius: 9999px;
         margin: 0.5rem 0;
         overflow: hidden;
-        --color: #3b82f6;
     }
 
     .progress {
         height: 100%;
-        background: var(--color);
+        background: var(--color-bg-success);
         transition: width 0.3s ease;
     }
 
@@ -460,13 +449,6 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    .graph-card h3 {
-        margin: 0 0 1rem 0;
-        color: #64748b;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
 
     .distribution-section {
         background: white;
@@ -475,30 +457,11 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    .distribution-section h3 {
-        margin: 0 0 1.5rem 0;
-        color: #64748b;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
 
     .distribution-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
-    }
-
-    .distribution-card {
-        background: #f8fafc;
-        padding: 1rem;
-        border-radius: 0.375rem;
-    }
-
-    .distribution-card h4 {
-        margin: 0 0 1rem 0;
-        color: #475569;
-        font-size: 0.875rem;
     }
 
     table {
@@ -524,19 +487,13 @@
     }
 
     tr.positive td {
-        color: #22c55e;
+        color: var(--color-no-deficit);
     }
 
     tr.negative td {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
 
-    .equity-section {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
 
     .equity-grid {
         display: grid;
@@ -544,35 +501,16 @@
         gap: 1.5rem;
     }
 
-    .equity-card {
-        background: #f8fafc;
-        padding: 1rem;
-        border-radius: 0.375rem;
-    }
-
-    .equity-card h4 {
-        margin: 0 0 1rem 0;
-        color: #1e293b;
-        font-size: 1rem;
-    }
-
-    .equity-stats {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
     .equity-stat {
         display: flex;
         flex-direction: column;
         padding: 0.5rem;
-        background: white;
         border-radius: 0.25rem;
     }
 
     .equity-stat .label {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -585,14 +523,15 @@
 
     .equity-stat .subtext {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
     }
 
+    /* TODO: Surplus should also give a 'bad' colour if we exceed the expected value. */
     .deficit .value {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
 
     .surplus .value {
-        color: #22c55e;
+        color: var(--color-no-deficit);
     }
 </style> 

@@ -66,25 +66,6 @@
 </Modal>
 
 <style>
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-content {
-        background-color: white;
-        padding: 20px;
-        width: 300px;
-        border-radius: 5px;
-    }
-
     .form-group {
         margin-bottom: 15px;
     }
@@ -93,11 +74,6 @@
         width: 100%;
         padding: 8px;
         margin-top: 5px;
-    }
-
-    .error {
-        color: red;
-        margin-bottom: 10px;
     }
 
     .buttons {

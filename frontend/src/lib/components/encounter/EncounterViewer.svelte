@@ -70,7 +70,6 @@
     </div>
 
     <div class="encounter-meta">
-        <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
         <span class="xp">XP: {encounter.total_experience} 
             (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}"
             >{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience)}</span>)
@@ -135,7 +134,7 @@
                             <li class="check-item">
                                 <div class="check-header">
                                     <span class="check-name">{check.name}</span>
-                                    <span class="check-vp">VP: {check.vp}</span>
+                                    <span>VP: {check.vp}</span>
                                 </div>
                                 <div class="check-options">
                                     {#each check.roll_options as roll, i}
@@ -183,6 +182,7 @@
         margin-bottom: 1rem;
     }
 
+    /* TODO: Revisit this- should every modal have one? */
     .close-button {
         background: none;
         border: none;
@@ -199,36 +199,19 @@
         margin-bottom: 1.5rem;
     }
 
-    .status {
-        padding: 0.25rem 0.75rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .status.prepared { background: #dbeafe; color: #1e40af; }
-    .status.success { background: #dcfce7; color: #166534; }
-    .status.failure { background: #fee2e2; color: #991b1b; }
-    .status.archived { background: #f3f4f6; color: #1f2937; }
-    .status.draft { background: #f3f4f6; color: #1f2937; }
-
     .encounter-description {
         margin-bottom: 1.5rem;
-        color: #4b5563;
     }
 
     .detail-section {
         margin-bottom: 2rem;
         padding: 1rem;
-        background: #f9fafb;
+        background: var(--color-bg-light-raised);
         border-radius: 8px;
     }
 
     .detail-section h3 {
         margin-bottom: 1rem;
-        color: #111827;
     }
 
     ul {
@@ -239,7 +222,7 @@
 
     li {
         padding: 0.75rem;
-        background: white;
+        background: var(--color-bg);
         border-radius: 4px;
         margin-bottom: 0.5rem;
     }
@@ -256,12 +239,12 @@
     }
 
     .adjustment {
-        color: #6b7280;
+        color: var(--color-text-secondary);
         font-style: italic;
     }
 
     .enemy-level, .enemy-xp, .hazard-xp {
-        color: #6b7280;
+        color: var(--color-text-secondary);
         white-space: nowrap;
     }
 
@@ -281,33 +264,27 @@
         font-weight: 500;
     }
 
-    .check-vp {
-        color: #6b7280;
-    }
-
     .check-options {
-        color: #6b7280;
         font-size: 0.9rem;
     }
 
     .entity-link {
-        color: #3b82f6;
+        color: var(--color-text-link);
         text-decoration: none;
     }
 
     .entity-link:hover {
-        color: #2563eb;
+        color: var(--color-text-link-hover);
     }
 
     .currency {
-        color: #6b7280;
         margin-bottom: 1rem;
     }
 
     /* Difficulty colors */
-    .difficulty-trivial { color: #10b981; }
-    .difficulty-low { color: #f59e0b; }
-    .difficulty-moderate { color: #f59e0b; }
-    .difficulty-severe { color: #ef4444; }
-    .difficulty-extreme { color: #ef4444; }
+    .difficulty-trivial { color: var(--color-difficulty-trivial); }
+    .difficulty-low { color: var(--color-difficulty-low); }
+    .difficulty-moderate { color: var(--color-difficulty-moderate); }
+    .difficulty-severe { color: var(--color-difficulty-severe); }
+    .difficulty-extreme { color: var(--color-difficulty-extreme); }
 </style> 

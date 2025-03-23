@@ -85,35 +85,31 @@
     background: #64748b;
 }
 .colour-dark.outlined {
-    border: 1px solid #a7bcd8;
+    border: 1px solid var(--color-bg-raised-border);
 }
 
 .colour-light {
-    background: white;
+    background: var(--color-bg);
 }
 
 .colour-light.outlined {
-    border: 1px solid #e6e6e6;
+    border: 1px solid var(--color-bg-border);
 }
 
 .colour-grey {
-    background: #f8fafc;    
+    background: var(--color-bg-light-raised);    
 }
 
 .colour-grey.outlined {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-bg-light-raised-border);
 }
-
-
-
 
 .toggle-icon {
         font-size: 0.8em;
-        color: #666;
     }
 
     .shadowed {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
     }
 
 

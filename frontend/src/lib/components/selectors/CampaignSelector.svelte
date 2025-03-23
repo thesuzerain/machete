@@ -77,7 +77,6 @@
     .campaign-selector {
         display: flex;
         gap: 1rem;
-        /* margin-bottom: 2rem; */
     }
 
     .campaign-selector select {
@@ -88,18 +87,9 @@
         border-radius: 0.375rem;
     }
 
-    .new-campaign-btn {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-        white-space: nowrap;
-    }
-
     .error-message {
-        background: #fee2e2;
-        color: #991b1b;
+        background: var(--color-bg);
+        color: var(--color-text-error);
         padding: 1rem;
         border-radius: 0.375rem;
         margin-bottom: 1rem;

@@ -86,7 +86,7 @@
 
 <style>
     .export-container {
-        background: white;
+        background: var(--bg-color);
         border-radius: 0.5rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         padding: 1.5rem;
@@ -99,47 +99,16 @@
         margin-bottom: 1rem;
     }
 
-    .export-header h3 {
-        margin: 0;
-        color: #1f2937;
-    }
 
     .export-actions {
         display: flex;
         gap: 0.5rem;
     }
 
-    .copy-btn, .download-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: none;
-    }
-
-    .copy-btn {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .download-btn {
-        background: #22c55e;
-        color: white;
-    }
-
-    .copy-btn:hover, .download-btn:hover {
-        opacity: 0.9;
-    }
-
-    .copy-btn:disabled, .download-btn:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
-    }
 
     .json-display {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--color-bg-light-raised);
+        border: 1px solid var(--color-bg-light-raised-border);
         border-radius: 0.375rem;
         padding: 1rem;
         overflow-x: auto;
@@ -151,15 +120,15 @@
     }
 
     .error-message {
-        background: #fee2e2;
-        color: #991b1b;
+        background: var(--color-bg-error);
+        color: var(--color-text-error);
         padding: 1rem;
         border-radius: 0.375rem;
         margin-bottom: 1rem;
     }
 
     .loading-indicator {
-        color: #6b7280;
+        color: var(--color-text-secondary);
         text-align: center;
         padding: 2rem;
     }
@@ -170,16 +139,16 @@
     }
 
     .json-display::-webkit-scrollbar-track {
-        background: #f1f5f9;
+        background: var(--color-bg-light-raised);
         border-radius: 4px;
     }
 
     .json-display::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
+        background: var(--color-bg-light-raised-border);
         border-radius: 4px;
     }
 
     .json-display::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: var(--color-bg-light-raised-hover);
     }
 </style> 

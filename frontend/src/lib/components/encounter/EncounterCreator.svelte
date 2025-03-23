@@ -744,7 +744,7 @@
                         
                         <div class="skill-checks-list">
                             {#each wipEncounter.subsystem_checks || [] as check, checkIndex}
-                                <div class="skill-check-container">
+                            <Card outlined>
                                     <div class="skill-check-header">
                                         <input 
                                             type="text"
@@ -769,6 +769,7 @@
                                     
                                     <div class="roll-options-list">
                                         {#each check.roll_options as option, optionIndex}
+                                        <Card background='light' tight outlined>
                                             <div class="roll-option">
                                                 <select 
                                                     class="skill-select"
@@ -795,12 +796,13 @@
                                                     wipEncounter.subsystem_checks = [...wipEncounter.subsystem_checks || []];
                                                 }}>Remove</Button>
                                             </div>
+                                        </Card>
                                         {/each}
                                         
                       
                                         <Button colour='blue' onclick={() => addRollOption(checkIndex)}>Add Roll Option</Button>
                                     </div>
-                                </div>
+                            </Card>
                             {/each}
                             
                         
@@ -1049,7 +1051,6 @@ bind:editingEncounter={wipEncounter}
         display: grid;
         grid-template-columns: auto minmax(200px, 1fr)  auto auto auto auto;
         gap: 1rem;
-        background: #f8f8f8;
         border-radius: 4px;
         align-items: center;
     }
@@ -1062,21 +1063,13 @@ bind:editingEncounter={wipEncounter}
 
     .entity-xp, .entity-level {
         white-space: nowrap;
-        color: #666;
     }
+
     .encounters-list {
         display: flex;
         flex-direction: column;
         gap: 1rem;
         max-width: 100%;
-    }
-
-    .encounter-card {
-        margin-bottom: 0.5rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: white;
-        width: 100%;
     }
 
     .encounter-header {
@@ -1086,301 +1079,21 @@ bind:editingEncounter={wipEncounter}
         padding: 1rem 1.5rem;
         cursor: pointer;
         user-select: none;
-        background: #f9fafb;
         border-radius: 4px;
-    }
-
-    .encounter-summary {
-        display: flex;
-        align-items: center;
-        gap: 2rem;
-        flex: 1;
-    }
-
-    .encounter-meta {
-        display: flex;
-        gap: 2rem;
-        align-items: center;
-        font-size: 0.875rem;
-        color: #666;
-    }
-
-    .encounter-details {
-        padding: 1.5rem;
-        border-top: 1px solid #e5e7eb;
-        background: white;
-    }
-
-    .status {
-        padding: 0.25rem 0.75rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .status.prepared { 
-        background: #dbeafe; 
-        color: #1e40af; 
-    }
-
-    .status.success { 
-        background: #dcfce7; 
-        color: #166534; 
-    }
-
-    .status.failure { 
-        background: #fee2e2; 
-        color: #991b1b; 
-    }
-
-    .status.archived { 
-        background: #f3f4f6; 
-        color: #1f2937; 
-    }
-
-    .encounters-section {
-        margin-top: 2rem;
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    .encounters-controls {
-        margin-bottom: 1.5rem;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 4px;
-    }
-
-    .filter-sort {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-    }
-
-    .filter-input {
-        flex: 1;
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        font-size: 0.875rem;
-    }
-
-    .sort-controls {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-
-    .sort-direction {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: white;
-        cursor: pointer;
-        font-size: 1rem;
-    }
-
-    .detail-section {
-        margin-bottom: 1.5rem;
-    }
-
-    .detail-section:last-child {
-        margin-bottom: 0;
-    }
-
-    .actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e5e7eb;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        max-width: 500px;
-        width: 90%;
-    }
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.5rem 0;
-    }
-
-    .modal-actions {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
-        justify-content: flex-end;
-    }
-
-    .complete-button {
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .complete-button:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .edit-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .cancel-button {
-        background: #6b7280;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .selected-creatures {
-        margin-bottom: 1rem;
-    }
-
-    .selected-creature {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 0.5rem;
-        background: #f8f8f8;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-    }
-
-    .selected-creature .xp {
-        color: #666;
-        font-size: 0.875rem;
     }
 
     .list-items {
         margin-bottom: 1rem;
     }
 
-    .remove-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .remove-button:hover {
-        background: #dc2626;
-    }
-
-    .draft-indicator {
-        position: fixed;
-        bottom: 1rem;
-        right: 1rem;
-        background: white;
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #6b7280;
-        font-size: 0.875rem;
-    }
-
-    .draft-badge {
-        background: #3b82f6;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .form-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .section-header {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .section-header h3 {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin: 0;
-        padding: 0.5rem 0;
-    }
-
-    .toggle-icon {
-        font-size: 0.8em;
-        color: #666;
-    }
-
     .section-content {
         padding-top: 1rem;
     }
-
 
     .library-selector-container {
         margin-top: 1rem;
         display: flex;
         gap: 0.5rem;
-    }
-
-    .browse-library-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: #3b82f6;
-        color: white;
-        text-decoration: none;
-        padding: 0.1rem 1rem;
-        border-radius: 0.375rem;
-        transition: background-color 0.2s;
-        white-space: nowrap;
-    }
-
-    .browse-library-button:hover {
-        background: #2563eb;
-    }
-
-    .browse-library-button::before {
-        content: "📚";  /* TODO Optional: adds a library emoji */
     }
 
     .encounter-form-container {
@@ -1402,18 +1115,6 @@ bind:editingEncounter={wipEncounter}
         font-size: 1rem;
     }
 
-    .campaign-defaults-setter {
-        padding-top: 0.5rem;
-        display: flex;
-        gap: 1rem;
-    }
-    
-    .session-selector-row {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-    }
-
     .session-selector {
         display: flex;
         gap: 1rem;
@@ -1429,18 +1130,6 @@ bind:editingEncounter={wipEncounter}
         border-radius: 0.375rem;
     }
 
-    .create-button {
-        width: 100%;
-        font-size: 1.2rem;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background-color 0.2s;
-    }   
 
     .difficulty-indicator {
         padding: 1rem;
@@ -1477,54 +1166,25 @@ bind:editingEncounter={wipEncounter}
     }
 
     .difficulty-trivial {
-        color: #10b981;
+        color: var(--color-difficulty-trivial);
     }
 
     .difficulty-low {
-        color: #f59e0b;
+        color: var(--color-difficulty-low);
     }
 
     .difficulty-moderate {
-        color: #f59e0b;
+        color: var(--color-difficulty-moderate);
     }
 
     .difficulty-severe {
-        color: #ef4444;
+        color: var(--color-difficulty-severe);
     }
 
     .difficulty-extreme {
-        color: #ef4444;
+        color: var(--color-difficulty-extreme);
     }
 
-    .adjustment-button {
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .elite-button {
-        background: #ef4444;
-    }
-    .elite-button:hover {
-        background: #dc2626;
-    }
-    .weak-button {
-        background: #10b981;
-    }
-    .weak-button:hover {
-        background: #059669;
-    }
-
-    .normal-button {
-        background: #999999;
-    }
-    .normal-button:hover {
-        background: #059669;
-    }
-
-    /* Encounter type selector styles */
     .encounter-type-selector {
         margin-bottom: 1.5rem;
     }
@@ -1539,15 +1199,16 @@ bind:editingEncounter={wipEncounter}
         display: flex;
         flex-direction: column;
         padding: 1rem;
-        border: 1px solid #e5e7eb;
+        /* TODO: This should be consistent with the encounter type card- make it raised */
+        border: 1px solid var(--color-bg-light-raised-border);
         border-radius: 0.5rem;
         cursor: pointer;
         transition: all 0.2s;
     }
 
     .encounter-type-option:hover {
-        border-color: #3b82f6;
-        background: #f0f9ff;
+        /* TODO: This should be consistent with the encounter type card- make it raised */
+        background: var(--color-bg-hover);
     }
 
     .encounter-type-option input[type="radio"] {
@@ -1562,10 +1223,9 @@ bind:editingEncounter={wipEncounter}
 
     .encounter-type-description {
         font-size: 0.875rem;
-        color: #6b7280;
+        color: var(--color-text-secondary);
     }
 
-    /* Subsystem styles */
     .skill-checks-list {
         display: flex;
         flex-direction: column;
@@ -1573,21 +1233,13 @@ bind:editingEncounter={wipEncounter}
         margin-top: 1rem;
     }
 
-    .skill-check-container {
-        background: #f8f8f8;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 1rem;
-    }
-
     .skill-check-header {
         display: grid;
         grid-template-columns: 1fr auto auto;
         gap: 1rem;
         align-items: center;
-        margin-bottom: 1rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--color-bg-light-raised-border);
     }
 
     .check-name-input {
@@ -1622,10 +1274,6 @@ bind:editingEncounter={wipEncounter}
         grid-template-columns: 1fr auto auto;
         gap: 1rem;
         align-items: center;
-        background: white;
-        padding: 0.75rem;
-        border-radius: 0.375rem;
-        border: 1px solid #e5e7eb;
     }
 
     .skill-select {
@@ -1647,44 +1295,5 @@ bind:editingEncounter={wipEncounter}
         padding: 0.5rem;
         border: 1px solid #e5e7eb;
         border-radius: 0.375rem;
-    }
-
-    .add-roll-option-btn {
-        background: #4b5563;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-weight: 500;
-        margin-top: 0.5rem;
-        width: fit-content;
-    }
-
-    .add-skill-check-btn {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.75rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-weight: 500;
-        margin-top: 1rem;
-        width: 100%;
-    }
-
-    .remove-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-weight: 500;
-        white-space: nowrap;
-    }
-
-    button:hover {
-        opacity: 0.9;
     }
 </style> 

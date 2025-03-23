@@ -66,7 +66,7 @@
     */
 
     .modal-content {
-        background: white;
+        background: var(--color-bg);
         padding: 1.5rem;
         border-radius: 0.5rem;
         max-width: 95vh;

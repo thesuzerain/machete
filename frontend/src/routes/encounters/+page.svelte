@@ -266,7 +266,6 @@ library.add(faLink)
                     Existing Encounters ({filteredAndSortedEncounters.length})
                 </h2>
             </div>
-            <div class="encounters-controls">
                 <div class="filter-sort">
                     <input
                         type="text"
@@ -287,7 +286,6 @@ library.add(faLink)
    
                     </div>
                 </div>
-            </div>
             <Card background="light">
                 {#each filteredAndSortedEncounters as encounter (encounter.id)}
                 <Card bind:collapsed={
@@ -429,13 +427,7 @@ library.add(faLink)
                 </Card>
                 {/each}
             </Card>
-            <div class="encounters-list">
-                
-            </div>
         </Card>
-        <div class="encounters-section">
-            
-        </div>
     {/if}
     
 </div>
@@ -497,67 +489,6 @@ library.add(faLink)
         margin-bottom: 2rem;
     }
 
-    .encounter-form {
-        background: #f8f8f8;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
-    }
-
-    .section {
-        margin: 1.5rem 0;
-        padding: 1rem;
-        background: #fff;
-        border-radius: 4px;
-    }
-
-    .list-item {
-        display: grid;
-        grid-template-columns: minmax(200px, 1fr) auto auto auto auto;
-        gap: 1rem;
-        padding: 0.5rem 1rem;
-        background: #f8f8f8;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-        align-items: center;
-    }
-
-    .entity-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .entity-xp, .entity-level {
-        white-space: nowrap;
-        color: #666;
-    }
-    .encounters-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        max-width: 100%;
-    }
-
-    .encounter-card {
-        margin-bottom: 0.5rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: white;
-        width: 100%;
-    }
-
-    .encounter-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 1.5rem;
-        cursor: pointer;
-        user-select: none;
-        background: #f9fafb;
-        border-radius: 4px;
-    }
-
     .encounter-summary {
         display: flex;
         align-items: center;
@@ -575,13 +506,14 @@ library.add(faLink)
         gap: 2rem;
         align-items: center;
         font-size: 0.875rem;
-        color: #666;
+        color: var(--color-text-secondary);
     }
 
     .encounter-details {
         padding: 1.5rem;
     }
 
+    /* TODO: Get rid of status- or replace with linked */
     .status {
         padding: 0.25rem 0.75rem;
         border-radius: 999px;
@@ -611,22 +543,10 @@ library.add(faLink)
         color: #1f2937; 
     }
 
-    .encounters-section {
-        margin-top: 2rem;
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    .encounters-controls {
+    .filter-sort {
         margin-bottom: 1.5rem;
         padding: 1rem;
-        background: #f9fafb;
         border-radius: 4px;
-    }
-
-    .filter-sort {
         display: flex;
         gap: 1rem;
         align-items: center;
@@ -654,15 +574,6 @@ library.add(faLink)
         min-width: 150px;
     }
 
-    .sort-direction {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: white;
-        cursor: pointer;
-        font-size: 1rem;
-    }
-
     .detail-section {
         margin-bottom: 1.5rem;
     }
@@ -684,7 +595,7 @@ library.add(faLink)
 
     .detail-section li {
         padding: 0.25rem 0;
-        color: #6b7280;
+        color: var(--color-text-secondary);
     }
 
     .actions {
@@ -692,15 +603,7 @@ library.add(faLink)
         gap: 0.75rem;
         margin-top: 1.5rem;
         padding-top: 1rem;
-        border-top: 1px solid #e5e7eb;
-    }
-
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.5rem 0;
+        border-top: 1px solid var(--color-bg-light-raised-border);
     }
 
     .modal-actions {
@@ -710,188 +613,7 @@ library.add(faLink)
         justify-content: flex-end;
     }
 
-    .complete-button {
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .complete-button:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .edit-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .delete-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .clone-encounter-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .cancel-button {
-        background: #6b7280;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .selected-creatures {
-        margin-bottom: 1rem;
-    }
-
-    .selected-creature {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 0.5rem;
-        background: #f8f8f8;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-    }
-
-    .remove-button {
-        margin-left: auto;
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .remove-button:hover {
-        background: #dc2626;
-    }
-
-    .list-items {
-        margin-bottom: 1rem;
-    }
-
-    .draft-indicator {
-        position: fixed;
-        bottom: 1rem;
-        right: 1rem;
-        background: white;
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #6b7280;
-        font-size: 0.875rem;
-    }
-
-    .draft-badge {
-        background: #3b82f6;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .form-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .section-header {
-        cursor: pointer;
-        user-select: none;
-    }
-    .toggle-icon {
-        font-size: 0.8em;
-        color: #666;
-    }
-
-    .section-content {
-        padding-top: 1rem;
-    }
-
-    .collapsible {
-        transition: all 0.3s ease;
-    }
-
-    .library-selector-container {
-        margin-top: 1rem;
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .browse-library-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: #3b82f6;
-        color: white;
-        text-decoration: none;
-        padding: 0.1rem 1rem;
-        border-radius: 0.375rem;
-        transition: background-color 0.2s;
-        white-space: nowrap;
-    }
-
-    .browse-library-button:hover {
-        background: #2563eb;
-    }
-
-    .browse-library-button::before {
-        content: "📚";  /* Optional: adds a library emoji */
-    }
-
-    .encounter-form-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-
-    .party-config-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .name-input {
-        width: 100%;
-        font-size: 1.2rem;
-        font-family: inherit;
-    }
-
-    .description-input {
-        width: 100%;
-        font-size: 1rem;
-        /* lock size */
-        resize: none;
-        font-family: inherit;
-    }
-
+    /* TODO: all selects*/
     .modal-select {
         width: 100%;
         padding: 0.5rem;
@@ -901,29 +623,25 @@ library.add(faLink)
         font-size: 1rem;
     }
 
-    .form-group-line {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
 
     .difficulty-trivial {
-        color: #10b981;
+        color: var(--color-difficulty-trivial);
     }
 
     .difficulty-low {
-        color: #f59e0b;
+        color: var(--color-difficulty-low);
     }
 
     .difficulty-moderate {
-        color: #f59e0b;
+        color: var(--color-difficulty-moderate);
     }
 
     .difficulty-severe {
-        color: #ef4444;
+        color: var(--color-difficulty-severe);
     }
 
     .difficulty-extreme {
-        color: #ef4444;
+        color: var(--color-difficulty-extreme);
     }
+
 </style> 
