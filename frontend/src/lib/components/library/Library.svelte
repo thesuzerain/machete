@@ -545,8 +545,8 @@
 
 <style>
     .library-page {
-        padding: 2rem;
-        max-width: 1600px;
+        padding: 1rem;
+        max-width: 80rem;
         margin: 0 auto;
     }
 
@@ -626,23 +626,11 @@
         z-index: 10;
     }
 
-    th.sortable {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    th.sortable:hover {
-        background: #f3f4f6;
-    }
 
     .sort-indicator {
         display: inline-block;
         margin-left: 0.25rem;
         transition: transform 0.2s;
-    }
-
-    th.sorted.desc .sort-indicator {
-        transform: rotate(180deg);
     }
 
     tr:hover {

@@ -47,7 +47,7 @@
                         </div>
                     {:else}
                         <Button colour="black" onclick={() => showLoginModal = true}>Login</Button>
-                        <Button colour="blue" onclick={() => showLoginModal = true}>Sign up</Button>
+                        <Button colour="blue" onclick={() => showSignupModal = true}>Sign up</Button>
                     {/if}
                 </div>
             </div>

@@ -638,10 +638,11 @@
     {/if}
 </div>
 
-<!-- TODO: Extract to component?-->
-    <Modal show={showSessionOrderModal}>
-        <div class="modal-content">
+    <Modal show={showSessionOrderModal} closeButton>
+        <div slot="header">
             <h2>Reorder Sessions</h2>
+        </div>
+        <div class="modal-content">
             <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}" class="item-division-session-dnd">
                 {#each temporarySessionOrder as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
@@ -649,11 +650,6 @@
                         <span>Session {ix} {session.name}</span>
                     </div>
                 {/each}
-            </div>
-            <div class="modal-actions">
-                <Button colour="black" onclick={() => showSessionOrderModal = false}>
-                    Close
-                </Button>
             </div>
         </div>
 

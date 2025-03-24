@@ -101,8 +101,11 @@
 </script>
 
 
-<Modal bind:show={show} bind:error={error}>
-    <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
+<Modal bind:show={show} bind:error={error} closeButton>
+    <div slot="header">
+        <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
+
+    </div>
     <form on:submit|preventDefault={handleSubmit}>
         <div class="form-group">
             <label for="name">Name</label>

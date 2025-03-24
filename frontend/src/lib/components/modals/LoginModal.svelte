@@ -45,8 +45,10 @@
     }
 </script>
 
-<Modal bind:error bind:show>
-    <h2>Login</h2>
+<Modal bind:error bind:show closeButton>
+    <div slot="header">
+        <h2>Login</h2>
+    </div>
     <form on:submit={handleLogin}>
         <div class="form-group">
             <label>Username:</label>

@@ -63,11 +63,11 @@
     }
 </script>
 
-<Modal show={show && !!encounter}>
-    <div class="modal-header">
+<Modal show={show && !!encounter} closeButton>
+    <div slot="header">
         <h2>{encounter.name}</h2>
-        <button class="close-button" on:click={closeModal}>×</button>
     </div>
+    <div class="modal-shape">
 
     <div class="encounter-meta">
         <span class="xp">XP: {encounter.total_experience} 
@@ -169,7 +169,7 @@
             {/if}
         </div>
     </div>
-
+    </div>
 </Modal>
 
 
@@ -182,14 +182,8 @@
         margin-bottom: 1rem;
     }
 
-    /* TODO: Revisit this- should every modal have one? */
-    .close-button {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 0.5rem;
-        color: #666;
+    .modal-shape {
+        min-width: 100vh;
     }
 
     .encounter-meta {

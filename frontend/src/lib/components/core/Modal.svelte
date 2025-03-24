@@ -4,11 +4,13 @@
 
     interface Props {
         show: boolean;
+        closeButton?: boolean;
         error?: string;
     }
 
     let { 
         show = $bindable(),
+        closeButton = false,
         error = $bindable(),
     } : Props = $props();
     
@@ -27,6 +29,13 @@
 
     <div class="modal-backdrop" on:click={closeModal} transition:fade>
         <div class="modal-content" on:click|stopPropagation>
+            <div class="modal-header">
+                <slot name="header" />
+                {#if closeButton}
+                    <button class="close-button" on:click={closeModal}>×</button>
+                {/if}
+            </div>
+
              <slot />
         </div>
     </div>
@@ -50,27 +59,26 @@
         
     }
 
-    /*
-    Decide what to set width, etc. Some contenders:
-    - login modal
-    - signup modal
-    -new character modal
-    - edit campaign/new campaign modal
-    - reorder modal
-    - library modal
-    - encounterviewer modal
-    -n ew campaign modal
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
 
-    Needs to look good with all of them
-
-    */
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #666;
+    }
 
     .modal-content {
         background: var(--color-bg);
         padding: 1.5rem;
         border-radius: 0.5rem;
-        max-width: 95vh;
-        max-height: 100vh;
+        max-width: 95vw;
+        max-height: 95vh;
         overflow-y: auto;
         margin: auto;
     }

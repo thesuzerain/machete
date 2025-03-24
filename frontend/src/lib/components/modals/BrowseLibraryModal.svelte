@@ -31,11 +31,12 @@
 </script>
 
 {#if show}
-    <Modal bind:show={show} on:close={closeModal} bind:error={error}>
+    <Modal bind:show={show} on:close={closeModal} bind:error={error} closeButton>
+        <div slot="header">
+        </div>
         <Library allowedTabs={allowedTabs} bind:editingEncounter={editingEncounter} />
     </Modal>
 {/if}
 
 <style>
-
 </style> 

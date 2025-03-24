@@ -1,7 +1,5 @@
 <script lang="ts">
-// TODO: Add shadow
 
-    //TODO: one/default slot for same header if same
     import { fade } from "svelte/transition";
 
     type BackgroundColour = 'light' | 'grey' | 'dark';
@@ -69,7 +67,6 @@
 }
 
 .card-loose {
-    /* TODO: check margin: 1.5rem 0; */
     display: flex;
     flex-direction: column;
     padding: 1.5rem;

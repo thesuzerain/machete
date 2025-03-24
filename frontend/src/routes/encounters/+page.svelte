@@ -426,8 +426,10 @@ library.add(faLink)
 
 </ConfirmationModal>
 
-<Modal show={!!linkingEncounter}>
+<Modal show={!!linkingEncounter} closeButton on:close={() => linkingEncounter = null}>
+    <div slot="header">
     <h2>Link Encounter to Session</h2>
+    </div>
 
     <p>Choose a session to link this encounter to:</p>
 

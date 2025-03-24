@@ -69,7 +69,7 @@
 <div class="characters-section" transition:fade>
     <div class="characters-header">
         <h2>Characters</h2>
-        <Button colour="green" onclick={() => showNewCharacterModal = true}>Add Character</Button>
+        <Button colour="green" onclick={() => {showNewCharacterModal = true; editingCharacter = null;}}>Add Character</Button>
     </div>
 
     <div class="character-list">
