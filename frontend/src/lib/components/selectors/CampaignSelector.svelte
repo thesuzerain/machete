@@ -4,8 +4,9 @@
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
   import type { Campaign } from '$lib/types/types';
-  import CampaignModal from './CampaignModal.svelte';
+  import CampaignModal from '../modals/CampaignModal.svelte';
   import { onMount } from 'svelte';
+    import Button from '../core/Button.svelte';
 
     export let error: string | null;
 
@@ -38,17 +39,20 @@
                 <option value={id}>{campaign.name}</option>
             {/each}
         </select>
-        {#if $selectedCampaignStore}
-            <button class="new-campaign-btn" on:click={() => {
-                editingCampaign = selectedCampaign ? selectedCampaign : null
-                showNewCampaignModal = true
-            }}>
-                Edit Campaign
-            </button>
+
+    {#if $selectedCampaignStore}
+    <Button colour="blue" onclick={() => {
+        editingCampaign = selectedCampaign ? selectedCampaign : null
+        showNewCampaignModal = true
+    }}>
+        Edit Campaign
+    </Button>
+
         {/if}
-        <button class="new-campaign-btn" on:click={() => showNewCampaignModal = true}>
+
+        <Button colour="blue" onclick={() => showNewCampaignModal = true}>
             New Campaign
-        </button>
+        </Button>
     </div>
 </div>
 
@@ -73,29 +77,11 @@
     .campaign-selector {
         display: flex;
         gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .campaign-selector select {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-    }
-
-    .new-campaign-btn {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-        white-space: nowrap;
     }
 
     .error-message {
-        background: #fee2e2;
-        color: #991b1b;
+        background: var(--color-bg);
+        color: var(--color-text-error);
         padding: 1rem;
         border-radius: 0.375rem;
         margin-bottom: 1rem;

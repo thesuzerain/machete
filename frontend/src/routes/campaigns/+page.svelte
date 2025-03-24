@@ -4,26 +4,25 @@
     import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
     import { characterStore } from '$lib/stores/characters';
     import type { Campaign, InsertEvent, Log } from '$lib/types/types';
-    import CampaignModal from '$lib/components/CampaignModal.svelte';
-    import CampaignCharactersTab from '$lib/components/CampaignCharactersTab.svelte';
-    import CampaignLogsTab from '$lib/components/CampaignLogsTab.svelte';
+    import CampaignModal from '$lib/components/modals/CampaignModal.svelte';
+    import CampaignCharactersTab from '$lib/components/tabs/CampaignCharactersTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
     import { API_URL } from '$lib/config';
     import { requireAuth } from '$lib/guards/auth';
-    import CampaignImportTab from '$lib/components/CampaignImportTab.svelte';
-    import CampaignExportTab from '$lib/components/CampaignExportTab.svelte';
+    import CampaignExportTab from '$lib/components/tabs/CampaignExportTab.svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
-    import CampaignSessionsTab from '$lib/components/CampaignSessionsTab.svelte';
+    import CampaignSessionsTab from '$lib/components/tabs/CampaignSessionsTab.svelte';
   import { encounterStore } from '$lib/stores/encounters';
-  import CampaignSummaryTab from '$lib/components/CampaignSummaryTab.svelte';
+  import CampaignSummaryTab from '$lib/components/tabs/CampaignSummaryTab.svelte';
 import { statsStore } from '$lib/stores/stats';
     import { page } from '$app/stores';
+    import Card from '$lib/components/core/Card.svelte';
 
     let loading = true;
     let error: string | null = null;
     let showNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
-    let activeTab: 'summary' | 'sessions' | 'characters' | 'logs' | 'import' | 'export' = 'summary';
+    let activeTab: 'summary' | 'sessions' | 'characters' | 'export' = 'summary';
     let campaignLogs: Log[] = [];
 
     // Subscribe to stores
@@ -129,20 +128,21 @@ import { statsStore } from '$lib/stores/stats';
 
 <div class="campaigns-page">
     {#if selectedCampaignId && stats}
-        <div class="campaign-metadata" transition:fade>
-            <div class="metadata-item">
-                <div class="metadata-content">
-                    <span class="label">Campaign Level</span>
-                    <div class="value-group">
-                        <span class="value">{stats.level}</span>
-                        <div class="mini-progress-bar">
-                            <div class="progress" style="width: {(stats.experience_this_level / 1000) * 100}%"></div>
+    <Card background="light" tight>
+        <div class="campaign-metadata">
+            <Card tight shadowed={false}>
+                    <div class="metadata-content">
+                        <span class="label">Campaign Level</span>
+                        <div class="value-group">
+                            <span class="value">{stats.level}</span>
+                            <div class="mini-progress-bar">
+                                <div class="progress" style="width: {(stats.experience_this_level / 1000) * 100}%"></div>
+                            </div>
+                            <div class="subtext">Experience: {stats?.experience_this_level || 0}</div>
                         </div>
-                        <div class="subtext">Experience: {stats?.experience_this_level || 0}</div>
                     </div>
-                </div>
-            </div>
-            <div class="metadata-item">
+            </Card>
+            <Card tight shadowed={false}>
                 <div class="metadata-content">
                     <span class="label">Sessions</span>
                     <div class="value-group">
@@ -150,8 +150,10 @@ import { statsStore } from '$lib/stores/stats';
                         <span class="subtext">({stats.num_combat_encounters} encounters)</span>
                     </div>
                 </div>
-            </div>
-            <div class="metadata-item">
+            </Card>
+
+
+            <Card tight shadowed={false}>
                 <div class="metadata-content">
                     <span class="label">Treasure Balance</span>
                     <div class="values-group">
@@ -169,9 +171,10 @@ import { statsStore } from '$lib/stores/stats';
                     </div>
                 </div>
                 </div>
-            </div>
+            </Card>
+            
         </div>
-
+    </Card>
     <div class="tabs">
         <button 
             class="tab-button {activeTab === 'summary' ? 'active' : ''}"
@@ -191,19 +194,6 @@ import { statsStore } from '$lib/stores/stats';
     >
         Characters
     </button>
-
-        <button 
-            class="tab-button {activeTab === 'logs' ? 'active' : ''}"
-            on:click={() => activeTab = 'logs'}
-        >
-            Logs
-        </button>
-        <button 
-            class="tab-button {activeTab === 'import' ? 'active' : ''}"
-            on:click={() => activeTab = 'import'}
-        >
-            Import
-        </button>
         <button 
             class="tab-button {activeTab === 'export' ? 'active' : ''}"
             on:click={() => activeTab = 'export'}
@@ -226,24 +216,9 @@ import { statsStore } from '$lib/stores/stats';
                         {selectedCampaignId}
                         bind:error
             />
-        {:else if activeTab === 'logs'}
-            <CampaignLogsTab
-                {selectedCampaignId}
-                {campaignLogs}
-                {characters}
-                {fetchLogs}
-                bind:error
-            />
         {:else if activeTab === 'export'}
             <CampaignExportTab
                 campaignId={selectedCampaignId}
-            />
-        {:else}
-            <CampaignImportTab
-                {selectedCampaignId}
-                {characters}
-                bind:error
-                {fetchLogs}
             />
         {/if}
     {/if}
@@ -257,35 +232,10 @@ import { statsStore } from '$lib/stores/stats';
         margin: 0 auto;
     }
 
-    .campaign-selector {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .campaign-selector select {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-    }
-
     .campaign-metadata {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
-        padding: 1rem;
-        background: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        margin-bottom: 2rem;
-    }
-
-    .metadata-item {
-        padding: 0.75rem;
-        border-radius: 0.375rem;
-        background: #f8fafc;
     }
 
     .metadata-content {
@@ -294,9 +244,9 @@ import { statsStore } from '$lib/stores/stats';
         gap: 0.5rem;
     }
 
-    .metadata-item .label {
+    .metadata-content .label {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -312,20 +262,20 @@ import { statsStore } from '$lib/stores/stats';
         gap: 0.5rem;
     }
 
-    .metadata-item .value {
+    .metadata-content .value {
         font-size: 1.25rem;
         font-weight: 600;
     }
 
-    .metadata-item .subtext {
+    .metadata-content .subtext {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
     }
 
     .mini-progress-bar {
         width: 40px;
         height: 3px;
-        background: #e2e8f0;
+        background: var(--color-bg-raised);
         border-radius: 2px;
         overflow: hidden;
         margin-top: 0.25rem;
@@ -333,40 +283,16 @@ import { statsStore } from '$lib/stores/stats';
 
     .mini-progress-bar .progress {
         height: 100%;
-        background: #3b82f6;
+        background: var(--color-bg-success);
         transition: width 0.3s ease;
-    }
-
-    .deficit {
-        color: #ef4444;
-    }
-
-    .surplus {
-        color: #22c55e;
-    }
-
-    .new-campaign-btn {
-        background: #3b82f6;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
-        white-space: nowrap;
-    }
-
-    .error-message {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 1rem;
-        border-radius: 0.375rem;
-        margin-bottom: 1rem;
     }
 
     .tabs {
         display: flex;
         gap: 1rem;
+        margin-top: 1rem;
         margin-bottom: 1rem;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--color-bg-border);
         padding-bottom: 0.5rem;
     }
 
@@ -375,38 +301,35 @@ import { statsStore } from '$lib/stores/stats';
         border: none;
         background: none;
         font-size: 1rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         cursor: pointer;
         border-bottom: 2px solid transparent;
         transition: all 0.2s;
     }
 
     .tab-button:hover {
-        color: #1e293b;
+        background-color: var(--color-bg-hover);
     }
 
     .tab-button.active {
-        color: #3b82f6;
-        border-bottom-color: #3b82f6;
+        /* TODO: Maybe make all tab selectors work this way? It looks VERY nice compared to the straight blue buttons */
+        color: var(--color-bg-selected);
+        border-bottom-color: var(--color-bg-selected);
     }
 
     .large-deficit-colour {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
     .small-deficit-colour {
-        color: rgb(250, 107, 107);
+        color: var(--color-small-deficit);
     }
-
-
     .no-deficit-colour {
-        color: rgb(99, 192, 133);
+        color: var(--color-no-deficit);
     }
-
     .small-surplus-colour {
-        color: #ca9a22;
+        color: var(--color-small-surplus);
     }
-
     .large-surplus-colour {
-        color: #f0de0d;
+        color: var(--color-large-surplus);
     }
 </style> 

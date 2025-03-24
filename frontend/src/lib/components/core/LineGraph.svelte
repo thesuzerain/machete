@@ -13,17 +13,15 @@
     interface Props {
         data: DataLine[];
 
-        xLabel: string;
-        xFormat: string;
-        yLabel: string;
-        yFormat: string;
+        xLabel?: string;
+        xFormat?: string;
+        yLabel?: string;
+        yFormat?: string;
 
-        prependPointString: string; // eg: "Session" to display "Session 1" instead of "1" on hover
-
-        curve: CurveFactory;
+        curve?: CurveFactory;
         // TODO: These types should be generic (allow Date, etc, as scales can allow for other things)
-        xType: (domain : Iterable<NumberValue>, range: Iterable<number>) => ScaleContinuousNumeric<number, number, never>;
-        yType: (domain : Iterable<NumberValue>, range: Iterable<number>) => ScaleContinuousNumeric<number, number, never>;
+        xType?: (domain : Iterable<NumberValue>, range: Iterable<number>) => ScaleContinuousNumeric<number, number, never>;
+        yType?: (domain : Iterable<NumberValue>, range: Iterable<number>) => ScaleContinuousNumeric<number, number, never>;
     }
     
     let { 
@@ -38,7 +36,7 @@
         yType = scaleLinear,
      } : Props = $props();
 
-
+    const dotsFilled = 'white'; // whether dots should be filled or outlined
 
     const marginTop = 61; // the top margin, in pixels
     const marginRight = 0; // the right margin, in pixels
@@ -50,7 +48,7 @@
     const horizontalGrid = true; // show horizontal grid lines
     const verticalGrid = true; // show vertical grid lines
     const colors = ['#F50057','#42A5F5','#26A69A','#9575CD']; // fill color for dots && number of colors in fill array MUST match number of subsets in data
-    const dotsFilled = true; // whether dots should be filled or outlined
+    
     const r = 5; // (fixed) radius of dots, in pixels
     const strokeWidth = 5; // stroke width of line, in pixels
     const strokeOpacity = 0.8; // stroke opacity of line
@@ -205,7 +203,7 @@
     .chart-container {
       justify-content: center;
       align-items: center;
-      margin-top: 50px;
+      margin-top: 1rem;
       margin-left: 8
       0px;
     }

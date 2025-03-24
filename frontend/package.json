@@ -17,7 +17,7 @@
 		"@types/d3": "^7.4.3",
 		"@types/node": "^20.0.0",
 		"sass-embedded": "^1.80.7",
-		"svelte": "^5.0.0",
+		"svelte": "^5.9.0",
 		"svelte-check": "^4.0.0",
 		"svelte-preprocess": "^6.0.3",
 		"svelte-range-slider-pips": "^3.1.4",
@@ -31,6 +31,7 @@
 		"@fortawesome/svelte-fontawesome": "^0.2.0",
 		"d3": "^7.9.0",
 		"date-fns": "^3.3.1",
+		"svelte": "^5.9.0",
 		"svelte-dnd-action": "^0.9.55",
 		"svelte-infinite-scroll": "^2.0.1",
 		"svelte-transitions": "^1.2.0"

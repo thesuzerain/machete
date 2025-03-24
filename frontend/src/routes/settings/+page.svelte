@@ -55,6 +55,7 @@
 
 <div class="settings-page">
     <h1>User Settings</h1>
+    <h1>TODO: Page incomplete. CSS inconsistent (Buttons need to match components, etc)</h1>
 
     <div class="user-info">
         <h2>Account Information</h2>
@@ -122,7 +123,7 @@
         background: white;
         padding: 1.5rem;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--shadow);
         margin-bottom: 2rem;
     }
 
@@ -130,7 +131,7 @@
         background: white;
         padding: 1.5rem;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--shadow);
     }
 
     .form-group {

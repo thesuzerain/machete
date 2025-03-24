@@ -20,10 +20,10 @@
     import { goto } from '$app/navigation';
     import type { CreateOrReplaceEncounter } from '$lib/types/encounters';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
+    import Button from '../core/Button.svelte';
 
     export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
     export let activeTab: LibraryEntityType  = allowedTabs[0];
-    export let addEntityToEncounter: ((entityType: LibraryEntityType, entity: LibraryEntity) => Promise<void>) | undefined;
     export let editingEncounter: CreateOrReplaceEncounter | null = null;
 
 
@@ -120,7 +120,7 @@
     let previewPosition = { x: 0, y: 0 };
 
     // Modify encounter state handling
-    $: isEncounterMode = addEntityToEncounter && editingEncounter;
+    $: isEncounterMode = editingEncounter;
 
     // Add state for notification
     let notification: string | null = null;
@@ -185,14 +185,8 @@
     }
 
     async function addToEncounter(entity: LibraryEntity, type: LibraryEntityType) {
-        console.log("addToEncounter", entity, type);
-        console.log("editingEncounter", editingEncounter);
-        // TODO: Remove
-        // if (addEntityToEncounter) {await addEntityToEncounter?.(type, entity) }
-
         // TODO: There may be a better way to do type assignemnts w.r.t LibraryEntity
         // currently: creatureStore.insertEntity(entity as LibraryCreature);
-
         if (!editingEncounter) return;
         switch (type) {
             case 'creature':
@@ -335,7 +329,7 @@
                 class="search-input"
             />
 
-            <select bind:value={filterRarity} class="filter-select">
+            <select bind:value={filterRarity}>
                 <option value="">All Rarities</option>
                 <option value="common">Common</option>
                 <option value="uncommon">Uncommon</option>
@@ -343,7 +337,7 @@
                 <option value="unique">Unique</option>
             </select>
 
-            <select bind:value={minLevel} class="filter-select">
+            <select bind:value={minLevel}>
                 <option value=-2>Min Level</option>
                 {#each Array(33) as _, i}
                     {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
@@ -352,7 +346,7 @@
                 {/each}
             </select>
 
-            <select bind:value={maxLevel} class="filter-select">
+            <select bind:value={maxLevel}>
                 <option value=-2>Max Level</option>
                 {#each Array(33) as _, i}
                     {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
@@ -361,7 +355,7 @@
                 {/each}
             </select>
 
-            <select bind:value={filterLegacy} class="filter-select">
+            <select bind:value={filterLegacy}>
                 <option value="remaster">Remastered</option>
                 <option value="remaster">Legacy</option>
                 <option value="all">All Versions</option>
@@ -371,12 +365,10 @@
         </div>
 
         <div class="column-selector-container">
-            <button 
-                class="column-selector-toggle"
-                on:click={() => showColumnSelector = !showColumnSelector}
-            >
+            <Button colour='black' onclick={() => showColumnSelector = !showColumnSelector} >
                 {showColumnSelector ? 'Hide' : 'Show'} Column Selector
-            </button>
+                </Button>
+
 
             {#if showColumnSelector}
                 <div class="column-selector" transition:slide>
@@ -457,15 +449,15 @@
                         {/if}
                         {#if isEncounterMode && (activeTab === 'creature' || activeTab === 'hazard' || activeTab === 'item')}
                             <td class="actions">
-                                <button 
-                                    class="add-button"
-                                    on:click={(e) => { e.stopPropagation(); addToEncounter(
-                                        entity,
-                                        activeTab
-                                    ); }}
-                                >
-                                    Add to Encounter
-                                </button>
+                                <Button colour='blue'
+                                onclick={() => {addToEncounter(
+                                    entity,
+                                    activeTab
+                                ); }}
+                            >
+                                Add to Encounter
+                            </Button>
+
                             </td>
                         {/if}
                     </tr>
@@ -485,7 +477,7 @@
                                             {#if !ignoredColumns[activeTab as keyof typeof ignoredColumns]?.includes(key) && value !== undefined && value !== null}
                                                 <div class="detail-item">
                                                     <span class="detail-label">{formatDetailLabel(key)}</span>
-                                                    <span class="detail-value">
+                                                    <span>
                                                         {#if key === 'alignment'}
                                                             {formatAlignment(value)}
                                                         {:else if key === 'price'}
@@ -553,8 +545,8 @@
 
 <style>
     .library-page {
-        padding: 2rem;
-        max-width: 1600px;
+        padding: 1rem;
+        max-width: 80rem;
         margin: 0 auto;
     }
 
@@ -566,7 +558,7 @@
         display: flex;
         gap: 0.5rem;
         margin-bottom: 1rem;
-        border-bottom: 2px solid #e5e7eb;
+        border-bottom: 2px solid var(--color-bg-light-raised-border);
         padding-bottom: 0.5rem;
     }
 
@@ -576,19 +568,19 @@
         background: none;
         cursor: pointer;
         font-size: 1rem;
-        color: #6b7280;
+        color: var(--color-text);
         border-radius: 0.375rem;
         transition: all 0.2s;
     }
 
     .tab-button:hover {
-        background: #f3f4f6;
-        color: #111827;
+        background: var(  --color-bg-raised);
+        color: var(--color-text);
     }
 
     .tab-button.active {
-        background: #3b82f6;
-        color: white;
+        background: var( --color-bg-selected);
+        color: var(--color-text-light);
     }
 
     .filters {
@@ -603,14 +595,6 @@
         border: 1px solid #d1d5db;
         border-radius: 0.375rem;
         font-size: 0.875rem;
-    }
-
-    .filter-select {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        min-width: 150px;
     }
 
     .table-container {
@@ -634,31 +618,19 @@
     }
 
     th {
-        background: #f9fafb;
+        background: var(--color-bg-light-raised);
         font-weight: 600;
-        color: #374151;
+        color: var(--color-text);
         position: sticky;
         top: 0;
         z-index: 10;
     }
 
-    th.sortable {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    th.sortable:hover {
-        background: #f3f4f6;
-    }
 
     .sort-indicator {
         display: inline-block;
         margin-left: 0.25rem;
         transition: transform 0.2s;
-    }
-
-    th.sorted.desc .sort-indicator {
-        transform: rotate(180deg);
     }
 
     tr:hover {
@@ -667,7 +639,7 @@
 
     .error {
         background: #fee2e2;
-        color: #ef4444;
+        color: var(--color-bg-error);
         padding: 1rem;
         border-radius: 0.375rem;
         margin-bottom: 1rem;
@@ -675,22 +647,11 @@
 
     .loading {
         text-align: center;
-        color: #6b7280;
+        color: var(--color-text);
         padding: 2rem;
     }
 
-    @media (max-width: 768px) {
-        .filters {
-            flex-direction: column;
-        }
-
-        .filter-select {
-            width: 100%;
-        }
-    }
-
     .results-count {
-        color: #6b7280;
         font-size: 0.875rem;
         margin-top: 0.5rem;
     }
@@ -700,13 +661,13 @@
         border: none;
         cursor: pointer;
         font-size: 1.2rem;
-        color: #6b7280;
+        color: var(--color-text);
         padding: 0.25rem 0.5rem;
         border-radius: 0.25rem;
     }
 
     .expand-button:hover {
-        background: #f3f4f6;
+        background: var(--color-bg-raised);
     }
 
     tr.expanded {
@@ -744,30 +705,13 @@
     }
 
     .detail-label {
-        font-weight: 500;
-        color: #4b5563;
+        font-weight: 600;
         font-size: 0.875rem;
-    }
-
-    .detail-value {
-        color: #111827;
-    }
-
-    .external-link a {
-        color: #3b82f6;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .external-link a:hover {
-        text-decoration: underline;
     }
 
     .preview-card {
         position: fixed;
-        background: white;
+        background: var(--color-bg);
         padding: 1rem;
         border-radius: 0.5rem;
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -777,12 +721,10 @@
 
     .preview-card h3 {
         margin: 0 0 0.5rem 0;
-        color: #111827;
     }
 
     .preview-card p {
         margin: 0;
-        color: #4b5563;
         font-size: 0.875rem;
         line-height: 1.4;
     }
@@ -895,79 +837,34 @@
         text-decoration: underline;
     }
 
-    .activate-mode-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-        transition: background-color 0.2s;
-    }
-
-    .activate-mode-button:hover {
-        background: #2563eb;
-    }
 
     .notification {
         position: fixed;
         top: 1rem;
-        right: 1rem;
-        background: #34d399; /* Green background for success */
-        color: white;
+        right: 5rem;
+        background: var(--color-bg-success); 
+        color: var(--color-text-light); 
         padding: 0.75rem 1rem;
         border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--shadow);
         z-index: 100;
     }
 
-    .toggle-range-container {
-        margin-top: 0.5rem;
-    }
-
-    .toggle-range-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        color: #374151;
-    }
-
-    .toggle-range-label input {
-        cursor: pointer;
-    }
-
     .table-container tr:nth-child(even) {
-        background-color: #f9fafb; /* Light background for even rows */
+        background-color: var(--color-bg-light-raised); /* Light background for even rows */
     }
 
     .table-container tr:nth-child(odd) {
-        background-color: white; /* Default background for odd rows */
+        background-color: var(--color-bg); /* Default background for odd rows */
     }
 
     .column-selector-container {
         margin-bottom: 1rem;
     }
 
-    .column-selector-toggle {
-        background: #f3f4f6;
-        color: #111827;
-        border: 1px solid #d1d5db;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-        transition: background-color 0.2s;
-    }
-
-    .column-selector-toggle:hover {
-        background: #e5e7eb;
-    }
-
     .column-selector {
-        background: white;
-        border: 1px solid #d1d5db;
+        background: var(--color-bg);
+        border: 1px solid var(--color-bg-light-raised);
         border-radius: 0.375rem;
         padding: 1rem;
         margin-top: 0.5rem;
@@ -975,7 +872,6 @@
 
     .column-selector h4 {
         margin: 0 0 0.75rem 0;
-        color: #374151;
     }
 
     .column-options {
@@ -989,7 +885,6 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 0.875rem;
-        color: #374151;
         cursor: pointer;
     }
 
@@ -1005,22 +900,22 @@
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: white;
+        color: var(--color-text-light);
     }
 
     .rarity-label.common {
-        background-color: #9ca3af; /* Grey */
+        background-color: var(--color-rarity-common);
     }
 
     .rarity-label.uncommon {
-        background-color: #fbbf24; /* Yellow */
+        background-color: var(--color-rarity-uncommon);
     }
 
     .rarity-label.rare {
-        background-color: #3b82f6; /* Blue */
+        background-color: var(--color-rarity-rare); 
     }
 
     .rarity-label.unique {
-        background-color: #8b5cf6; /* Purple */
+        background-color: var(--color-rarity-unique); 
     }
 </style> 

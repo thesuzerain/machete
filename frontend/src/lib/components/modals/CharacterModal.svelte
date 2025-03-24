@@ -3,10 +3,11 @@
     import { fade } from 'svelte/transition';
     import { API_URL } from '$lib/config';
     import type { Character } from '$lib/types/types';
-    import LibrarySelector from './LibrarySelector.svelte';
+    import LibrarySelector from '../selectors/LibrarySelector.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
-    import Modal from './Modal.svelte';
+    import Modal from '../core/Modal.svelte';
+    import Button from '../core/Button.svelte';
 
     export let show = false;
     export let campaignId: number | null;
@@ -100,8 +101,11 @@
 </script>
 
 
-<Modal bind:show={show} bind:error={error}>
-    <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
+<Modal bind:show={show} bind:error={error} closeButton>
+    <div slot="header">
+        <h2>{editingCharacter ? 'Edit' : 'New'} Character</h2>
+
+    </div>
     <form on:submit|preventDefault={handleSubmit}>
         <div class="form-group">
             <label for="name">Name</label>
@@ -126,12 +130,12 @@
         </div> 
 
         <div class="modal-actions">
-            <button type="button" class="cancel-btn" on:click={closeModal}>
+            <Button onclick={closeModal} colour="red">
                 Cancel
-            </button>
-            <button type="submit" class="save-btn">
+            </Button>
+            <Button submit colour="green">
                 {editingCharacter ? 'Save' : 'Create'} Character
-            </button>
+            </Button>
         </div> 
     </form>
 
@@ -139,27 +143,6 @@
 
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        width: 90%;
-        max-width: 500px;
-    }
-
     .form-group {
         margin-bottom: 1rem;
     }
@@ -167,7 +150,7 @@
     .form-group label {
         display: block;
         margin-bottom: 0.5rem;
-        color: #4b5563;
+        color: var(--color-text-secondary);
         font-weight: 500;
     }
 
@@ -184,28 +167,6 @@
         justify-content: flex-end;
         gap: 1rem;
         margin-top: 2rem;
-    }
-
-    .cancel-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #6b7280;
-        color: white;
-    }
-
-    .save-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        background: #22c55e;
-        color: white;
-    }
-
-    .error-message {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 1rem;
-        border-radius: 0.375rem;
-        margin-bottom: 1rem;
     }
 
     .form-group.inline {

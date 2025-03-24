@@ -1,9 +1,10 @@
 <script lang="ts">
     import { statsStore } from '$lib/stores/stats';
     import { characterStore } from '$lib/stores/characters';
-    import LineGraph from './LineGraph.svelte';
+    import LineGraph from '../core/LineGraph.svelte';
     import { onMount } from 'svelte';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import Card from '../core/Card.svelte';
 
     export let selectedCampaignId: number;
     
@@ -80,7 +81,7 @@
         });
         
         return acc;
-    }, [] as Array<{level: number, actual: number, expected: number}>).reverse();
+    }, [] as Array<{level: number, actual: number, expected: number}>).reverse() || [];
 
     $: treasureByLevelCumulativeSeries = treasureByLevelCumulative.map(((data) => ({
         x: data.level,
@@ -172,7 +173,9 @@
 
 <div class="summary-container">
     <div class="stats-overview">
-        <div class="stat-card">
+        <Card>
+            <div class="stat-card">
+
             <h3>Campaign Level</h3>
             <div class="value">{stats?.level || 0}</div>
             <div class="progress-bar">
@@ -182,19 +185,23 @@
             <div class="subtext">{stats?.experience_this_level || 0}/1000 XP</div>
         </div>
 
+        </Card>
+        <Card>
+
         <div class="stat-card">
             <h3>Sessions</h3>
             <div class="value">{stats?.num_sessions || 0}</div>
             <div class="subtext">Total encounters: {stats?.num_combat_encounters || 0}</div>
         </div>
-
+        </Card>
+        <Card>
         <div class="stat-card">
             <h3>Total Treasure</h3>
             <div class="stat-line">
                 <div class="value">{stats?.total_combined_treasure || 0}</div>
                 <div class="subtext">Expected by end of level: {stats?.total_expected_combined_treasure_end_of_level?.toFixed(1) || 0}</div>
             </div>
-            <div class="progress-bar" style="--color: {stats?.total_combined_treasure >= (stats?.total_expected_combined_treasure || 0) ? '#22c55e' : '#ef4444'}">
+            <div class="progress-bar">
                 <div class="progress" style="width: {Math.min(treasureThisLevelFraction * 100, 100)}%"></div>
             </div>
             <div>
@@ -225,10 +232,11 @@
                 </div>
             </div>
         </div>
+    </Card>
     </div>
 
     <div class="graphs-container">
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Cumulative Treasure by Level</h3>
             <LineGraph 
                 data={[
@@ -238,40 +246,40 @@
                 xLabel="Level" 
                 yLabel="Treasure" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Experience Growth by Encounter</h3>
             <LineGraph 
                 data={[{ id: 'XP', data: xpGrowthEncountersSeries }]} 
                 xLabel="Encounters" 
                 yLabel="Experience" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>XP per Session</h3>
             <LineGraph 
                 data={[{ id: 'Session XP', data: sessionXPArray }]} 
                 xLabel="Session" 
                 yLabel="Experience" 
             />
-        </div>
+        </Card>
 
-        <div class="graph-card">
+        <Card background="light" softHeaders>
             <h3>Experience Growth by Session</h3>
             <LineGraph 
                 data={[{ id: 'XP', data: xpGrowthSessionSeries }]} 
                 xLabel="Sessions" 
                 yLabel="Level" 
             />
-        </div>
+        </Card>
     </div>
 
-    <div class="distribution-section">
+    <Card background="light" softHeaders>
         <h3>Item Distribution Analysis</h3>
         <div class="distribution-grid">
-            <div class="distribution-card">
+            <Card>
                 <h4>Permanent Items by Level</h4>
                 <table>
                     <thead>
@@ -293,9 +301,8 @@
                         {/each}
                     </tbody>
                 </table>
-            </div>
-
-            <div class="distribution-card">
+            </Card>
+            <Card>
                 <h4>Consumable Items by Level</h4>
                 <table>
                     <thead>
@@ -317,17 +324,17 @@
                         {/each}
                     </tbody>
                 </table>
-            </div>
+            </Card>
         </div>
-    </div>
+    </Card>
 
-    <div class="equity-section">
+    <Card background="light" softHeaders>
         <h3>Character Equity Analysis</h3>
         <div class="equity-grid">
             {#each characterEquity as char}
-                <div class="equity-card">
+                <Card>
                     <h4>{char.name}</h4>
-                    <div class="equity-stats">
+                    <Card background="light" tight softHeaders>
                         <div class="equity-stat" class:deficit={char.goldShare < char.expectedGoldShare}
                                               class:surplus={char.goldShare >= char.expectedGoldShare}>
                             <span class="label">Gold Share</span>
@@ -336,6 +343,8 @@
                             <span class="value">{((char.goldShare / char.expectedGoldShare || 0) * 100).toFixed(1)}%</span>
                             <span class="subtext">of fair share</span>
                         </div>
+                    </Card>
+                    <Card background="light" tight softHeaders>
                         <div class="equity-stat" class:deficit={char.itemCount < char.expectedItemCount}
                                               class:surplus={char.itemCount >= char.expectedItemCount}>
                             <span class="label">Permanent Items</span>
@@ -346,11 +355,11 @@
                             <span class="label">Available Boosts</span>
                             <span class="value">{char.boostCount}/{char.expectedBoostCount}</span>
                         </div>
-                    </div>
-                </div>
+                        </Card>
+                    </Card>
             {/each}
         </div>
-    </div>
+    </Card>
 </div>
 
 <style>
@@ -366,16 +375,9 @@
         gap: 1.5rem;
     }
 
-    .stat-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
     .stat-card h3 {
         margin: 0;
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -393,55 +395,44 @@
     .value {
         font-size: 2rem;
         font-weight: 600;
-        color: #1e293b;
+        color: var(--color-text);
         margin: 0.1rem 0;
     }
 
-    .value-subtype {
-        font-size: 1.2rem;
-        font-weight: 400;
-        color: #1e293b;
-        margin: 0.3rem 0;
-    }
 
     .large-deficit-colour {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
     .small-deficit-colour {
-        color: rgb(250, 107, 107);
+        color: var(--color-small-deficit);
     }
-
-
     .no-deficit-colour {
-        color: rgb(99, 192, 133);
+        color: var(--color-no-deficit);
     }
-
     .small-surplus-colour {
-        color: #ca9a22;
+        color: var(--color-small-surplus);
     }
-
     .large-surplus-colour {
-        color: #f0de0d;
+        color: var(--color-large-surplus);
     }
 
     .subtext {
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
     }
 
     .progress-bar {
         width: 100%;
         height: 0.5rem;
-        background: #e2e8f0;
+        background: var(--color-bg-raised);
         border-radius: 9999px;
         margin: 0.5rem 0;
         overflow: hidden;
-        --color: #3b82f6;
     }
 
     .progress {
         height: 100%;
-        background: var(--color);
+        background: var(--color-bg-success);
         transition: width 0.3s ease;
     }
 
@@ -458,13 +449,6 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    .graph-card h3 {
-        margin: 0 0 1rem 0;
-        color: #64748b;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
 
     .distribution-section {
         background: white;
@@ -473,30 +457,11 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    .distribution-section h3 {
-        margin: 0 0 1.5rem 0;
-        color: #64748b;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
 
     .distribution-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
-    }
-
-    .distribution-card {
-        background: #f8fafc;
-        padding: 1rem;
-        border-radius: 0.375rem;
-    }
-
-    .distribution-card h4 {
-        margin: 0 0 1rem 0;
-        color: #475569;
-        font-size: 0.875rem;
     }
 
     table {
@@ -522,19 +487,13 @@
     }
 
     tr.positive td {
-        color: #22c55e;
+        color: var(--color-no-deficit);
     }
 
     tr.negative td {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
 
-    .equity-section {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
 
     .equity-grid {
         display: grid;
@@ -542,35 +501,16 @@
         gap: 1.5rem;
     }
 
-    .equity-card {
-        background: #f8fafc;
-        padding: 1rem;
-        border-radius: 0.375rem;
-    }
-
-    .equity-card h4 {
-        margin: 0 0 1rem 0;
-        color: #1e293b;
-        font-size: 1rem;
-    }
-
-    .equity-stats {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
     .equity-stat {
         display: flex;
         flex-direction: column;
         padding: 0.5rem;
-        background: white;
         border-radius: 0.25rem;
     }
 
     .equity-stat .label {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -583,14 +523,15 @@
 
     .equity-stat .subtext {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
     }
 
+    /* TODO: Surplus should also give a 'bad' colour if we exceed the expected value. */
     .deficit .value {
-        color: #ef4444;
+        color: var(--color-large-deficit);
     }
 
     .surplus .value {
-        color: #22c55e;
+        color: var(--color-no-deficit);
     }
 </style> 

@@ -1,10 +1,11 @@
 <script lang="ts">
-    import LoginModal from "$lib/components/LoginModal.svelte";
-    import SignupModal from "$lib/components/SignupModal.svelte";
+    import LoginModal from "$lib/components/modals/LoginModal.svelte";
+    import SignupModal from "$lib/components/modals/SignupModal.svelte";
     import { auth, isLoading } from '$lib/stores/auth';
     import { onMount } from 'svelte';
     import "../app.css";
-  import CampaignSelector from "$lib/components/CampaignSelector.svelte";
+  import CampaignSelector from "$lib/components/selectors/CampaignSelector.svelte";
+    import Button from "$lib/components/core/Button.svelte";
 
   let error: string | null = null;
     let showLoginModal = false;
@@ -45,8 +46,8 @@
                             </div>
                         </div>
                     {:else}
-                        <button class="login-btn" on:click={() => showLoginModal = true}>Login</button>
-                        <button class="signup-btn" on:click={() => showSignupModal = true}>Sign Up</button>
+                        <Button colour="black" onclick={() => showLoginModal = true}>Login</Button>
+                        <Button colour="blue" onclick={() => showSignupModal = true}>Sign up</Button>
                     {/if}
                 </div>
             </div>
@@ -105,7 +106,7 @@
 
     .username {
         padding: 0.5rem 1rem;
-        background: #e0e0e0;
+        background: var(--color-bg-raised);
         border-radius: 4px;
         font-weight: 500;
     }
@@ -115,11 +116,11 @@
         position: absolute;
         right: 0;
         top: 100%;
-        background: white;
-        border: 1px solid #ddd;
+        background: var(--color-bg);
+        border: 1px solid var(--color-bg-border);
         border-radius: 4px;
         padding: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--shadow);
     }
 
     .user-menu:hover .dropdown-content {
@@ -135,45 +136,18 @@
         background: none;
         border: none;
         cursor: pointer;
-        color: #333;
+        color: var(--color-text);
         text-decoration: none;
     }
 
     .dropdown-content a:hover,
     .dropdown-content button:hover {
-        background: #f4f4f4;
-    }
-
-    .login-btn,
-    .signup-btn {
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
-    }
-
-    .login-btn {
-        background: #e0e0e0;
-        color: #333;
-    }
-
-    .signup-btn {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .login-btn:hover {
-        background: #d0d0d0;
-    }
-
-    .signup-btn:hover {
-        background: #2563eb;
+        background: var(--color-bg-hover);
     }
 
     a {
         text-decoration: none;
-        color: #333;
+        color: var(--color-text);
         font-weight: bold;
         padding: 0.5rem 1rem;
         border-radius: 4px;
@@ -181,7 +155,7 @@
     }
 
     a:hover {
-        background-color: #e0e0e0;
+        background-color: var(--color-bg-hover);
     }
 
     .loading {
@@ -190,6 +164,6 @@
         align-items: center;
         min-height: 100vh;
         font-size: 1.2rem;
-        color: #666;
+        color: var(--color-text);
     }
 </style> 

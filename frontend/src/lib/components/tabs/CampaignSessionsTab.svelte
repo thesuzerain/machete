@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import type { CampaignSession, CompiledRewards, AccomplishmentLevel } from '$lib/types/types';
+    import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
@@ -10,7 +10,11 @@
     import { onMount } from 'svelte';
     import RangeSlider from 'svelte-range-slider-pips';
     import { compile } from 'svelte/compiler';
-    import EncounterViewer from './EncounterViewer.svelte';
+    import EncounterViewer from '../encounter/EncounterViewer.svelte';
+    import type { AccomplishmentLevel, Encounter } from '$lib/types/encounters';
+    import Card from '../core/Card.svelte';
+    import Button from '../core/Button.svelte';
+    import Modal from '../core/Modal.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -33,7 +37,7 @@
 
     let items = $derived($itemStore);
     let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
-    let selectedSession : CampaignSession = $derived(campaignSessions.find(s => s.id === selectedSessionId));
+    let selectedSession : CampaignSession | null = $derived(campaignSessions.find(s => s.id === selectedSessionId)|| null);
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
     let campaignCharacters = $derived(($characterStore.get(selectedCampaignId)) || []);
 
@@ -302,11 +306,11 @@
     }
 
     // Add these state variables
-    let viewingEncounter = $state(null);
+    let viewingEncounter : Encounter | null = $state(null);
     let showEncounterViewer = $state(false);
 
     // Add this function
-    function viewEncounter(encounter) {
+    function viewEncounter(encounter : Encounter) {
         viewingEncounter = encounter;
         showEncounterViewer = true;
     }
@@ -381,12 +385,12 @@
                 <option value={session.id}>Session {ind}: {session.name}</option>
             {/each}
         </select>
-        <button class="edit-button" on:click={() => initializeSessionReorder()}>
+        <Button colour="blue" onclick={() => initializeSessionReorder()}>
             Edit sessions
-        </button>
-        <button class="add-button" on:click={createNewSession}>
+        </Button>
+        <Button colour="green" on:click={createNewSession}>
             New session
-        </button>
+        </Button>
     </div>
 
     {#if selectedSession}
@@ -422,14 +426,13 @@
             </div>
 
             <div class="character-selector">
-                <button 
-                    class="character-selector-toggle"
-                    on:click={() => showCharacterSelector = !showCharacterSelector}
-                >
+                <Button onclick={() => showCharacterSelector = !showCharacterSelector}>
                     {showCharacterSelector ? 'Hide' : 'Show'} Present Characters ({presentCharacters.size})
-                </button>
+
+                </Button>
+
                 {#if showCharacterSelector}
-                    <div class="character-selector-content" transition:fade>
+                    <Card>
                         <div class="character-checkboxes">
                             {#each campaignCharacters as character}
                                 <label class="character-checkbox">
@@ -442,7 +445,9 @@
                                 </label>
                             {/each}
                         </div>
-                    </div>
+
+                    </Card  >
+                    
                 {/if}
             </div>
         </div>
@@ -452,109 +457,103 @@
             <div class="section-header">
                 <h3>Session Encounters</h3>
                 <div class="header-buttons">
-                    <button 
-                        class="add-button" 
-                        class:active={showAccomplishmentForm} 
-                        on:click={() => showAccomplishmentForm = !showAccomplishmentForm}
-                    >
-                        {showAccomplishmentForm ? 'Cancel' : 'Add Accomplishment'}
-                    </button>
-                    <div>
-                    <button class="add-button" on:click={createNewEncounter}>
+                    {#if showAccomplishmentForm}
+
+                    <Button colour="red" onclick={() => showAccomplishmentForm = !showAccomplishmentForm}>
+                        Cancel
+                    </Button>
+                    {:else}
+                    <Button colour="green" onclick={() => showAccomplishmentForm = !showAccomplishmentForm}>
+                        Add Accomplishment
+                    </Button>
+                    {/if}
+                    <Button colour="green" onclick={createNewEncounter}>
                         Create New Encounter
-                    </button>
-                </div>
+                    </Button>
+                    
                 </div>
             </div>
 
             {#if showAccomplishmentForm}
-                <div class="quick-accomplishment" transition:fade>
-                    <form on:submit={addAccomplishment} class="accomplishment-inputs">
-                        <div class="name-description-row">
-                            <input 
-                                type="text" 
-                                placeholder="Name"
-                                bind:value={accomplishmentName}
-                            />
-
-                        </div>
-                        <div class="accomplishment-buttons">
-                            <button 
-                            type="button"
-                                class="accomplishment-buttons-button"
-                                class:selected={accomplishmentType === 'minor'}
-                                on:click={() => setAccomplishmentType('minor')}
-                            >Minor (10 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-                                class:selected={accomplishmentType === 'moderate'}
-                                on:click={() => setAccomplishmentType('moderate')}
-                            >Moderate (30 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-
-                                class:selected={accomplishmentType === 'major'}
-                                on:click={() => setAccomplishmentType('major')}
-                            >Major (80 XP)</button>
-                            <button 
-                            type="button"
-                            class="accomplishment-buttons-button"
-
-                                class:selected={useCustomXP}
-                                on:click={() => setCustomXP()}
-                            >Custom XP</button>
-                        {#if useCustomXP}
-                            <div class="custom-xp">
+                <div transition:fade>
+                    <Card>
+                        <form on:submit={addAccomplishment} class="accomplishment-inputs">
+                            <div class="name-description-row">
                                 <input 
-                                    type="number" 
-                                    bind:value={customXPAmount}
-                                    min="0"
-                                    placeholder="Enter XP amount"
+                                    type="text" 
+                                    placeholder="Name"
+                                    bind:value={accomplishmentName}
                                 />
+    
                             </div>
-                        {/if}
-
-                        <button 
-                            class="submit-accomplishment" 
-                            disabled={!canAddAccomplishment}
-                        >
-                            Add Accomplishment
-                        </button>
-                    </div>
-                </form>
+                            <div class="accomplishment-buttons">
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'minor'} onclick={() => setAccomplishmentType('minor')}>
+                                    Minor (10 XP)                            
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'moderate'} onclick={() => setAccomplishmentType('moderate')}>
+                                    Moderate (30 XP)
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'major'} onclick={() => setAccomplishmentType('major')}>
+                                    Major (80 XP)
+                                </Button>
+                                <Button colour='white' selectedColour='blue' selected={useCustomXP} onclick={() => setCustomXP()}>
+                                    Custom XP
+                                </Button>
+                            
+                            {#if useCustomXP}
+                                <div class="custom-xp">
+                                    <input 
+                                        type="number" 
+                                        bind:value={customXPAmount}
+                                        min="0"
+                                        placeholder="Enter XP amount"
+                                    />
+                                </div>
+                            {/if}
+                            <Button 
+                                colour="green" 
+                                onclick={addAccomplishment}
+                                disabled={!canAddAccomplishment}
+                            >
+                                Add Accomplishment
+                            </Button>
+                        </div>
+                    </form>                    </Card>
                 </div>
+
             {/if}
 
             <!-- Regular Encounters -->
             <div class="encounters-list">
                 <h4>Combat & Other Encounters</h4>
                 {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
-                    <div class="encounter-card">
+                    <Card><div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
                             <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
                         </div>
                         <div class="encounter-actions">
-                            <button class="view-button" on:click={() => viewEncounter(encounter)}>
+                            <Button colour="black" onclick={() => viewEncounter(encounter)}>
                                 View
-                            </button>
-                            <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
+                            </Button>
+                            <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
                                 Edit
-                            </button>
-                            <button class="remove-button" on:click={() => removeEncounterFromSession(encounter.id)}>
+                            </Button>
+                            <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
                                 Unlink
-                            </button>
+                            </Button>
                         </div>
                     </div>
+                    </Card>
                 {/each}
             </div>
             {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}
                 <div class="accomplishments-list accomplishments">
                     <h4>Accomplishments</h4>
                     {#each sessionEncounters.filter(e => e.encounter_type === 'accomplishment') as encounter}
-                        <div class="accomplishment-card accomplishment">
+                        <Card tight>
+
+                        <div class="accomplishment-card">
                             <div class="accomplishment-info">
                                 <h4>{encounter.name}</h4>
                                 {#if encounter.total_experience > 0}
@@ -567,14 +566,15 @@
                                 
                             </div>
                             <div class="encounter-actions">
-                                <button class="edit-button" on:click={() => editEncounter(encounter.id)}>
+                                <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
                                     Edit
-                                </button>    
-                                <button class="remove-button" on:click={() => deleteEncounter(encounter.id)}>
+                                </Button>
+                                <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
                                     Remove
-                                </button>
+                                </Button>
                             </div>
                         </div>
+                    </Card>
                     {/each}
                 </div>
             {/if}
@@ -584,7 +584,7 @@
             <div class="reward-assignments-header">
                 <h3>Reward Assignments</h3>
             </div>
-            <div class="summary-box">
+            <Card>
                 <h4>Session Rewards</h4>
                 <div class="reward-details">
                     <p>Experience: {totalSessionRewards.xp} XP</p>
@@ -592,8 +592,7 @@
                     <p>Total item treasure value: {totalSessionRewards.total_items_value}</p>
                     <p>At end of session, we are level {selectedSession.level_at_end} with {selectedSession.experience_at_end} XP</p>
                 </div>
-            </div>
-
+            </Card>
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
                 <div class="item-division-character-column">
@@ -626,7 +625,7 @@
                         on:change={(e) => reassignGoldWithMaximum(cid)}
                         />
                         <RangeSlider value={compiledGoldRewards[cid]} all='label' 
-                        float="true" pipstep={Math.ceil(totalSessionRewards.currency/10)} springValues={[0.1, 0.1]} pips 
+                        float pipstep={Math.ceil(totalSessionRewards.currency/10)} springValues={[0.1, 0.1]} pips 
                         on:change={(e) => modifyGoldReward(cid, e)}
                         min={0} max={Math.ceil(totalSessionRewards.currency)} />
                         <p>gold</p>
@@ -639,12 +638,12 @@
     {/if}
 </div>
 
-<!-- TODO: Extract to component?-->
-{#if showSessionOrderModal}
-    <div class="modal">
-        <div class="modal-content">
+    <Modal show={showSessionOrderModal} closeButton>
+        <div slot="header">
             <h2>Reorder Sessions</h2>
-            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}">
+        </div>
+        <div class="modal-content">
+            <div use:dndzone={{items: temporarySessionOrder}} on:consider="{handleTemporarySessionReorder}" on:finalize="{handleSessionReorder}" class="item-division-session-dnd">
                 {#each temporarySessionOrder as session, ix (session.id)}
                     <div class="session-order-item" draggable="true">
                         <span class="drag-handle">⋮⋮</span>
@@ -652,14 +651,10 @@
                     </div>
                 {/each}
             </div>
-            <div class="modal-actions">
-                <button class="cancel-button" on:click={() => showSessionOrderModal = false}>
-                    Close
-                </button>
-            </div>
         </div>
-    </div>
-{/if}
+
+    </Modal>
+
 
 <EncounterViewer 
     encounter={viewingEncounter}
@@ -673,18 +668,10 @@
         margin-bottom: 2rem;
     }
 
-    .session-selector select {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-    }
-
     .characters-section {
-        background: white;
+        background:vare(--color-bg);
         border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
         padding: 1.5rem;
     }
 
@@ -707,14 +694,6 @@
         border-radius: 0.375rem;
         resize: vertical;
     }
-
-    .summary-box {
-        background: #f9fafb;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 2rem;
-    }
-
     .reward-details {
         display: flex;
         gap: 2rem;
@@ -737,18 +716,14 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.25rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
 
     .encounter-card {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
     }
 
     .encounter-actions {
@@ -761,56 +736,23 @@
         align-items: center;
         gap: 1rem;
         padding: 0.75rem;
-        background: white;
-        border: 1px solid #e5e7eb;
+        background: var(--color-bg);
+        border: 1px solid var(--color-bg-light-raised-border);
         margin-bottom: 0.5rem;
         border-radius: 0.375rem;
         cursor: move;
     }
 
     .drag-handle {
-        color: #9ca3af;
+        color: var(--color-text);
         cursor: move;
     }
 
 
-
-    .edit-button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-    .remove-button {
-        background: #ef4444;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     .modal-content {
-        background: white;
+        background: var(--color-bg);
         padding: 2rem;
         border-radius: 8px;
-        max-width: 500px;
-        width: 90%;
     }
 
     .section-header {
@@ -837,8 +779,17 @@
 
     .item-division-character-dnd {
         flex: 1;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
+        background: var(--color-bg-light-raised);
+        border: 1px solid var(--color-bg-light-raised-border);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .item-division-session-dnd {
+        flex: 1;
+        min-width: 80vh;
+        background: var(--color-bg-light-raised);
+        border: 1px solid var(--color-bg-light-raised-border);
         border-radius: 0.5rem;
         overflow: hidden;
     }
@@ -865,33 +816,19 @@
     }
 
     .misc-section {
+        display: flex;
+        flex-direction: column;
         margin-top: 2rem;
+        gap: 1rem;
     }
 
     .reward-assignments-header {
         margin-bottom: 1rem;
     }
 
-    .view-button {
-        background: #4b5563;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .view-button:hover {
-        background: #374151;
-    }
-
     .header-buttons {
         display: flex;
         gap: 0.5rem;
-    }
-
-    .add-button.active {
-        background: #dc2626;
     }
 
     .name-description-row {
@@ -901,13 +838,6 @@
 
     .name-description-row input {
         flex: 1;
-    }
-
-    .quick-accomplishment {
-        background: #f9fafb;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
     }
 
     .accomplishment-inputs {
@@ -923,23 +853,6 @@
         flex-wrap: wrap;
     }
 
-    .accomplishment-buttons-button {
-        flex: 1;
-        min-width: 120px;
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.375rem;
-        background: white;
-        color: #4b5563;
-        cursor: pointer;
-    }
-
-    .accomplishment-buttons-button.selected {
-        background: #3b82f6;
-        color: white;
-        border-color: #3b82f6;
-    }
-
     .custom-xp {
         display: flex;
         justify-content: center;
@@ -953,36 +866,9 @@
         text-align: center;
     }
 
-    .submit-accomplishment {
-        align-self: center;
-        width: fit-content;
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-    }
-
-
-    .encounter-card .description {
-        color: #6b7280;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-
     .encounters-list h4 {
         margin-bottom: 0.75rem;
-        color: #4b5563;
-    }
-
-    .add-button {
-        background: #22c55e;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
+        color: var(--color-text-secondary);
     }
 
     .accomplishment-info {
@@ -992,28 +878,6 @@
 
     .character-selector {
         margin: 1rem 0;
-    }
-
-    .character-selector-toggle {
-        background: #4b5563;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .character-selector-toggle:hover {
-        background: #374151;
-    }
-
-    .character-selector-content {
-        margin-top: 0.5rem;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 0.5rem;
-        border: 1px solid #e5e7eb;
     }
 
     .character-checkboxes {

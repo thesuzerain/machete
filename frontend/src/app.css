@@ -5,12 +5,122 @@
   box-sizing: border-box;
 }
 
+
+
 :root {
+
+  /* Colors */
+  --color-bg-white: #ffffff;
+  --color-bg-grey: #f8fafc;
+
+  --color-blue: #007bff;
+  --color-blue-hover: #0056b3;
+  --color-blue-selected: #1e40af;
+
+  --color-green: #4CAF50;
+  --color-green-text: #10b981;
+  --color-green-hover: #43A047;
+  --color-green-selected: #2d6a4f;
+
+  --color-red: #f44336;
+  --color-red-text: #ef4444;
+  --color-red-hover: #ef5350;
+  --color-red-selected: #b71c1c;
+  --color-red-bg: #fde8e8;
+
+  --color-yellow: #fbbf24;
+  --color-yellow-text: #f59e0b;
+  --color-yellow-hover: #f59e0b;
+  --color-yellow-selected: #b45309;
+
+  --color-purple: #8b5cf6;
+  --color-purple-hover: #7c3aed;
+  --color-purple-selected: #521c66;
+
+  --color-dark-grey: #4b5563;
+  --color-dark-grey-hover: #374151;
+  --color-dark-grey-selected: #1f2937;
+
+  --color-grey: #cdd0d1;
+  --color-grey-hover: #9ca3af;
+  --color-grey-selected: #374151;
+
+  --color-light-grey: #f9fafb;
+  --color-light-grey-hover: #666666;
+  --color-light-grey-selected: #333333;
+
+
+
+  /* Variables */
+  --color-text-light: #ffffff;
+  --color-text-dark: #212529;
+  --color-text: var(--color-text-dark);
+
+  /* TODO: Add a 'flipped contrast' one. So you can have darkmode lightmode etc., different to secondary. rename secondary to muted?*/
+
+  /* TODO: Go through and add secondary colors to components, etc*/
+  --color-text-light-secondary: #f9fafb;
+  --color-text-dark-secondary: #6b7280; 
+  --color-text-secondary: var(--color-text-dark-secondary);
+
+  --color-text-link: var(--color-blue);
+  --color-text-link-hover: var(--color-blue-hover);
+
+  --color-bg: var(--color-bg-white);
+  --color-bg-raised: var(--color-grey);
+  --color-bg-light-raised: var(--color-light-grey);
+
+  /* color-bg-border should be a litte darker. You have a few uses of darker ones that should be color-bg-border but it was too bright */
+  --color-bg-border: var(--color-light-grey);
+  --color-bg-raised-border: var(--color-dark-grey);
+  --color-bg-light-raised-border: var(--color-grey);
+
+  --color-bg-hover: var(--color-light-grey);
+  --color-bg-raised-hover: var(--color-light-grey-hover);
+  --color-bg-light-raised-hover: var(--color-light-grey-hover);
+
+  --color-bg-selected: var(--color-blue);
+
+  --color-text-success: var(--color-green);
+  --color-bg-success: var(--color-green);
+  --color-text-error: var(--color-red);
+  --color-bg-error: var(--color-red-bg);
+  
+  --color-rarity-common: var(--color-grey);
+  --color-rarity-uncommon: var(--color-yellow);
+  --color-rarity-rare: var(--color-blue);
+  --color-rarity-unique: var(--color-purple);
+
+  --color-difficulty-trivial: var(--color-green);
+  --color-difficulty-low: var(--color-yellow);
+  --color-difficulty-moderate: var(--color-yellow);
+  --color-difficulty-severe: var(--color-red);
+  --color-difficulty-extreme: var(--color-red);
+
+  /* Check 'success' and 'error' ones and if they should be these */
+  --color-large-deficit: var(--color-red);
+  --color-small-deficit: var(--color-yellow);
+  --color-no-deficit: var(--color-green);
+  --color-small-surplus: var(--color-yellow);
+  --color-large-surplus: var(--color-yellow);
+
+  --color-enemy-weak: var(--color-green);
+  --color-enemy-weak-hover: var(--color-green-hover);
+  --color-enemy-normal: var(--color-bg-grey);
+  --color-enemy-normal-hover: var(--color-light-grey-hover);
+  --color-enemy-elite: var(--color-red);
+  --color-enemy-elite-hover: var(--color-purple);
+
+  --shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+  color: var(--color-text-dark);
+  background-color: var(--color-bg);
+
+
+  /* Other */
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #213547;
-  background-color: #ffffff;
 }
 
 body {
@@ -30,3 +140,36 @@ button {
 button:hover {
   background-color: #444;
 } 
+
+
+select {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-bg-light-raised-border);
+  border-radius: 0.375rem;
+  width: 100%;
+}
+
+input {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  resize: none;
+  font-family: inherit;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  width: 100%;
+  font-size: 1rem;
+}
+
+textarea {
+    padding: 0.5rem;
+    resize: none;
+    font-family: inherit;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 1rem;
+    min-height: 3rem;
+
+}

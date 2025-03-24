@@ -1,14 +1,16 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
     import type { Character } from '$lib/types/types';
-    import CharacterModal from '$lib/components/CharacterModal.svelte';
+    import CharacterModal from '$lib/components/modals/CharacterModal.svelte';
     import { characterStore } from '$lib/stores/characters';
     import { classStore } from '$lib/stores/libraryStore';
     import { statsStore } from '$lib/stores/stats';
     import type { CharacterStats } from '$lib/types/stats';
     import { campaignStore } from '$lib/stores/campaigns';
     import { id } from 'date-fns/locale';
-    import ConfirmationModal from './ConfirmationModal.svelte';
+    import ConfirmationModal from '../modals/ConfirmationModal.svelte';
+    import Button from '../core/Button.svelte';
+    import Card from '../core/Card.svelte';
 
     export let selectedCampaignId: number;
     export let error: string | null;
@@ -31,7 +33,7 @@
 
     $: allIndividualGold = Object.values(stats?.character_stats || {}).map(c => c.total_combined_treasure).reduce((acc, val) => acc + val, 0);
     // TODO: refactor with CampaignSummaryTab
-    function getEquityStats(character) {
+    function getEquityStats(character : Character) {
         const charStats = characterStats[character.id];
         if (!charStats) return null;
 
@@ -67,9 +69,7 @@
 <div class="characters-section" transition:fade>
     <div class="characters-header">
         <h2>Characters</h2>
-        <button class="add-character-btn" on:click={() => showNewCharacterModal = true}>
-            Add Character
-        </button>
+        <Button colour="green" onclick={() => {showNewCharacterModal = true; editingCharacter = null;}}>Add Character</Button>
     </div>
 
     <div class="character-list">
@@ -84,41 +84,42 @@
                         </div>
                     </div>
                     <div class="character-actions">
-                        <button class="edit-btn" on:click={() => {
+                        <Button colour="blue" onclick={() => {
                             editingCharacter = character;
                             showNewCharacterModal = true;
-                        }}>Edit</button>
-                        <button class="delete-btn" on:click={() => characterToDelete = character.id}>
+                        }}>Edit</Button>
+                        <Button colour="red" onclick={() => characterToDelete = character.id}>
                             Delete
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
                 <div class="character-content">
-                    <div class="content-section">
-                        <h4>Treasure & Items</h4>
-                        {#if equity}
-                            <div class="equity-stats">
-                                <div class="equity-stat" class:deficit={equity.goldShare < equity.expectedGoldShare}
-                                                  class:surplus={equity.goldShare >= equity.expectedGoldShare}>
-                                    <span class="stat-label">Gold Share</span>
-                                    <span class="stat-value">{equity.goldShare.toFixed(1)}</span>
-                                    <span class="stat-subtext">({equity.goldPercent}% of fair share {equity.expectedGoldShare.toFixed(1)})</span>
+                    <Card>
+                            <h4>Treasure & Items</h4>
+                            {#if equity}
+                                <div class="equity-stats">
+                                    <div class="equity-stat" class:deficit={equity.goldShare < equity.expectedGoldShare}
+                                                      class:surplus={equity.goldShare >= equity.expectedGoldShare}>
+                                        <span class="stat-label">Gold Share</span>
+                                        <span class="stat-value">{equity.goldShare.toFixed(1)}</span>
+                                        <span class="stat-subtext">({equity.goldPercent}% of fair share {equity.expectedGoldShare.toFixed(1)})</span>
+                                    </div>
+                                    <div class="equity-stat" class:deficit={equity.permanentItems < equity.expectedPermanentItems}
+                                                      class:surplus={equity.permanentItems >= equity.expectedPermanentItems}>
+                                        <span class="stat-label">Permanent Items</span>
+                                        <span class="stat-value">{equity.permanentItems}/{equity.expectedPermanentItems}</span>
+                                    </div>
                                 </div>
-                                <div class="equity-stat" class:deficit={equity.permanentItems < equity.expectedPermanentItems}
-                                                  class:surplus={equity.permanentItems >= equity.expectedPermanentItems}>
-                                    <span class="stat-label">Permanent Items</span>
-                                    <span class="stat-value">{equity.permanentItems}/{equity.expectedPermanentItems}</span>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-
-                    <div class="content-section">
+                            {/if}
+                    </Card>
+                    
+                    <Card>
                         <h4>Boosts</h4>
                         {#if equity}
                             <div class="boosts-grid">
-                                <div class="boost-section">
+                                <Card shadowed={false} background='light'>
+                                    <div class="boost-section">
                                     <h5>Available Boosts</h5>
                                     {#if equity.availableBoosts.length}
                                         {#each equity.availableBoosts as boost}
@@ -131,6 +132,9 @@
                                         <div class="empty-state">No boosts available</div>
                                     {/if}
                                 </div>
+                            </Card>
+                            <Card shadowed={false} background='light'>
+
                                 <div class="boost-section">
                                     <h5>Missing Boosts</h5>
                                     {#if equity.missingBoosts.length}
@@ -144,9 +148,10 @@
                                         <div class="empty-state">No missing boosts</div>
                                     {/if}
                                 </div>
+                                </Card>
                             </div>
                         {/if}
-                    </div>
+                    </Card>
                 </div>
             </div>
         {/each}
@@ -189,9 +194,9 @@ Are you sure you would like to delete the character "{
 
 <style>
     .characters-section {
-        background: white;
+        background: var(--color-bg);
         border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
         padding: 1.5rem;
     }
 
@@ -209,9 +214,9 @@ Are you sure you would like to delete the character "{
     }
 
     .character-row {
-        background: white;
+        background: var(--color-bg);
         border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
         overflow: hidden;
     }
 
@@ -220,8 +225,8 @@ Are you sure you would like to delete the character "{
         justify-content: space-between;
         align-items: center;
         padding: 1.5rem;
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
+        background: var(--color-bg-light-raised);
+        border-bottom: 1px solid var(--color-bg-light-raised-border);
     }
     
     .character-identity {
@@ -233,11 +238,10 @@ Are you sure you would like to delete the character "{
     .character-identity h3 {
         margin: 0;
         font-size: 1.25rem;
-        color: #1e293b;
     }
 
     .character-subtitle {
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
         margin-top: 0.25rem;
     }
@@ -249,46 +253,6 @@ Are you sure you would like to delete the character "{
         gap: 1.5rem;
     }
 
-    .content-section {
-        padding: 1rem;
-        background: #f8fafc;
-        border-radius: 0.375rem;
-    }
-
-    .content-section h4 {
-        margin: 0 0 1rem 0;
-        color: #475569;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .xp-display {
-        background: #e2e8f0;
-        border-radius: 9999px;
-        height: 1.5rem;
-        overflow: hidden;
-        position: relative;
-    }
-
-    .xp-bar {
-        background: #3b82f6;
-        height: 100%;
-        width: var(--progress);
-        transition: width 0.3s ease;
-    }
-
-    .xp-text {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-
     .equity-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -297,14 +261,14 @@ Are you sure you would like to delete the character "{
 
     .equity-stat {
         padding: 0.75rem;
-        background: white;
+        background: var(--color-bg);
         border-radius: 0.375rem;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        box-shadow: var(--shadow);
     }
 
     .stat-label {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -317,7 +281,7 @@ Are you sure you would like to delete the character "{
 
     .stat-subtext {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
     }
 
     .boosts-grid {
@@ -328,7 +292,7 @@ Are you sure you would like to delete the character "{
 
     .boost-section h5 {
         font-size: 0.875rem;
-        color: #64748b;
+        color: var(--color-text-secondary);
         margin: 0 0 0.75rem 0;
     }
 
@@ -336,36 +300,28 @@ Are you sure you would like to delete the character "{
         display: flex;
         justify-content: space-between;
         padding: 0.5rem;
-        background: white;
+        background: var(--color-bg);
         border-radius: 0.25rem;
         margin-bottom: 0.5rem;
     }
 
     .boost-item.missing {
-        background: #fee2e2;
-        color: #991b1b;
+        background: var(--color-bg-error);
+        color: var(--color-text-error);
     }
 
     .deficit .stat-value {
-        color: #ef4444;
+        color: var(--color-text-error);
     }
 
     .surplus .stat-value {
-        color: #22c55e;
+        color: var(--color-text-success);
     }
 
     .empty-state {
-        color: #64748b;
+        color: var(--color-text-secondary);
         font-size: 0.875rem;
         text-align: center;
         padding: 1rem;
-    }
-
-    .add-character-btn {
-        background: #22c55e;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-weight: 500;
     }
 </style> 
