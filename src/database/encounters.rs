@@ -588,11 +588,16 @@ pub async fn edit_encounter(
 }
 
 pub async fn delete_encounters(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     encounter_id: &[InternalId],
 ) -> crate::Result<()> {
     if encounter_id.is_empty() {
         return Ok(());
+    }
+
+    // First, for all encounters, unlink them from their sessions
+    for id in encounter_id {
+        super::sessions::unlink_encounter_from_session(&mut *tx, *id).await?;
     }
 
     // TODO: Check this again- may be easier to use cascade delete
@@ -606,7 +611,7 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -619,7 +624,7 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -632,7 +637,7 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -649,7 +654,7 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -662,7 +667,7 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -675,21 +680,20 @@ pub async fn delete_encounters(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
 }
 
 pub async fn insert_user_encounter_draft(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     encounter: &InsertEncounter,
 ) -> crate::Result<InternalId> {
     // First, clear any existing drafts
     // TODO: transaction
-    clear_user_encounter_draft(exec, owner).await?;
-
+    clear_user_encounter_draft(&mut *tx, owner).await?;
     let encounter_id = sqlx::query!(
         r#"
         INSERT INTO encounters (name, description, encounter_type_id, treasure_currency, status, party_size, party_level, extra_experience, subsystem_type_id, owner)
@@ -707,7 +711,7 @@ pub async fn insert_user_encounter_draft(
         encounter.encounter_type.get_subsystem_type().as_i32(),
         owner.0 as i64,
     )
-    .fetch_one(exec)
+    .fetch_one(&mut **tx)
     .await?
     .id;
 
@@ -736,7 +740,7 @@ pub async fn insert_user_encounter_draft(
         &enemies.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
         &enemy_adjustments,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     // Add hazards
@@ -754,7 +758,7 @@ pub async fn insert_user_encounter_draft(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     // Add treasure items
@@ -771,7 +775,7 @@ pub async fn insert_user_encounter_draft(
             .map(|id| id.0 as i32)
             .collect::<Vec<i32>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     // Add subsystem rolls
@@ -789,7 +793,7 @@ pub async fn insert_user_encounter_draft(
             check.vp as i16,
             order_index,
         )
-        .fetch_one(exec)
+        .fetch_one(&mut **tx)
         .await?
         .id;
         order_index += 1;
@@ -810,14 +814,14 @@ pub async fn insert_user_encounter_draft(
             &rolls,
             &dcs,
         )
-        .execute(exec)
+        .execute(   &mut **tx)
         .await?;
     }
     Ok(InternalId(encounter_id as u32))
 }
 
 pub async fn clear_user_encounter_draft(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
 ) -> crate::Result<()> {
     let Some(draft_id) = sqlx::query!(
@@ -830,19 +834,18 @@ pub async fn clear_user_encounter_draft(
         CompletionStatus::Draft.as_i32() as i64,
         owner.0 as i64,
     )
-    .fetch_optional(exec)
+    .fetch_optional(&mut **tx)
     .await?
     .map(|r| r.id) else {
         return Ok(());
     };
 
-    delete_encounters(exec, &[InternalId(draft_id as u32)]).await?;
-
+    delete_encounters(&mut *tx, &[InternalId(draft_id as u32)]).await?;
     Ok(())
 }
 
 pub async fn get_encounter_draft(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
 ) -> crate::Result<Option<Encounter>> {
     let encounter = sqlx::query!(
@@ -851,10 +854,10 @@ pub async fn get_encounter_draft(
             en.id,
             en.name,
             en.description,
-            ARRAY_AGG(ee.enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies,
-            ARRAY_AGG(ee.level_adjustment) FILTER (WHERE ee.level_adjustment IS NOT NULL) as enemy_level_adjustments,
-            ARRAY_AGG(eh.hazard) FILTER (WHERE eh.hazard IS NOT NULL) as hazards,
-            ARRAY_AGG(eti.item) FILTER (WHERE eti.item IS NOT NULL) as treasure_items,
+            ee.enemies,
+            ee.level_adjustments as enemy_level_adjustments,
+            eh.hazards,
+            eti.items as treasure_items,
             en.treasure_currency,
             en.status,
             en.party_size,
@@ -867,9 +870,20 @@ pub async fn get_encounter_draft(
             JSONB_AGG(jsonb_build_object('name', esc.name, 'vp', esc.vp, 'roll_options', esc.roll_options)) as subsystem_rolls,
             en.owner
         FROM encounters en
-        LEFT JOIN encounter_enemies ee ON en.id = ee.encounter
-        LEFT JOIN encounter_hazards eh ON en.id = eh.encounter
-        LEFT JOIN encounter_treasure_items eti ON en.id = eti.encounter
+        LEFT JOIN LATERAL (
+            SELECT 
+                ARRAY_AGG(enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies, 
+                ARRAY_AGG(level_adjustment) FILTER (WHERE ee.enemy IS NOT NULL) as level_adjustments 
+            FROM encounter_enemies ee WHERE en.id = ee.encounter
+        ) ee ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ARRAY_AGG(hazard) FILTER (WHERE eh.hazard IS NOT NULL) as hazards
+            FROM encounter_hazards eh WHERE en.id = eh.encounter
+        ) eh ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ARRAY_AGG(item) FILTER (WHERE eti.item IS NOT NULL) as items
+            FROM encounter_treasure_items eti WHERE en.id = eti.encounter
+        ) eti ON TRUE
         LEFT JOIN LATERAL (
             SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
             FROM encounter_skill_checks esc
@@ -879,12 +893,12 @@ pub async fn get_encounter_draft(
         ) esc ON TRUE
         WHERE en.status = $1
         AND en.owner = $2
-        GROUP BY en.id
+        GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
     "#,
         CompletionStatus::Draft.as_i32() as i16,
         owner.0 as i64,
     )
-    .fetch_optional(exec)
+    .fetch_optional(&mut **tx)
     .await?;
 
     let res = if let Some(row) = encounter {
@@ -942,7 +956,7 @@ pub async fn get_encounter_draft(
         }))
     } else {
         // If no draft exists- create one
-        insert_user_encounter_draft(exec, owner, &InsertEncounter::default())
+        insert_user_encounter_draft(&mut *tx, owner, &InsertEncounter::default())
             .await
             .map(|id| {
                 Some(Encounter {

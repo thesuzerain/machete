@@ -111,7 +111,10 @@ async fn delete_encounter(
         return Err(ServerError::NotFound);
     }
 
-    database::encounters::delete_encounters(&pool, &[encounter_id]).await?;
+    let mut tx = pool.begin().await?;
+    database::encounters::delete_encounters(&mut tx, &[encounter_id]).await?;
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -121,7 +124,10 @@ async fn get_encounter_draft(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    let encounter = database::encounters::get_encounter_draft(&pool, user.id).await?;
+    let mut tx = pool.begin().await?;
+    let encounter = database::encounters::get_encounter_draft(&mut tx, user.id).await?;
+    tx.commit().await?;
+
     Ok(Json(encounter))
 }
 
@@ -132,7 +138,9 @@ async fn insert_encounter_draft(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::insert_user_encounter_draft(&pool, user.id, &event).await?;
+    let mut tx = pool.begin().await?;
+    database::encounters::insert_user_encounter_draft(&mut tx, user.id, &event).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -142,7 +150,9 @@ async fn clear_encounter_draft(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    database::encounters::clear_user_encounter_draft(&pool, user.id).await?;
+    let mut tx = pool.begin().await?;
+    database::encounters::clear_user_encounter_draft(&mut tx, user.id).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

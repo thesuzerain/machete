@@ -163,7 +163,6 @@ library.add(faLink)
             if (encounterIdString) {
                 // Load the encounter into the editor.
                 // editingEncounteris bound to EncounterCreator
-                console.log("LOADING ENCOUNTER", encounterIdString);
                 editingEncounter = encounters.find(e => e.id === parseInt(encounterIdString)) || null;
             }
 
