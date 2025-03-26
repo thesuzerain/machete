@@ -1,5 +1,5 @@
 import type { Character, InsertEvent, WIPLogEnemy, WIPLogTreasure } from "$lib/types/types";
-import { getExperienceFromLevel } from "./encounter";
+import { getCreatureExperienceFromLevel } from "./encounter";
 
 export function generateEventsFromData(characterIds: number[], characters:Character[], enemies: WIPLogEnemy[], treasures: WIPLogTreasure[]): InsertEvent[] {
     const events: InsertEvent[] = [];
@@ -23,7 +23,7 @@ export function generateEventsFromData(characterIds: number[], characters:Charac
                 event_type: 'ExperienceGain',
                 description: `Gained experience from ${enemy.type}`,
                 data: {
-                    experience: getExperienceFromLevel(enemy.level || 0, characters.find(c => c.id === characterId)?.level || 0)
+                    experience: getCreatureExperienceFromLevel(enemy.level || 0, characters.find(c => c.id === characterId)?.level || 0)
                 }
             });
         }

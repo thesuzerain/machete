@@ -3,7 +3,7 @@
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
     import { faLink } from '@fortawesome/free-solid-svg-icons';
     import type { Encounter, EncounterEnemy } from '$lib/types/encounters';
-    import { EncounterDifficulty, getExperienceFromLevel, getSeverityFromFinalExperience } from '$lib/utils/encounter';
+    import { EncounterDifficulty, getCreatureExperienceFromLevel, getSeverityFromFinalExperience } from '$lib/utils/encounter';
     import { getFullUrl } from '$lib/types/library';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import Modal from '../core/Modal.svelte';
@@ -94,7 +94,7 @@
                                     <span class="adjustment">({getAdjustmentName(enemy.level_adjustment)})</span>
                                 {/if}
                                 <span class="enemy-level">Level {(getEnemyDetails(enemy.id)?.level || 0) + enemy.level_adjustment}</span>
-                                <span class="enemy-xp">XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(enemy.id)?.level || 0)}</span>
+                                <span class="enemy-xp">XP: {getCreatureExperienceFromLevel(encounter.party_level, getEnemyDetails(enemy.id)?.level || 0)}</span>
                                 <a href={getFullUrl(getEnemyDetails(enemy.id)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
                                     <FontAwesomeIcon icon={faLink} />
                                 </a>
@@ -113,7 +113,7 @@
                         {#if getHazardDetails(hazardId)}
                             <li class="hazard-item">
                                 <span class="hazard-name">{getHazardDetails(hazardId)?.name}</span>
-                                <span class="hazard-xp">XP: {getExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)}</span>
+                                <span class="hazard-xp">XP: {getCreatureExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)}</span>
                                 <a href={getFullUrl(getHazardDetails(hazardId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
                                     <FontAwesomeIcon icon={faLink} />
                                 </a>

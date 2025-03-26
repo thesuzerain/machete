@@ -277,13 +277,14 @@ pub async fn insert_encounters(
         let encounter_subsystem_type = encounter.encounter_type.get_subsystem_type();
 
         let enemy_ids = enemies.iter().map(|e| e.id).collect::<Vec<InternalId>>();
+        let enemy_level_adjustments = enemies.iter().map(|e| e.level_adjustment).collect::<Vec<i16>>();
         let enemy_levels = get_levels_enemies(
             &mut **tx,
             &enemy_ids,
-            &enemies.iter().map(|_| 0).collect::<Vec<i16>>(),
+            &enemy_level_adjustments,
         )
         .await?;
-        let hazard_levels = get_levels_hazards(&mut **tx, &hazards).await?;
+        let hazard_level_complexities = get_levels_complexities_hazards(&mut **tx, &hazards).await?;
         let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
 
         // TODO: Mofiy this so that it only does these db call if needed
@@ -291,7 +292,7 @@ pub async fn insert_encounters(
         // TODO: Also do this in 'edit_encounter'
         let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
             &enemy_levels,
-            &hazard_levels,
+            &hazard_level_complexities,
             encounter.party_level,
             encounter.party_size,
         ) + encounter.extra_experience as i32;
@@ -327,6 +328,8 @@ pub async fn insert_encounters(
         .await?
         .id;
 
+        println!("\nInserting encounters enemies: {:?}, {:?}", enemy_ids, enemy_level_adjustments);
+
         sqlx::query!(
             r#"
             INSERT INTO encounter_enemies (encounter, enemy, level_adjustment)
@@ -335,7 +338,7 @@ pub async fn insert_encounters(
             "#,
             encounter_id as i32,
             &enemy_ids.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
-            &enemy_levels,
+            &enemy_level_adjustments,
         )
         .execute(&mut **tx)
         .await?;
@@ -1012,20 +1015,21 @@ async fn get_levels_enemies(
 
 // Helper function accessing hazards databases to get levels of hazards given their ids
 // Used for default experience calculation
-async fn get_levels_hazards(
+async fn get_levels_complexities_hazards(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     hazards: &[InternalId],
-) -> crate::Result<Vec<i16>> {
+) -> crate::Result<Vec<(i16, bool)>> {
     let ids = hazards.iter().map(|id| id.0).collect::<Vec<u32>>();
     let hazards_fetched = super::hazards::get_hazards(exec, &HazardFiltering::from_ids(&ids))
         .await?
         .into_iter()
-        .map(|h| (h.id, h.level))
+        .map(|h| (h.id, (h.level, h.complex)))
         .collect::<HashMap<_, _>>();
 
     let mut levels = vec![];
     for hazard in hazards {
-        levels.push(hazards_fetched.get(hazard).copied().unwrap_or_default() as i16);
+        let (level, complex) = hazards_fetched.get(hazard).copied().unwrap_or_default();
+        levels.push((level as i16, complex));
     }
 
     Ok(levels)

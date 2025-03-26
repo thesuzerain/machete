@@ -23,6 +23,8 @@ pub struct HazardFiltering {
     pub hazard_type: Option<HazardType>,
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
+    pub complex: Option<bool>,
+    pub haunt: Option<bool>,
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -63,6 +65,8 @@ pub struct HazardSearch {
     pub hazard_type: Option<HazardType>,
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
+    pub complex: Option<bool>,
+    pub haunt: Option<bool>,
     pub game_system: Option<GameSystem>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -85,6 +89,8 @@ impl From<HazardFiltering> for HazardSearch {
             max_level: filter.max_level,
             hazard_type: filter.hazard_type,
             rarity: filter.rarity,
+            complex: filter.complex,
+            haunt: filter.haunt,
             game_system: filter.game_system,
             tags: filter.tags,
             legacy: filter.legacy,
@@ -107,6 +113,9 @@ pub struct InsertLibraryHazard {
 
     pub url: Option<String>,
     pub description: String,
+
+    pub complex: bool,
+    pub haunt: bool,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -172,6 +181,8 @@ pub async fn get_hazards_search(
                 lo.url,
                 lo.description,
                 rarity,
+                complex,
+                haunt,
                 level,
                 ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
                 legacy,
@@ -194,10 +205,10 @@ pub async fn get_hazards_search(
                 AND NOT (NOT $12::bool AND lo.legacy = TRUE)
                 AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
                 AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-
-
+                AND ($15::bool IS NULL OR lc.haunt = $15)
+                AND ($16::bool IS NULL OR lc.complex = $16)
             GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $15 OFFSET $16
+            LIMIT $17 OFFSET $18
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -215,6 +226,8 @@ pub async fn get_hazards_search(
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
         search.legacy.favor_legacy(),
+        search.haunt,
+        search.complex,
         limit as i64,
         offset as i64,
     );
@@ -236,6 +249,8 @@ pub async fn get_hazards_search(
                 name: row.name,
                 game_system: GameSystem::from_i64(row.game_system as i64),
                 rarity: Rarity::from_i64(row.rarity.unwrap_or_default() as i64),
+                complex: row.complex,
+                haunt: row.haunt,
                 level: row.level.unwrap_or_default() as i8,
                 tags: row.tags.unwrap_or_default(),
                 url: row.url,
@@ -312,8 +327,8 @@ pub async fn insert_hazards(
     // TODO: as i32 should be unnecessary- fix in models
     sqlx::query!(
         r#"
-        INSERT INTO library_hazards (id, rarity, level)
-        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[])
+        INSERT INTO library_hazards (id, rarity, level, haunt, complex)
+        SELECT * FROM UNNEST ($1::int[], $2::int[], $3::int[], $4::bool[], $5::bool[])
     "#,
         &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
         &hazards
@@ -321,6 +336,8 @@ pub async fn insert_hazards(
             .map(|c| c.rarity.as_i64() as i32)
             .collect::<Vec<i32>>(),
         &hazards.iter().map(|c| c.level as i32).collect::<Vec<i32>>(),
+        &hazards.iter().map(|c| c.haunt).collect::<Vec<bool>>(),
+        &hazards.iter().map(|c| c.complex).collect::<Vec<bool>>(),
     )
     .execute(exec)
     .await?;

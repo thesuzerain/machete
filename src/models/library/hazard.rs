@@ -15,6 +15,8 @@ pub struct LibraryHazard {
 
     pub url: Option<String>,
     pub description: String,
+    pub haunt: bool,
+    pub complex: bool,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]

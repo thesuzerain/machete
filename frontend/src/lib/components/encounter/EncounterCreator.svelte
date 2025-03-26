@@ -6,7 +6,7 @@
     import LibrarySelector from "$lib/components/selectors/LibrarySelector.svelte";
     import { id } from "date-fns/locale";
     import {
-        getExperienceFromLevel,
+        getCreatureExperienceFromLevel,
         getSeverityFromRawExperience,
         getRewardForLevelSeverity,
         EncounterDifficulty,
@@ -437,7 +437,7 @@
             if (enemy?.level != undefined) {
                 return (
                     total +
-                    getExperienceFromLevel(
+                    getCreatureExperienceFromLevel(
                         wipEncounter.party_level,
                         enemy.level + encounterEnemy.level_adjustment,
                     )
@@ -453,7 +453,7 @@
             if (hazard?.level) {
                 return (
                     total +
-                    getExperienceFromLevel(
+                    getCreatureExperienceFromLevel(
                         wipEncounter.party_level,
                         hazard.level,
                     )

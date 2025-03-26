@@ -91,8 +91,9 @@ export interface CreateEncounterFinalized extends CreateOrReplaceEncounterExtend
 } 
 
 export type AccomplishmentLevel = 'minor' | 'moderate' | 'major';
-export function experienceForAccomplishment(level : AccomplishmentLevel) : number {
+export function experienceForAccomplishment(level : AccomplishmentLevel | null) : number {
     switch (level) {
+        case null: return 0;
         case 'minor': return 10;
         case 'moderate': return 30;
         case 'major': return 80;

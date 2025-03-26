@@ -7,7 +7,7 @@
     import Button from "../core/Button.svelte";
     import LibrarySelector from "../selectors/LibrarySelector.svelte";
     import BrowseLibraryModal from "../modals/BrowseLibraryModal.svelte";
-    import { getExperienceFromLevel } from "$lib/utils/encounter";
+    import { getCreatureExperienceFromLevel, getHazardExperienceFromLevel } from "$lib/utils/encounter";
 
     interface Props {
         libraryObjectType : "item" | "creature" | "hazard"  ;
@@ -147,6 +147,12 @@
 
                         {/if}
                         <span>{context.name}</span>
+                        {#if libraryObjectType === "hazard" && 'complex' in context && context.complex}
+                            <span class="subtext">Complex</span>
+                        {/if}
+                        {#if libraryObjectType === "hazard" && 'haunt' in context && context.haunt}
+                            <span class="subtext">Haunt</span>
+                        {/if}
                         </div>
 
                         <div class="list-item-span-group">
@@ -172,9 +178,25 @@
                             {:else}
                                 <span>Value: Priceless</span>
                             {/if}
+                        {:else if libraryObjectType === "hazard" }
+                            <div class="entity-xp">
+                                {#if 'complex' in context}
+
+                                XP: {getHazardExperienceFromLevel(
+                                    partyLevel,
+                                    (context?.level ?? 0) +
+                                        (getEnemyAdjustment(o) ?? 0),
+                                    context?.complex || false,
+                                )}
+                                {/if}
+                            </div>
+                            <div class="entity-level">
+                                Level {(context?.level || 0) +
+                                    (getEnemyAdjustment(o) || 0)}
+                            </div>
                         {:else if libraryObjectType === "creature"}
                             <div class="entity-xp">
-                                XP: {getExperienceFromLevel(
+                                XP: {getCreatureExperienceFromLevel(
                                     partyLevel,
                                     (context?.level ?? 0) +
                                         (getEnemyAdjustment(o) ?? 0),
@@ -234,6 +256,12 @@
         flex-direction: column;
         margin-bottom: 1rem;
         gap: 0.25rem;
+    }
+
+    .subtext {
+        font-size: 0.75rem;
+        color: var(--color-text-secondary);
+        align-self: center;
     }
 
     .section-content {

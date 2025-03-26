@@ -15,7 +15,7 @@
     } from '$lib/types/library';
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
-    import { getExperienceFromLevel } from '$lib/utils/encounter';
+    import { getCreatureExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
     import { goto } from '$app/navigation';
     import type { CreateOrReplaceEncounter } from '$lib/types/encounters';
@@ -73,6 +73,8 @@
             { key: 'name', label: 'Name' },
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
+            { key: 'complex', label: 'Complex', formatter: booleanFormatter },
+            { key: 'haunt', label: 'Haunt', formatter: booleanFormatter },
             { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         item: [
@@ -94,7 +96,7 @@
         class: ['name', 'rarity', 'hp', 'traditions'],
         spell: ['name', 'rarity', 'rank', 'traditions'],
         creature: ['name', 'rarity', 'level', 'size', 'alignment'],
-        hazard: ['name', 'rarity', 'level'],
+        hazard: ['name', 'rarity', 'level', 'complex'],
         item: ['name', 'rarity', 'level', 'price', 'item_categories', 'item_type', 'traits', 'runes', 'magical']
     };
 
@@ -440,7 +442,7 @@
                         {#if isEncounterMode && activeTab === 'creature'}
                             <td>
                                 {#if editingEncounter && entity.level !== undefined}
-                                {getExperienceFromLevel(editingEncounter.party_level, entity.level)}
+                                {getCreatureExperienceFromLevel(editingEncounter.party_level, entity.level)}
                                 {/if}
                             </td>
                         {/if}

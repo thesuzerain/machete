@@ -7,7 +7,7 @@
     import EncounterCreator from "$lib/components/encounter/EncounterCreator.svelte";
     import { id } from 'date-fns/locale';
     import { 
-        getExperienceFromLevel, 
+        getCreatureExperienceFromLevel, 
         getSeverityFromRawExperience, 
         getRewardForLevelSeverity,
         EncounterDifficulty, 
@@ -313,7 +313,7 @@ library.add(faLink)
                                                     ({getAdjustmentName(encounterEnemy.level_adjustment)})
                                                 {/if}
                                                 (Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment})
-                                                (XP: {getExperienceFromLevel(encounter.party_level, getEnemyDetails(encounterEnemy.id)?.level || 0)})</li>
+                                                (XP: {getCreatureExperienceFromLevel(encounter.party_level, getEnemyDetails(encounterEnemy.id)?.level || 0)})</li>
                                         {/if}
                                     {/each}
                                 </ul>
@@ -326,7 +326,7 @@ library.add(faLink)
                                 <ul>
                                     {#each encounter.hazards as hazardId}
                                         {#if getHazardDetails(hazardId)}
-                                            <li>{getHazardDetails(hazardId)?.name} (XP: {getExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
+                                            <li>{getHazardDetails(hazardId)?.name} (XP: {getCreatureExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
                                         {/if}
                                     {/each}
                                 </ul>

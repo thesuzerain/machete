@@ -39,9 +39,14 @@
     <Modal bind:show={show} on:close={closeModal} bind:error={error} closeButton>
         <div slot="header">
         </div>
-        <Library allowedTabs={allowedTabs} bind:editingEncounter={editingEncounter} />
+        <div class="modal-shape">
+            <Library allowedTabs={allowedTabs} bind:editingEncounter={editingEncounter} />
+        </div>
     </Modal>
 {/if}
 
 <style>
+.modal-shape {
+    min-width: 100vh;
+}
 </style> 

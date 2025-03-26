@@ -53,9 +53,8 @@ export interface LibraryCreature extends LibraryEntity {
 }
 
 export interface LibraryHazard extends LibraryEntity {
-    complexity: string;
-    stealth?: string;
-    disable?: string;
+    complex: boolean;
+    haunt?: boolean;
     legacy?: boolean;
 }
 

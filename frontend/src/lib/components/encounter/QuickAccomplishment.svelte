@@ -52,7 +52,7 @@
     let showAccomplishmentForm = $state(false);
 
     let canAddAccomplishment = $derived(
-        useCustomXP ? customXPAmount > 0 : accomplishmentType !== null
+        (useCustomXP && customXPAmount > 0) || accomplishmentType !== null || wipEncounter.treasure_items.length > 0
     );
 
     function setCustomXP() {
@@ -62,7 +62,7 @@
         wipEncounter.extra_experience = customXPAmount;
     }
 
-    function setAccomplishmentType(type: AccomplishmentLevel) {
+    function setAccomplishmentType(type: AccomplishmentLevel | null) {
         accomplishmentType = type;
         useCustomXP = false;
         wipEncounter.extra_experience = experienceForAccomplishment(type);
@@ -139,6 +139,9 @@
 
             </div>
             <div class="accomplishment-buttons">
+                <Button colour='white' selectedColour='blue' selected={accomplishmentType === null && !useCustomXP} onclick={() => setAccomplishmentType(null)}>
+                    None (0 XP)                           
+                </Button>
                 <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'minor'} onclick={() => setAccomplishmentType('minor')}>
                     Minor (10 XP)                            
                 </Button>

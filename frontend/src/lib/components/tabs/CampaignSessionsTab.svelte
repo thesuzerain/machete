@@ -117,6 +117,7 @@
             presentCharacters = new Set();
         }
         showCharacterSelector = false;
+        showAccomplishmentForm = false;
     }
 
     async function handleEncountersUpdate() {
@@ -372,7 +373,7 @@
         <Button colour="blue" onclick={() => initializeSessionReorder()}>
             Edit sessions
         </Button>
-        <Button colour="green" on:click={createNewSession}>
+        <Button colour="green" onclick={createNewSession}>
             New session
         </Button>
     </div>
@@ -460,7 +461,10 @@
 
             {#if showAccomplishmentForm && selectedSessionId}
                 <QuickAccomplishment {selectedCampaignId} {selectedSessionId} onAddEncounter={
-                    () => handleEncountersUpdate()
+                    () => {
+                        showAccomplishmentForm = false;
+                        handleEncountersUpdate();
+                    }
                 }/>
             {/if}
 

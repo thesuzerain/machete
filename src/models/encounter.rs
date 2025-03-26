@@ -267,7 +267,7 @@ impl EncounterSubsystemType {
 
 pub fn calculate_total_adjusted_experience(
     enemy_levels: &[i16],
-    hazard_levels: &[i16],
+    hazard_level_complexities: &[(i16,bool)],
     party_level: u8,
     party_size: u8,
 ) -> i32 {
@@ -275,8 +275,14 @@ pub fn calculate_total_adjusted_experience(
     for level in enemy_levels {
         total_experience += calculate_enemy_experience(*level as i8, party_level);
     }
-    for level in hazard_levels {
-        total_experience += calculate_enemy_experience(*level as i8, party_level);
+    for (level, complex) in hazard_level_complexities {
+        let exp = calculate_enemy_experience(*level as i8, party_level);
+        if *complex {
+            total_experience += exp;
+        } else {
+            // Hazards are worth 1/5 of the experience of enemies if they are not complex
+            total_experience += exp / 5;
+        }
     }
 
     let diff_off = party_size as i32 - 4;

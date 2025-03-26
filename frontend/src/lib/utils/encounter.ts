@@ -8,12 +8,15 @@ export enum EncounterDifficulty {
     Extreme = "Extreme"
 }
 
-interface PartyConfig {
-    party_size: number;
-    party_level: number;
+export function getHazardExperienceFromLevel(partyLevel: number, hazardLevel: number, isComplex: boolean): number {
+    // First, get as if it was a creature
+    const baseXP = getCreatureExperienceFromLevel(partyLevel, hazardLevel);
+
+    // Complex hazards keep as is, simple hazards are 1/5th of the XP
+    return isComplex ? baseXP : baseXP / 5;
 }
 
-export function getExperienceFromLevel(partyLevel: number, creatureLevel: number): number {
+export function getCreatureExperienceFromLevel(partyLevel: number, creatureLevel: number): number {
     const levelDifference = creatureLevel - partyLevel;
 
     // Base XP values from the Pathfinder 2e rules
@@ -82,6 +85,7 @@ export function getSeverityFromFinalExperience(totalXP: number, extraExperience 
 }
 
 export function getAdjustedExperienceFromPartySize(rawTotalXP: number, partySize: number): number {
+    if (rawTotalXP === 0) return rawTotalXP; // TODO: Added this becuase empty ones were causing  issues- but ensure the math isn't generally wrong
     const severity = getSeverityFromRawExperience(rawTotalXP, partySize);
 
     const playerAdjustmentThresholds = {

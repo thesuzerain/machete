@@ -212,7 +212,9 @@ pub async fn import_with_functions(
     let insert_encounters = campaign
         .encounters
         .iter()
-        .map(|e| InsertEncounter {
+        .map(|e|{
+            println!("IMPORTING: {:?}", e);
+             InsertEncounter {
             name: e.name.clone(),
             description: e.description.clone(),
             status: CompletionStatus::Prepared,
@@ -227,7 +229,7 @@ pub async fn import_with_functions(
 
             total_experience: None,  // TODO: Calculate total experience
             total_items_value: None, // TODO: Calculate total treasure value
-        })
+}})
         .collect_vec();
     super::encounters::insert_encounters(&mut *tx, owner, &insert_encounters).await?;
 

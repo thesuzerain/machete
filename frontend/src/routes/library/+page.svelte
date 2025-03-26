@@ -12,7 +12,7 @@
     } from '$lib/types/library';
     import { fade, slide } from 'svelte/transition';
     import InfiniteScroll from "svelte-infinite-scroll";
-    import { getExperienceFromLevel } from '$lib/utils/encounter';
+    import { getCreatureExperienceFromLevel } from '$lib/utils/encounter';
     import { API_URL } from '$lib/config';
     import { goto } from '$app/navigation';
     import type { Encounter } from '$lib/types/encounters';
