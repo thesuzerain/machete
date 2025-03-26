@@ -17,9 +17,14 @@
     let { 
         show = $bindable(),
         allowedTabs,
-        editingEncounter = $bindable()
+        editingEncounter = $bindable(),
     } : Props = $props();
     
+    export function showWithTabs(tabs: LibraryEntityType[]) {
+        allowedTabs = tabs;
+        show = true;
+    }
+
     const dispatch = createEventDispatcher();
     let error: string | null = $state(null);
 

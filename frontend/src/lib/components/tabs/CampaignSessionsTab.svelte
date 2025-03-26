@@ -15,6 +15,7 @@
     import Card from '../core/Card.svelte';
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
+    import QuickAccomplishment from '../encounter/QuickAccomplishment.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -339,23 +340,6 @@
         useCustomXP = false;
     }
 
-    async function addAccomplishment() {
-        if (!selectedSession) return;
-        if (!canAddAccomplishment) return;
-        
-        const name = accomplishmentName.trim() || 'Accomplishment';
-        const xp = useCustomXP ? customXPAmount : accomplishmentType!;
-        await encounterStore.addQuickAccomplishment(
-            selectedCampaignId,
-            selectedSession.id,
-            name,
-            xp
-        );
-
-        // Reset form name (don't reset type, so that we can quickly add more)
-        accomplishmentName = '';
-        showAccomplishmentForm = false;
-    }
 
     async function updateSessionCharacters(characterId: number, present: boolean) {
         if (!selectedSession) return;
@@ -474,53 +458,10 @@
                 </div>
             </div>
 
-            {#if showAccomplishmentForm}
-                <div transition:fade>
-                    <Card>
-                        <form on:submit={addAccomplishment} class="accomplishment-inputs">
-                            <div class="name-description-row">
-                                <input 
-                                    type="text" 
-                                    placeholder="Name"
-                                    bind:value={accomplishmentName}
-                                />
-    
-                            </div>
-                            <div class="accomplishment-buttons">
-                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'minor'} onclick={() => setAccomplishmentType('minor')}>
-                                    Minor (10 XP)                            
-                                </Button>
-                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'moderate'} onclick={() => setAccomplishmentType('moderate')}>
-                                    Moderate (30 XP)
-                                </Button>
-                                <Button colour='white' selectedColour='blue' selected={accomplishmentType === 'major'} onclick={() => setAccomplishmentType('major')}>
-                                    Major (80 XP)
-                                </Button>
-                                <Button colour='white' selectedColour='blue' selected={useCustomXP} onclick={() => setCustomXP()}>
-                                    Custom XP
-                                </Button>
-                            
-                            {#if useCustomXP}
-                                <div class="custom-xp">
-                                    <input 
-                                        type="number" 
-                                        bind:value={customXPAmount}
-                                        min="0"
-                                        placeholder="Enter XP amount"
-                                    />
-                                </div>
-                            {/if}
-                            <Button 
-                                colour="green" 
-                                onclick={addAccomplishment}
-                                disabled={!canAddAccomplishment}
-                            >
-                                Add Accomplishment
-                            </Button>
-                        </div>
-                    </form>                    </Card>
-                </div>
-
+            {#if showAccomplishmentForm && selectedSessionId}
+                <QuickAccomplishment {selectedCampaignId} {selectedSessionId} onAddEncounter={
+                    () => handleEncountersUpdate()
+                }/>
             {/if}
 
             <!-- Regular Encounters -->

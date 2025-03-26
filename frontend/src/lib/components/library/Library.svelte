@@ -195,7 +195,6 @@
                     level_adjustment: 0
                 });
                 creatureStore.insertEntity(entity as LibraryCreature);
-                console.log("editingEncounter.enemies", editingEncounter.enemies);
                 break;
             case 'hazard':
             if (editingEncounter.hazards) editingEncounter.hazards.push(entity.id);
@@ -235,8 +234,6 @@
             });
 
             const pluralType = pluralizations[activeTab];
-            console.log(pluralType);
-            console.log("activeTab", activeTab);
             const response = await fetch(`${API_URL}/library/${pluralType}?${params}`);
             
             if (!response.ok) throw new Error(`Failed to fetch ${pluralType}`);

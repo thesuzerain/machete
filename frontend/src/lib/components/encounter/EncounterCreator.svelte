@@ -59,6 +59,7 @@
     import BrowseLibraryModal from "../modals/BrowseLibraryModal.svelte";
     import Card from "../core/Card.svelte";
     import Button from "../core/Button.svelte";
+    import EncounterLibraryItemSelector from "./EncounterLibraryItemSelector.svelte";
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -75,6 +76,7 @@
 
     let loading = $state(true);
     let error: string | null = $state(null);
+    let libraryModal : BrowseLibraryModal | null = $state(null);
 
     // Add new state for auto-saving
     let saveTimeout: NodeJS.Timeout;
@@ -175,11 +177,7 @@
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
-                encounters
-                    .flatMap((e) => e.enemies)
-                    .concat(wipEncounter.enemies)
-                    .map((e) => e?.id)
-                    .filter((id) => id !== undefined) as number[],
+                encounters.flatMap(e => e.enemies ?? []).map((e) => e?.id)
             );
 
             if (enemyIds.size > 0) {
@@ -190,9 +188,7 @@
 
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
-                encounters
-                    .flatMap((e) => e.hazards)
-                    .concat(wipEncounter.hazards),
+                encounters.flatMap(e => e.hazards ?? [])
             );
             if (hazardIds.size > 0) {
                 await hazardStore.fetchEntities({
@@ -202,9 +198,7 @@
 
             // Load any items that are in current encounters
             const itemIds = new Set(
-                encounters
-                    .flatMap((e) => e.treasure_items)
-                    .concat(wipEncounter.treasure_items),
+                encounters.flatMap(e => e.treasure_items ?? [])
             );
             if (itemIds.size > 0) {
                 await itemStore.fetchEntities({
@@ -961,114 +955,11 @@
                     </div>
                     <div class="section-content">
                         {#if wipEncounter.enemies}
-                            <div class="list-items">
-                                {#each wipEncounter.enemies as encounterEnemy, i}
-                                    {#if getEnemyDetails(encounterEnemy.id)}
-                                    <Card tight>
-                                            <div class="list-item">
-                                                <div class="entity-adjustment">
-                                                    <Button
-                                                        tight
-                                                        colour={getAdjustmentColour(
-                                                            encounterEnemy.level_adjustment,
-                                                        )}
-                                                        onclick={() => {
-                                                            toggleEnemyAdjustment(
-                                                                i,
-                                                            );
-                                                        }}
-                                                        >{getAdjustmentName(
-                                                            encounterEnemy.level_adjustment,
-                                                        )}</Button
-                                                    >
-                                                </div>
-                                                <div class="entity-name">
-                                                    {getEnemyDetails(
-                                                        encounterEnemy.id,
-                                                    )?.name}
-                                                </div>
-                                                <div class="entity-link">
-                                                    <a
-                                                        href={getFullUrlWithAdjustment(
-                                                            getEnemyDetails(
-                                                                encounterEnemy.id,
-                                                            )?.url || "",
-                                                            encounterEnemy.level_adjustment,
-                                                        )}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        <FontAwesomeIcon
-                                                            icon={[
-                                                                "fas",
-                                                                "link",
-                                                            ]}
-                                                        />
-                                                    </a>
-                                                </div>
-                                                <div class="entity-xp">
-                                                    XP: {getExperienceFromLevel(
-                                                        wipEncounter.party_level,
-                                                        (getEnemyDetails(
-                                                            encounterEnemy.id,
-                                                        )?.level || 0) +
-                                                            encounterEnemy.level_adjustment,
-                                                    )}
-                                                </div>
-                                                <div class="entity-level">
-                                                    Level {(getEnemyDetails(
-                                                        encounterEnemy.id,
-                                                    )?.level || 0) +
-                                                        encounterEnemy.level_adjustment}
-                                                </div>
+                            <h4>Enemies</h4>
 
-                                                <Button
-                                                    colour="red"
-                                                    onclick={() => {
-                                                        if (
-                                                            wipEncounter.enemies
-                                                        )
-                                                            wipEncounter.enemies =
-                                                                wipEncounter.enemies.filter(
-                                                                    (
-                                                                        _,
-                                                                        index,
-                                                                    ) =>
-                                                                        index !==
-                                                                        i,
-                                                                );
-                                                    }}>Remove</Button
-                                                >
-                                            </div>
-                                        </Card>
-                                    {/if}
-                                {/each}
-                            </div>
-                            <div class="library-selector-container">
-                                <LibrarySelector
-                                    entityType="creature"
-                                    onSelect={(id) => {
-                                        let newEnemy: EncounterEnemy = {
-                                            id: id,
-                                            level_adjustment: 0,
-                                        };
-                                        wipEncounter.enemies = [
-                                            ...(wipEncounter.enemies || []),
-                                            newEnemy,
-                                        ];
-                                    }}
-                                    placeholder="Search for enemies..."
-                                    initialIds={wipEncounter.enemies.map(
-                                        (e) => e.id,
-                                    )}
-                                />
-                                <!-- TODO: This should be maybe extracted into the libraryselector modal itself as an option-->
-                                <Button
-                                    colour="blue"
-                                    onclick={() => openLibrary("creature")}
-                                    >📚 Browse Library</Button
-                                >
-                            </div>
+                            {#if libraryModal}
+                                <EncounterLibraryItemSelector libraryObjectType='creature' {libraryModal} partyLevel={wipEncounter.party_level} bind:data={wipEncounter.enemies} />
+                            {/if}                        
                         {/if}
                     </div>
                 </Card>
@@ -1083,77 +974,11 @@
                         </h3>
                     </div>
                     <div class="section-content">
-                        <div class="list-items">
-                            {#each wipEncounter.hazards || [] as hazardId}
-                                {#if getHazardDetails(hazardId)}
-                                    <Card tight>
-                                        <div class="list-item">
-                                            <div class="entity-name">
-                                                {getHazardDetails(hazardId)
-                                                    ?.name}
-                                            </div>
-                                            <div class="entity-link">
-                                                <a
-                                                    href={getFullUrl(
-                                                        getHazardDetails(
-                                                            hazardId,
-                                                        )?.url || "",
-                                                    )}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    <FontAwesomeIcon
-                                                        icon={["fas", "link"]}
-                                                    />
-                                                </a>
-                                            </div>
-                                            <div class="entity-xp">
-                                                XP: {getExperienceFromLevel(
-                                                    wipEncounter.party_level,
-                                                    getHazardDetails(hazardId)
-                                                        ?.level || 0,
-                                                )}
-                                            </div>
-                                            <div class="entity-level">
-                                                Level {getHazardDetails(
-                                                    hazardId,
-                                                )?.level}
-                                            </div>
+                        <h4>Hazards</h4>
 
-                                            <Button
-                                                colour="red"
-                                                onclick={() => {
-                                                    if (wipEncounter.hazards)
-                                                        wipEncounter.hazards =
-                                                            wipEncounter.hazards.filter(
-                                                                (_, index) =>
-                                                                    index !== i,
-                                                            );
-                                                }}>Remove</Button
-                                            >
-                                        </div>
-                                    </Card>
-                                {/if}
-                            {/each}
-                        </div>
-                        <div class="library-selector-container">
-                            <LibrarySelector
-                                entityType="hazard"
-                                onSelect={(id) => {
-                                    wipEncounter.hazards = [
-                                        ...(wipEncounter.hazards || []),
-                                        id,
-                                    ];
-                                }}
-                                placeholder="Search for hazards..."
-                                initialIds={wipEncounter.hazards}
-                            />
-                            <Button
-                                colour="blue"
-                                onclick={() => openLibrary("hazard")}
-                                >📚 Browse Library</Button
-                            >
-                        </div>
+                        {#if libraryModal}
+                            <EncounterLibraryItemSelector libraryObjectType='hazard' partyLevel={wipEncounter.party_level} {libraryModal} bind:data={wipEncounter.hazards} />
+                        {/if}                        
                     </div>
                 </Card>
             {/if}
@@ -1188,65 +1013,9 @@
 
                 <h4>Items</h4>
                 <div class="list-items">
-                    {#each wipEncounter.treasure_items as itemId, i}
-                        {#if getItemDetails(itemId)}
-                            <Card tight>
-                                <div class="list-item">
-                                    <span>{getItemDetails(itemId)?.name}</span>
-                                    <div class="entity-link">
-                                        <a
-                                            href={getFullUrl(
-                                                getItemDetails(itemId)?.url ||
-                                                    "",
-                                            )}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={["fas", "link"]}
-                                            />
-                                        </a>
-                                    </div>
-                                    {#if getItemDetails(itemId)?.price}
-                                        <span
-                                            >Value: {getItemDetails(itemId)
-                                                ?.price}g</span
-                                        >
-                                    {:else}
-                                        <span>Value: Priceless</span>
-                                    {/if}
-
-                                    <Button
-                                        colour="red"
-                                        onclick={() => {
-                                            if (wipEncounter.treasure_items)
-                                                wipEncounter.treasure_items =
-                                                    wipEncounter.treasure_items.filter(
-                                                        (_, index) =>
-                                                            index !== i,
-                                                    );
-                                        }}>Remove</Button
-                                    >
-                                </div>
-                            </Card>
-                        {/if}
-                    {/each}
-                </div>
-                <div class="library-selector-container">
-                    <LibrarySelector
-                        entityType="item"
-                        onSelect={(id) => {
-                            wipEncounter.treasure_items = [
-                                ...wipEncounter.treasure_items,
-                                id,
-                            ];
-                        }}
-                        placeholder="Search for items..."
-                        initialIds={wipEncounter.treasure_items}
-                    />
-                    <Button colour="blue" onclick={() => openLibrary("item")}
-                        >📚 Browse Library</Button
-                    >
+                    {#if libraryModal}
+                        <EncounterLibraryItemSelector libraryObjectType='item' partyLevel={wipEncounter.party_level} {libraryModal} bind:data={wipEncounter.treasure_items} />
+                    {/if}
                 </div>
             </div>
         </Card>
@@ -1292,6 +1061,7 @@
 </form>
 
 <BrowseLibraryModal
+    bind:this={libraryModal}
     bind:show={showLibraryModal}
     allowedTabs={libraryTabs}
     bind:editingEncounter={wipEncounter}
