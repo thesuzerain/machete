@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{characters::Skill, ids::InternalId};
+use crate::models::characters::skill_serialize;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Encounter {
@@ -67,6 +68,7 @@ pub struct EncounterSubsystemCheck {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EncounterSubsystemRoll {
+    #[serde(with = "skill_serialize")]
     pub skill: Skill,
     pub dc: u8,
 }

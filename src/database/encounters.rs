@@ -59,7 +59,7 @@ pub struct ModifyEncounter {
     pub enemies: Option<Vec<EncounterEnemy>>,
     pub hazards: Option<Vec<InternalId>>,
 
-    pub subsystem_rolls: Option<Vec<EncounterSubsystemCheck>>,
+    pub subsystem_checks: Option<Vec<EncounterSubsystemCheck>>,
     pub subsystem_type: Option<EncounterSubsystemType>,
 
     pub encounter_type_id: Option<u8>,
@@ -561,6 +561,73 @@ pub async fn edit_encounter(
                 "#,
                 encounter_id.0 as i32,
                 item,
+            )
+            .execute(&mut **tx)
+            .await?;
+        }
+    }
+
+    // Update subsystem stuff if needed
+    if let Some(subsystem_rolls) = new_encounter.subsystem_checks.as_ref() {
+        sqlx::query!(
+            r#"
+            DELETE FROM encounter_skill_check_rolls
+            WHERE encounter_skill_check_id IN (
+                SELECT id
+                FROM encounter_skill_checks
+                WHERE encounter_id = $1
+            )
+            "#,
+            encounter_id.0 as i32,
+        )
+        .execute(&mut **tx)
+        .await?;
+    
+        // Drop all existing encounter_skill_checks
+        sqlx::query!(
+            r#"
+            DELETE FROM encounter_skill_checks
+            WHERE encounter_id = $1
+            "#,
+            encounter_id.0 as i32,
+        )
+        .execute(&mut **tx)
+        .await?;
+
+        // Insert new encounter_skill_checks
+        let mut order_index = 0;
+        for check in subsystem_rolls {
+            let check_id = sqlx::query!(
+                r#"
+                INSERT INTO encounter_skill_checks (encounter_id, name, vp, order_index)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id
+                "#,
+                encounter_id.0 as i32,
+                check.name,
+                check.vp as i16,
+                order_index,
+            )
+            .fetch_one(&mut **tx)
+            .await?
+            .id;
+            order_index += 1;
+
+            let (rolls, dcs): (Vec<String>, Vec<i16>) = check
+                .roll_options
+                .iter()
+                .map(|r| (r.skill.to_string(), r.dc as i16))
+                .unzip();
+
+            sqlx::query!(
+                r#"
+                INSERT INTO encounter_skill_check_rolls (encounter_skill_check_id, roll, dc)
+                SELECT $1, roll, dc
+                FROM UNNEST($2::varchar(16)[], $3::smallint[]) AS t(roll, dc)
+                "#,
+                check_id as i32,
+                &rolls,
+                &dcs,
             )
             .execute(&mut **tx)
             .await?;

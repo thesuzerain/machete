@@ -491,8 +491,8 @@ pub async fn insert_items(
         let skills = item
             .skill_boosts
             .iter()
-            .map(|sb| sb.skill.clone().map(|s| s.to_string()))
-            .collect::<Vec<Option<String>>>();
+            .map(|sb| sb.skill.clone().to_string())
+            .collect::<Vec<String>>();
         sqlx::query!(
             r#"
             INSERT INTO library_items_skill_boosts (item_id, skill, bonus)

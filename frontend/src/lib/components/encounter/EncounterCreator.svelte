@@ -404,11 +404,11 @@
                 skillChecks = [];
             }
 
-            // Clear the draft
-            await fetch(`${API_URL}/encounters/draft`, {
-                method: "DELETE",
-                credentials: "include",
-            });
+            // Reset localStorage
+            localStorage.setItem(
+                localStorageKey,
+                JSON.stringify(wipEncounter),
+            );
 
             // If we are editing an encounter, also, return to the page.
             // TODO: Can probably remove above resetting, but not sure what we want to keep here.

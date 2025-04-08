@@ -3,6 +3,7 @@ use crate::models::{
     characters::{Skill, Stat},
     ids::InternalId,
 };
+use crate::models::characters::skill_serialize;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -40,7 +41,8 @@ pub struct LibraryItem {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct SkillPotency {
     // TODO: This should, eventually, be not an Option
-    pub skill: Option<Skill>,
+    #[serde(with = "skill_serialize")]
+    pub skill: Skill,
     pub bonus: i8,
 }
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{encounter::EncounterType, ids::InternalId};
+use super::ids::InternalId;
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct CampaignStats {

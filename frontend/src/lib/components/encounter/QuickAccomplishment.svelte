@@ -8,6 +8,7 @@
     import BrowseLibraryModal from '../modals/BrowseLibraryModal.svelte';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import { statsStore } from '$lib/stores/stats';
 
     interface Props {
         selectedCampaignId: number;
@@ -93,7 +94,10 @@
         };
 
         await encounterStore.addEncounter(finalizedEncounter);
-        await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+        await Promise.all([
+            campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
+            statsStore.fetchStats(selectedCampaignId),
+        ]);
 
         onAddEncounter();
 
