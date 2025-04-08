@@ -44,7 +44,6 @@
         extra_experience: 0,
         party_level: 1,
         party_size: 4,
-        status: "Draft",
         subsystem_type: "chase",
         subsystem_checks: [],
     });
@@ -111,7 +110,6 @@
             extra_experience: 0,
             party_level: 1,
             party_size: 4,
-            status: "Draft",
             subsystem_type: "chase",
             subsystem_checks: [],
         }

@@ -16,7 +16,7 @@
 
 
     } from '$lib/utils/encounter';
-    import type { Encounter, EncounterStatus } from '$lib/types/encounters';
+    import type { Encounter } from '$lib/types/encounters';
     import { getFullUrl } from '$lib/types/library';
     import { fade } from 'svelte/transition';
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -242,6 +242,16 @@ library.add(faLink)
             encounterStore.unlinkEncounterFromSession(encounter.id);
         }
     }
+
+    let encounterEditor : HTMLDivElement;
+    const scrollToEncounterEditor = async () => {
+        encounterEditor.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+        });
+    }; 
+    
 </script>
 
 <div class="encounters-page">
@@ -251,7 +261,9 @@ library.add(faLink)
     {/if}
 
     <div class="creator">
-    <EncounterCreator bind:editingEncounter bind:chosenSessionId bind:returnToSessionId bind:this={encounterCreator} />
+        <div bind:this={encounterEditor}>
+            <EncounterCreator  bind:editingEncounter bind:chosenSessionId bind:returnToSessionId bind:this={encounterCreator} />
+        </div>
 </div>
     {#if loading}
         <div class="loading">Loading encounters...</div>
@@ -291,12 +303,13 @@ library.add(faLink)
                     <div slot="header" class="encounter-summary">
                         <h3>{encounter.name}</h3>
                         <div class="encounter-meta">
-                            <span class="status {encounter.status.toLowerCase()}">{encounter.status}</span>
+                            {#if encounter.session_id}
+                                <span class="status linked">Linked: Session {sessionIx.get(encounter.session_id)}</span>
+                            {:else}
+                                <span class="status prepared">Prepared</span>
+                            {/if}
                             <span class="xp">XP: {encounter.total_experience} (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}">{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience).toWellFormed()}</span>)</span>
                             <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
-                            {#if encounter.session_id}
-                                <span class="session">Session: {sessionIx.get(encounter.session_id)}</span>
-                            {/if}
                         </div>
                     </div>
                     <!-- TODO: You have an encounter viewer modal, switch it out for this-->
@@ -372,28 +385,21 @@ library.add(faLink)
                         </div>
                         <div class="actions">
 
-                        {#if encounter.status === 'Draft'}
-                        <Button colour='blue' onclick={() => encounterCreator.loadEncounterCopyToDraft(encounter)}>
-                            Load draft
-
-                        </Button>
-
-                        {:else}
                         {#if !encounter.session_id}
 
-                        <Button colour='green' disabled={encounter.status !== 'Prepared'} onclick={() => linkingEncounter = encounter}>
+                        <Button colour='green' onclick={() => linkingEncounter = encounter}>
                             Link to session
                         </Button>
                         
                         {:else}
                         
                 
-                        <Button colour='red' disabled={encounter.status !== 'Prepared'} onclick={() => linkEncounterToSession(encounter, null)}>
+                        <Button colour='red' onclick={() => linkEncounterToSession(encounter, null)}>
                             Unlink from session
                         </Button>
                         {/if}
 
-                                <Button colour='blue' onclick={() => editingEncounter = encounter}>
+                                <Button colour='blue' onclick={() => {editingEncounter = encounter; scrollToEncounterEditor()}}>
                                     Edit
                                 </Button>
                                 
@@ -404,7 +410,6 @@ library.add(faLink)
                         <Button colour='red' onclick={() => deletingEncounter = encounter.id}>
                             Delete
                         </Button>
-                        {/if}
 
 
                             </div>
@@ -502,7 +507,6 @@ library.add(faLink)
         padding: 1.5rem;
     }
 
-    /* TODO: Get rid of status- or replace with linked */
     .status {
         padding: 0.25rem 0.75rem;
         border-radius: 999px;
@@ -517,20 +521,11 @@ library.add(faLink)
         color: #1e40af; 
     }
 
-    .status.success { 
+    .status.linked { 
         background: #dcfce7; 
         color: #166534; 
     }
 
-    .status.failure { 
-        background: #fee2e2; 
-        color: #991b1b; 
-    }
-
-    .status.archived { 
-        background: #f3f4f6; 
-        color: #1f2937; 
-    }
 
     .filter-sort {
         margin-bottom: 1.5rem;

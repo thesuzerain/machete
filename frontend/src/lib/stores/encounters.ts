@@ -58,7 +58,6 @@ function createEncounterStore() {
                 extra_experience: xp,
                 treasure_items: [],
                 encounter_type: 'accomplishment',
-                status: 'Prepared',
                 treasure_currency: 0,
                 party_level: 0, // TODO: I believe this doesn't matter for accomplishments. Revisit if it does.
                 party_size: 0, // TODO: ^^
@@ -135,36 +134,6 @@ function createEncounterStore() {
 
             } catch (e) {
                 console.error('Error unlinking encounter:', e);
-                throw e;
-            }
-        },
-        getDraft: async () => {
-            try {
-                const response = await fetch(`${API_URL}/encounters/draft`, {
-                    credentials: 'include',
-                });
-                if (!response.ok) return null;
-                currentDraft = await response.json();
-                return currentDraft;
-            } catch (e) {
-                console.error('Error fetching draft:', e);
-                return null;
-            }
-        },
-        updateDraft: async (draft: CreateOrReplaceEncounter) => {
-            try {
-                const response = await fetch(`${API_URL}/encounters/draft`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(draft),
-                });
-                if (!response.ok) throw new Error('Failed to update draft');
-                currentDraft = draft;
-            } catch (e) {
-                console.error('Error updating draft:', e);
                 throw e;
             }
         },

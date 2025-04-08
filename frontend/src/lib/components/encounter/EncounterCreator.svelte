@@ -16,7 +16,6 @@
     import type {
         Encounter,
         CreateOrReplaceEncounter,
-        EncounterStatus,
         CreateEncounterFinalized,
         EncounterEnemy,
         CreateOrReplaceEncounterExtended,
@@ -73,6 +72,8 @@
         returnToSessionId = $bindable(),
     }: Props = $props();
 
+    const localStorageKey = "draftEncounter";
+
     library.add(faLink);
 
     let loading = $state(true);
@@ -99,7 +100,6 @@
         extra_experience: 0,
         party_level: 1,
         party_size: 4,
-        status: "Draft",
         subsystem_type: "chase",
         subsystem_checks: [],
     });
@@ -119,7 +119,6 @@
             extra_experience: encounter.extra_experience,
             party_level: encounter.party_level,
             party_size: encounter.party_size,
-            status: encounter.status,
             subsystem_type: encounter.subsystem_type || "chase",
             subsystem_checks: encounter.subsystem_checks || [],
         };
@@ -221,7 +220,18 @@
     onMount(async () => {
         try {
             // First check for any in-progress draft encounter, if we are not editing an existing one
-            const inProgress = await encounterStore.getDraft();
+            const inProgressRaw = localStorage.getItem(localStorageKey);
+            // Parse the encounter from localStorage
+            let inProgress : CreateOrReplaceEncounter | null = null;
+            if (inProgressRaw) {
+                try {
+                    inProgress = JSON.parse(inProgressRaw);
+                } catch (e) {
+                    console.error("Failed to parse draft encounter:", e);
+                }
+            }
+
+            // If we have an in-progress encounter, set it as the wipEncounter
             if (inProgress && !editingEncounter) {
                 wipEncounter = inProgress;
             }
@@ -269,9 +279,11 @@
         saveTimeout = setTimeout(async () => {
             try {
                 console.log("Auto-saving...", $state.snapshot(wipEncounter));
-                await encounterStore.updateDraft({
-                    ...wipEncounter,
-                });
+                localStorage.setItem(
+                    localStorageKey,
+                    JSON.stringify(wipEncounter),
+                );
+                
                 console.log("Auto-saved!", $state.snapshot(wipEncounter));
             } catch (e) {
                 error = e instanceof Error ? e.message : "Failed to save draft";
@@ -353,10 +365,15 @@
                     treasure_currency: 0,
                     party_level: 1,
                     party_size: 4,
-                    status: "Draft",
                     subsystem_type: "chase",
                     subsystem_checks: [],
                 };
+
+                // Reset localStorage
+                localStorage.setItem(
+                    localStorageKey,
+                    JSON.stringify(wipEncounter),
+                );
 
                 skillChecks = [];
             } else {
@@ -380,7 +397,6 @@
                     treasure_currency: 0,
                     party_level: 1,
                     party_size: 4,
-                    status: "Draft",
                     subsystem_type: "chase",
                     subsystem_checks: [],
                 };
@@ -594,7 +610,10 @@
         }
 
         // Save the draft with the new encounter type
-        encounterStore.updateDraft(wipEncounter);
+        localStorage.setItem(
+            localStorageKey,
+            JSON.stringify(wipEncounter),
+        );
     }
 
     // Update addSkillCheck function
@@ -641,7 +660,6 @@
             treasure_currency: 0,
             party_level: 1,
             party_size: 4,
-            status: "Draft",
             subsystem_type: "chase",
             subsystem_checks: [],
         };

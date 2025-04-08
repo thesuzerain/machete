@@ -6,7 +6,7 @@ use crate::{
     },
     models::{
         campaign::CampaignSessionCharacterRewards,
-        encounter::{CompletionStatus, EncounterType},
+        encounter::EncounterType,
         ids::InternalId,
     },
     ServerError,
@@ -213,11 +213,9 @@ pub async fn import_with_functions(
         .encounters
         .iter()
         .map(|e| {
-            println!("IMPORTING: {:?}", e);
             InsertEncounter {
                 name: e.name.clone(),
                 description: e.description.clone(),
-                status: CompletionStatus::Prepared,
 
                 session_id: session_ids_in_order.get(e.session_ix).cloned(),
                 party_level: e.party_level as u8,

@@ -1,13 +1,11 @@
 import type { Skill } from "./types";
 
-export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed' | 'Archived' | 'Success' | 'Failure';
 export type EncounterType = 'combat' | 'accomplishment' | 'rewardInitialization' | 'subsystem' | 'unknown';
 export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'unknown';
 
 export interface Encounter {
     id: number;
     session_id: number | null;
-    status: EncounterStatus;
     name: string;
     description: string;
 
@@ -70,8 +68,6 @@ export interface CreateOrReplaceEncounter {
     // Subsystem fields
     subsystem_type?: SubsystemCategory;
     subsystem_checks?: SkillCheck[];
-
-    status: EncounterStatus;
 } 
 
 export interface EncounterEnemy {

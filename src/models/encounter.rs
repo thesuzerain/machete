@@ -5,7 +5,6 @@ use super::{characters::Skill, ids::InternalId};
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Encounter {
     pub id: InternalId,
-    pub status: CompletionStatus,
     pub name: String,
     pub description: Option<String>,
 
@@ -79,39 +78,6 @@ pub struct EncounterEnemy {
     pub level_adjustment: i16,
 }
 
-// TODO: We may want to remove this
-#[derive(Deserialize, Serialize, Debug, Default, Clone, Copy)]
-pub enum CompletionStatus {
-    Draft,
-    #[default]
-    Prepared,
-    Archived,
-    Success,
-    Failure,
-}
-
-impl CompletionStatus {
-    pub fn as_i32(&self) -> i32 {
-        match self {
-            CompletionStatus::Draft => 0,
-            CompletionStatus::Prepared => 1,
-            CompletionStatus::Archived => 2,
-            CompletionStatus::Success => 3,
-            CompletionStatus::Failure => 4,
-        }
-    }
-
-    pub fn from_i32(i: i32) -> Self {
-        match i {
-            0 => CompletionStatus::Draft,
-            1 => CompletionStatus::Prepared,
-            2 => CompletionStatus::Archived,
-            3 => CompletionStatus::Success,
-            4 => CompletionStatus::Failure,
-            _ => panic!("Invalid status"),
-        }
-    }
-}
 
 pub enum EncounterDifficulty {
     Trivial,

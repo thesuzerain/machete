@@ -63,6 +63,7 @@
     }
 </script>
 
+{#if encounter}
 <Modal show={show && !!encounter} closeButton>
     <div slot="header">
         <h2>{encounter.name}</h2>
@@ -172,6 +173,7 @@
     </div>
     </div>
 </Modal>
+{/if}
 
 
 <style>

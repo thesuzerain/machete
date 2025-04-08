@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::models;
-use crate::models::encounter::{CompletionStatus, Encounter};
+use crate::models::encounter::Encounter;
 use crate::models::encounter::{
     EncounterEnemy, EncounterSubsystemCheck, EncounterSubsystemType, EncounterType,
 };
@@ -17,7 +17,6 @@ use super::items::ItemFiltering;
 pub struct EncounterFilters {
     pub ids: Option<CommaSeparatedVec>,
     pub name: Option<String>,
-    pub status: Option<CompletionStatus>,
     pub encounter_type: Option<String>,
 }
 
@@ -47,9 +46,6 @@ pub struct InsertEncounter {
     pub treasure_currency: f32,
     pub extra_experience: i32,
 
-    #[serde(default)]
-    pub status: CompletionStatus,
-
     // These are derived values. If provided, they will be considered as an override.
     pub total_experience: Option<i32>,
     pub total_items_value: Option<f32>,
@@ -76,8 +72,6 @@ pub struct ModifyEncounter {
 
     pub party_level: Option<u8>,
     pub party_size: Option<u8>,
-
-    pub status: Option<CompletionStatus>,
 
     // These are derived values. If provided, they will be considered as an override.
     pub total_experience: Option<i32>,
@@ -115,7 +109,6 @@ pub async fn get_encounters(
             en.treasure_currency,
             en.party_size,
             en.party_level,
-            en.status,
             en.extra_experience as "extra_experience!",
             en.total_experience,
             en.total_items_value,
@@ -147,14 +140,12 @@ pub async fn get_encounters(
         ) esc ON TRUE
         WHERE 
             ($1::text IS NULL OR en.name LIKE '%' || $1 || '%')
-            AND ($2::integer IS NULL OR en.status = $2)
-            AND ($3::int[] IS NULL OR en.id = ANY($3::int[]))
-            AND ($4::integer IS NULL OR en.encounter_type_id = $4)
-            AND en.owner = $5
+            AND ($2::int[] IS NULL OR en.id = ANY($2::int[]))
+            AND ($3::integer IS NULL OR en.encounter_type_id = $4)
+            AND en.owner = $4
         GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
     "#,
         condition.name,
-        condition.status.as_ref().map(|s| s.as_i32()),
         &ids as _,
         condition
             .encounter_type
@@ -204,7 +195,6 @@ pub async fn get_encounters(
                 name: row.name,
                 description: row.description,
                 session_id: row.session_id.map(|id| InternalId(id as u32)),
-                status: CompletionStatus::from_i32(row.status as i32),
                 party_level: row.party_level as u32,
                 party_size: row.party_size as u32,
                 owner: InternalId(row.owner as u32),
@@ -308,8 +298,8 @@ pub async fn insert_encounters(
 
         let encounter_id = sqlx::query!(
             r#"
-            INSERT INTO encounters (name, description, encounter_type_id, subsystem_type_id, treasure_currency, status, party_size, party_level, extra_experience, total_experience, total_items_value, owner)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            INSERT INTO encounters (name, description, encounter_type_id, subsystem_type_id, treasure_currency, party_size, party_level, extra_experience, total_experience, total_items_value, owner)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING id
             "#,
             &encounter.name,
@@ -317,7 +307,6 @@ pub async fn insert_encounters(
             encounter_type_id as i32,
             encounter_subsystem_type.as_i32() as i32,
             encounter.treasure_currency as f64,
-            CompletionStatus::Prepared.as_i32() as i16,
             encounter.party_size as i64,
             encounter.party_level as i64,
             encounter.extra_experience as i64,
@@ -465,21 +454,19 @@ pub async fn edit_encounter(
         SET name = COALESCE($1, name),
         description = COALESCE($2, description),
         treasure_currency = COALESCE($3, treasure_currency),
-        status = COALESCE($4, status),
-        party_size = COALESCE($5, party_size),
-        party_level = COALESCE($6, party_level),
-        extra_experience = COALESCE($7, extra_experience),
-        encounter_type_id = COALESCE($8, encounter_type_id),
-        subsystem_type_id = COALESCE($9, subsystem_type_id),
+        party_size = COALESCE($4, party_size),
+        party_level = COALESCE($5, party_level),
+        extra_experience = COALESCE($6, extra_experience),
+        encounter_type_id = COALESCE($7, encounter_type_id),
+        subsystem_type_id = COALESCE($8, subsystem_type_id),
         
-        total_experience = COALESCE($10, total_experience),
-        total_items_value = COALESCE($11, total_items_value)
-        WHERE id = $12
+        total_experience = COALESCE($9, total_experience),
+        total_items_value = COALESCE($10, total_items_value)
+        WHERE id = $11
         "#,
         new_encounter.name.as_deref(),
         new_encounter.description.as_deref(),
         new_encounter.treasure_currency.as_ref().map(|c| *c as f64),
-        new_encounter.status.as_ref().map(|s| s.as_i32() as i16),
         new_encounter.party_size.map(|s| s as i32),
         new_encounter.party_level.map(|l| l as i32),
         new_encounter.extra_experience.map(|e| e as i32),
@@ -686,303 +673,6 @@ pub async fn delete_encounters(
     .await?;
 
     Ok(())
-}
-
-pub async fn insert_user_encounter_draft(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    owner: InternalId,
-    encounter: &InsertEncounter,
-) -> crate::Result<InternalId> {
-    // First, clear any existing drafts
-    // TODO: transaction
-    clear_user_encounter_draft(&mut *tx, owner).await?;
-    let encounter_id = sqlx::query!(
-        r#"
-        INSERT INTO encounters (name, description, encounter_type_id, treasure_currency, status, party_size, party_level, extra_experience, subsystem_type_id, owner)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING id
-        "#,
-        &encounter.name,
-        encounter.description.as_deref(),
-        encounter.encounter_type.get_id() as i32,
-        encounter.treasure_currency as f64,
-        CompletionStatus::Draft.as_i32() as i64,
-        encounter.party_size as i64,
-        encounter.party_level as i64,
-        encounter.extra_experience as i64,
-        encounter.encounter_type.get_subsystem_type().as_i32(),
-        owner.0 as i64,
-    )
-    .fetch_one(&mut **tx)
-    .await?
-    .id;
-
-    // Add enemies
-    let enemies: Vec<InternalId> = encounter
-        .encounter_type
-        .get_enemies()
-        .iter()
-        .map(|e| e.id)
-        .collect();
-
-    let enemy_adjustments = encounter
-        .encounter_type
-        .get_enemies()
-        .iter()
-        .map(|e| e.level_adjustment)
-        .collect::<Vec<i16>>();
-
-    sqlx::query!(
-        r#"
-        INSERT INTO encounter_enemies (encounter, enemy, level_adjustment)
-        SELECT $1, enemy, level_adjustment
-        FROM UNNEST($2::int[], $3::smallint[]) AS t(enemy, level_adjustment)
-        "#,
-        encounter_id as i32,
-        &enemies.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
-        &enemy_adjustments,
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    // Add hazards
-    sqlx::query!(
-        r#"
-        INSERT INTO encounter_hazards (encounter, hazard)
-        SELECT $1, hazard
-        FROM UNNEST($2::int[]) AS t(hazard)
-        "#,
-        encounter_id as i32,
-        &encounter
-            .encounter_type
-            .get_hazards()
-            .iter()
-            .map(|id| id.0 as i32)
-            .collect::<Vec<i32>>(),
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    // Add treasure items
-    sqlx::query!(
-        r#"
-        INSERT INTO encounter_treasure_items (encounter, item)
-        SELECT $1, item
-        FROM UNNEST($2::int[]) AS t(item)
-        "#,
-        encounter_id as i32,
-        &encounter
-            .treasure_items
-            .iter()
-            .map(|id| id.0 as i32)
-            .collect::<Vec<i32>>(),
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    // Add subsystem rolls
-    let subsystem_checks = encounter.encounter_type.get_subsystem_checks();
-    let mut order_index = 0;
-    for check in subsystem_checks {
-        let check_id = sqlx::query!(
-            r#"
-            INSERT INTO encounter_skill_checks (encounter_id, name, vp, order_index)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id
-            "#,
-            encounter_id as i32,
-            check.name,
-            check.vp as i16,
-            order_index,
-        )
-        .fetch_one(&mut **tx)
-        .await?
-        .id;
-        order_index += 1;
-
-        let (rolls, dcs): (Vec<String>, Vec<i16>) = check
-            .roll_options
-            .iter()
-            .map(|r| (r.skill.to_string(), r.dc as i16))
-            .unzip();
-
-        sqlx::query!(
-            r#"
-            INSERT INTO encounter_skill_check_rolls (encounter_skill_check_id, roll, dc)
-            SELECT $1, roll, dc
-            FROM UNNEST($2::varchar(16)[], $3::smallint[]) AS t(roll, dc)
-            "#,
-            check_id as i32,
-            &rolls,
-            &dcs,
-        )
-        .execute(&mut **tx)
-        .await?;
-    }
-    Ok(InternalId(encounter_id as u32))
-}
-
-pub async fn clear_user_encounter_draft(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    owner: InternalId,
-) -> crate::Result<()> {
-    let Some(draft_id) = sqlx::query!(
-        r#"
-        SELECT id
-        FROM encounters
-        WHERE status = $1
-        AND owner = $2
-        "#,
-        CompletionStatus::Draft.as_i32() as i64,
-        owner.0 as i64,
-    )
-    .fetch_optional(&mut **tx)
-    .await?
-    .map(|r| r.id) else {
-        return Ok(());
-    };
-
-    delete_encounters(&mut *tx, &[InternalId(draft_id as u32)]).await?;
-    Ok(())
-}
-
-pub async fn get_encounter_draft(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    owner: InternalId,
-) -> crate::Result<Option<Encounter>> {
-    let encounter = sqlx::query!(
-        r#"
-        SELECT 
-            en.id,
-            en.name,
-            en.description,
-            ee.enemies,
-            ee.level_adjustments as enemy_level_adjustments,
-            eh.hazards,
-            eti.items as treasure_items,
-            en.treasure_currency,
-            en.status,
-            en.party_size,
-            en.party_level,
-            en.extra_experience as "extra_experience!",
-            en.total_experience,
-            en.total_items_value,
-            en.encounter_type_id,
-            en.subsystem_type_id,
-            JSONB_AGG(jsonb_build_object('name', esc.name, 'vp', esc.vp, 'roll_options', esc.roll_options)) as subsystem_rolls,
-            en.owner
-        FROM encounters en
-        LEFT JOIN LATERAL (
-            SELECT 
-                ARRAY_AGG(enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies, 
-                ARRAY_AGG(level_adjustment) FILTER (WHERE ee.enemy IS NOT NULL) as level_adjustments 
-            FROM encounter_enemies ee WHERE en.id = ee.encounter
-        ) ee ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT ARRAY_AGG(hazard) FILTER (WHERE eh.hazard IS NOT NULL) as hazards
-            FROM encounter_hazards eh WHERE en.id = eh.encounter
-        ) eh ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT ARRAY_AGG(item) FILTER (WHERE eti.item IS NOT NULL) as items
-            FROM encounter_treasure_items eti WHERE en.id = eti.encounter
-        ) eti ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
-            FROM encounter_skill_checks esc
-            LEFT JOIN encounter_skill_check_rolls escr ON esc.id = escr.encounter_skill_check_id
-            WHERE esc.encounter_id = en.id
-            GROUP BY esc.id
-        ) esc ON TRUE
-        WHERE en.status = $1
-        AND en.owner = $2
-        GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
-    "#,
-        CompletionStatus::Draft.as_i32() as i16,
-        owner.0 as i64,
-    )
-    .fetch_optional(&mut **tx)
-    .await?;
-
-    let res = if let Some(row) = encounter {
-        let enemies = row
-            .enemies
-            .unwrap_or_default()
-            .iter()
-            .zip(row.enemy_level_adjustments.unwrap_or_default().iter())
-            .map(|(id, adj)| EncounterEnemy {
-                id: InternalId(*id as u32),
-                level_adjustment: *adj,
-            })
-            .collect();
-
-        let hazards = row
-            .hazards
-            .unwrap_or_default()
-            .iter()
-            .map(|id| InternalId(*id as u32))
-            .collect();
-
-        let subsystem_rolls: Vec<EncounterSubsystemCheck> =
-            serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
-        let encounter_subsystem_type = row
-            .subsystem_type_id
-            .map(|id| EncounterSubsystemType::from_i32(id as i32));
-        let encounter_type = EncounterType::from_id_and_parts(
-            row.encounter_type_id,
-            enemies,
-            hazards,
-            encounter_subsystem_type,
-            subsystem_rolls,
-        );
-
-        Ok(Some(Encounter {
-            id: InternalId(row.id as u32),
-            name: row.name,
-            description: row.description,
-            status: CompletionStatus::from_i32(row.status as i32),
-            owner: InternalId(row.owner as u32),
-            session_id: None,
-            encounter_type,
-            treasure_items: row
-                .treasure_items
-                .unwrap_or_default()
-                .iter()
-                .map(|id| InternalId(*id as u32))
-                .collect(),
-            party_level: row.party_level as u32,
-            party_size: row.party_size as u32,
-            extra_experience: row.extra_experience,
-            total_experience: row.total_experience,
-            total_items_value: row.total_items_value as i32,
-            treasure_currency: row.treasure_currency.unwrap_or(0.0) as f32,
-        }))
-    } else {
-        // If no draft exists- create one
-        insert_user_encounter_draft(&mut *tx, owner, &InsertEncounter::default())
-            .await
-            .map(|id| {
-                Some(Encounter {
-                    id,
-                    name: "".to_string(),
-                    description: Some("".to_string()),
-                    session_id: None,
-                    owner,
-                    encounter_type: EncounterType::Combat {
-                        enemies: vec![],
-                        hazards: vec![],
-                    },
-                    status: CompletionStatus::Draft,
-                    treasure_items: vec![],
-                    treasure_currency: 0.0,
-                    extra_experience: 0,
-                    total_experience: 0,
-                    total_items_value: 0,
-                    party_level: 1,
-                    party_size: 4,
-                })
-            })
-    };
-    res
 }
 
 // Helper function accessing creatures databases to get levels of enemies given their ids and adjustments
