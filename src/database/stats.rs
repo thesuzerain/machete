@@ -285,7 +285,7 @@ pub async fn get_campaign_stats(
             pub session_id: u32,
             pub encounter_id: u32,
             pub encounter_type_id: i32,
-            pub total_experience: u32,
+            pub total_experience:  i32,
             pub treasure_currency: f32,
             pub total_items_value: f32,
             pub calculated_expected_total_treasure: f32,

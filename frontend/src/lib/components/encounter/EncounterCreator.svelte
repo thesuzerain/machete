@@ -11,6 +11,7 @@
         getRewardForLevelSeverity,
         EncounterDifficulty,
         getAdjustedExperienceFromPartySize,
+        getHazardExperienceFromLevel,
     } from "$lib/utils/encounter";
     import type {
         Encounter,
@@ -84,7 +85,7 @@
 
     // Add subsystem state variables
     let skillChecks = $state<SkillCheck[]>([]);
-    let subsystemSectionOpen = $state(true);
+    let subsystemSectionClosed = $state(false);
 
     // Modify the wipEncounter state to include encounter_type and subsystem fields
     let wipEncounter: CreateOrReplaceEncounter = $state({
@@ -453,9 +454,10 @@
             if (hazard?.level) {
                 return (
                     total +
-                    getCreatureExperienceFromLevel(
+                    getHazardExperienceFromLevel(
                         wipEncounter.party_level,
                         hazard.level,
+                        hazard.complex
                     )
                 );
             }
@@ -822,7 +824,7 @@
 
         <!-- Subsystem section - Only shown for subsystem encounters -->
         {#if wipEncounter.encounter_type === "subsystem"}
-            <Card background="light" collapsed={subsystemSectionOpen}>
+            <Card background="light" collapsed={subsystemSectionClosed}>
                 <div slot="header">
                     <h3>Subsystem Challenge</h3>
                 </div>

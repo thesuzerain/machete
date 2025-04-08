@@ -52,7 +52,7 @@
     let showAccomplishmentForm = $state(false);
 
     let canAddAccomplishment = $derived(
-        (useCustomXP && customXPAmount > 0) || accomplishmentType !== null || wipEncounter.treasure_items.length > 0
+        (useCustomXP && customXPAmount != 0) || accomplishmentType !== null || wipEncounter.treasure_items.length > 0
     );
 
     function setCustomXP() {
@@ -69,6 +69,7 @@
     }
 
     async function addAccomplishment() {
+        console.log("Adding accomplishment");
         if (!canAddAccomplishment) return;
         
         let xpUnparsed = useCustomXP ? customXPAmount : accomplishmentType!;
@@ -122,7 +123,7 @@
 
 <div transition:fade>
     <Card>
-        <form on:submit={addAccomplishment} class="accomplishment-inputs">
+        <form onsubmit={addAccomplishment} class="accomplishment-inputs">
             <div class="name-description-row">
                 <input 
                     type="text" 

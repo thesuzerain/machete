@@ -11,7 +11,9 @@
         getSeverityFromRawExperience, 
         getRewardForLevelSeverity,
         EncounterDifficulty, 
-        getSeverityFromFinalExperience
+        getSeverityFromFinalExperience,
+        getHazardExperienceFromLevel
+
 
     } from '$lib/utils/encounter';
     import type { Encounter, EncounterStatus } from '$lib/types/encounters';
@@ -325,8 +327,10 @@ library.add(faLink)
                                 <h4>Hazards ({encounter.hazards.length})</h4>
                                 <ul>
                                     {#each encounter.hazards as hazardId}
-                                        {#if getHazardDetails(hazardId)}
-                                            <li>{getHazardDetails(hazardId)?.name} (XP: {getCreatureExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)})</li>
+                                        {@const hazardDetails = getHazardDetails(hazardId)}
+
+                                        {#if hazardDetails}
+                                            <li>{getHazardDetails(hazardId)?.name} (XP: {getHazardExperienceFromLevel(encounter.party_level, hazardDetails.level || 0, hazardDetails.complex)})</li>
                                         {/if}
                                     {/each}
                                 </ul>

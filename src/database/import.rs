@@ -212,24 +212,25 @@ pub async fn import_with_functions(
     let insert_encounters = campaign
         .encounters
         .iter()
-        .map(|e|{
+        .map(|e| {
             println!("IMPORTING: {:?}", e);
-             InsertEncounter {
-            name: e.name.clone(),
-            description: e.description.clone(),
-            status: CompletionStatus::Prepared,
+            InsertEncounter {
+                name: e.name.clone(),
+                description: e.description.clone(),
+                status: CompletionStatus::Prepared,
 
-            session_id: session_ids_in_order.get(e.session_ix).cloned(),
-            party_level: e.party_level as u8,
-            party_size: e.party_size as u8,
-            encounter_type: e.encounter_type.clone(),
-            treasure_items: e.treasure_items.clone(),
-            treasure_currency: e.treasure_currency,
-            extra_experience: e.extra_experience,
+                session_id: session_ids_in_order.get(e.session_ix).cloned(),
+                party_level: e.party_level as u8,
+                party_size: e.party_size as u8,
+                encounter_type: e.encounter_type.clone(),
+                treasure_items: e.treasure_items.clone(),
+                treasure_currency: e.treasure_currency,
+                extra_experience: e.extra_experience,
 
-            total_experience: None,  // TODO: Calculate total experience
-            total_items_value: None, // TODO: Calculate total treasure value
-}})
+                total_experience: None,  // TODO: Calculate total experience
+                total_items_value: None, // TODO: Calculate total treasure value
+            }
+        })
         .collect_vec();
     super::encounters::insert_encounters(&mut *tx, owner, &insert_encounters).await?;
 

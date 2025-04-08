@@ -277,14 +277,14 @@ pub async fn insert_encounters(
         let encounter_subsystem_type = encounter.encounter_type.get_subsystem_type();
 
         let enemy_ids = enemies.iter().map(|e| e.id).collect::<Vec<InternalId>>();
-        let enemy_level_adjustments = enemies.iter().map(|e| e.level_adjustment).collect::<Vec<i16>>();
-        let enemy_levels = get_levels_enemies(
-            &mut **tx,
-            &enemy_ids,
-            &enemy_level_adjustments,
-        )
-        .await?;
-        let hazard_level_complexities = get_levels_complexities_hazards(&mut **tx, &hazards).await?;
+        let enemy_level_adjustments = enemies
+            .iter()
+            .map(|e| e.level_adjustment)
+            .collect::<Vec<i16>>();
+        let enemy_levels =
+            get_levels_enemies(&mut **tx, &enemy_ids, &enemy_level_adjustments).await?;
+        let hazard_level_complexities =
+            get_levels_complexities_hazards(&mut **tx, &hazards).await?;
         let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
 
         // TODO: Mofiy this so that it only does these db call if needed
@@ -296,7 +296,8 @@ pub async fn insert_encounters(
             encounter.party_level,
             encounter.party_size,
         ) + encounter.extra_experience as i32;
-        let derived_total_treasure_value = treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
+        let derived_total_treasure_value =
+            treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
 
         let total_experience = encounter
             .total_experience
@@ -327,8 +328,6 @@ pub async fn insert_encounters(
         .fetch_one(&mut **tx)
         .await?
         .id;
-
-        println!("\nInserting encounters enemies: {:?}, {:?}", enemy_ids, enemy_level_adjustments);
 
         sqlx::query!(
             r#"
@@ -817,7 +816,7 @@ pub async fn insert_user_encounter_draft(
             &rolls,
             &dcs,
         )
-        .execute(   &mut **tx)
+        .execute(&mut **tx)
         .await?;
     }
     Ok(InternalId(encounter_id as u32))

@@ -267,7 +267,7 @@ impl EncounterSubsystemType {
 
 pub fn calculate_total_adjusted_experience(
     enemy_levels: &[i16],
-    hazard_level_complexities: &[(i16,bool)],
+    hazard_level_complexities: &[(i16, bool)],
     party_level: u8,
     party_size: u8,
 ) -> i32 {

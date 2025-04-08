@@ -3,7 +3,7 @@
     import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
     import { faLink } from '@fortawesome/free-solid-svg-icons';
     import type { Encounter, EncounterEnemy } from '$lib/types/encounters';
-    import { EncounterDifficulty, getCreatureExperienceFromLevel, getSeverityFromFinalExperience } from '$lib/utils/encounter';
+    import { EncounterDifficulty, getCreatureExperienceFromLevel, getHazardExperienceFromLevel, getSeverityFromFinalExperience } from '$lib/utils/encounter';
     import { getFullUrl } from '$lib/types/library';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import Modal from '../core/Modal.svelte';
@@ -110,10 +110,11 @@
                 <h3>Hazards ({encounter.hazards.length})</h3>
                 <ul>
                     {#each encounter.hazards as hazardId}
-                        {#if getHazardDetails(hazardId)}
+                        {@const hazardDetails = getHazardDetails(hazardId)}
+                        {#if hazardDetails}
                             <li class="hazard-item">
-                                <span class="hazard-name">{getHazardDetails(hazardId)?.name}</span>
-                                <span class="hazard-xp">XP: {getCreatureExperienceFromLevel(encounter.party_level, getHazardDetails(hazardId)?.level || 0)}</span>
+                                <span class="hazard-name">{hazardDetails.name}</span>
+                                <span class="hazard-xp">XP: {getHazardExperienceFromLevel(encounter.party_level, hazardDetails.level || 0, hazardDetails.complex)}</span>
                                 <a href={getFullUrl(getHazardDetails(hazardId)?.url || '')} target="_blank" rel="noopener noreferrer" class="entity-link">
                                     <FontAwesomeIcon icon={faLink} />
                                 </a>

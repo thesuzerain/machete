@@ -454,8 +454,7 @@
                     {/if}
                     <Button colour="green" onclick={createNewEncounter}>
                         Create New Encounter
-                    </Button>
-                    
+                    </Button>                    
                 </div>
             </div>
 
