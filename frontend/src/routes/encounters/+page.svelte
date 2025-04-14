@@ -47,6 +47,8 @@ library.add(faLink)
     
     let encounterCreator: EncounterCreator;
 
+    let hideAccomplishments = $state(true);
+
     // Variables for encounter display
     let encountersListClosed = $state(false);
     let encounterOpenStates: { [key: number]: boolean } = $state({});
@@ -194,7 +196,7 @@ library.add(faLink)
 
     // Add this reactive statement to sort and filter encounters
     let filteredAndSortedEncounters = $derived(encounters
-    .filter(enc => enc.encounter_type != 'accomplishment' && enc.encounter_type != 'unknown' && enc.encounter_type != 'rewardInitialization')
+    .filter(enc => hideAccomplishments ? (enc.encounter_type != 'accomplishment' && enc.encounter_type != 'unknown' && enc.encounter_type != 'rewardInitialization') : true)
     .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
     .sort((a, b) => {
             const direction = sortDirection === 'asc' ? 1 : -1;
@@ -293,6 +295,10 @@ library.add(faLink)
                         </Button>
    
                     </div>
+                </div>
+                <div class="hide-accomplishments">
+                    <input type="checkbox" bind:checked={hideAccomplishments} />
+                    <span>Hide Accomplishments</span>
                 </div>
             <Card background="light">
                 {#each filteredAndSortedEncounters as encounter (encounter.id)}
@@ -609,5 +615,29 @@ library.add(faLink)
     .difficulty-extreme {
         color: var(--color-difficulty-extreme);
     }
+
+    .hide-accomplishments {
+        margin-top: 1rem;
+        width: fit-content;
+        display: flex;
+        flex-direction: row;
+        align-items: center;  
+        justify-content: flex-start;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+    }
+
+    .hide-accomplishments input {
+        margin-right: 0.5rem;
+    }
+
+    .hide-accomplishments span {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+    }
+
+
 
 </style> 

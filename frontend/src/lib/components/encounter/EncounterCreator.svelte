@@ -60,6 +60,7 @@
     import Card from "../core/Card.svelte";
     import Button from "../core/Button.svelte";
     import EncounterLibraryItemSelector from "./EncounterLibraryItemSelector.svelte";
+    import ConfirmationModal from "../modals/ConfirmationModal.svelte";
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -104,7 +105,11 @@
         subsystem_checks: [],
     });
 
+    let lastEncounterSet : CreateOrReplaceEncounter | null = $state(null);
     function setWipEncounterAs(encounter: Encounter) {
+        if (lastEncounterSet && lastEncounterSet === encounter) {
+            return;
+        }
         wipEncounter = {
             name: encounter.name,
             description: encounter.description,
@@ -122,6 +127,7 @@
             subsystem_type: encounter.subsystem_type || "chase",
             subsystem_checks: encounter.subsystem_checks || [],
         };
+        lastEncounterSet = encounter;
 
         // Set session id
         chosenSessionId = encounter.session_id || null;
@@ -144,6 +150,8 @@
     let enemiesSectionClosed = $state(false);
     let hazardsSectionClosed = $state(false);
     let treasureSectionClosed = $state(false);
+
+    let showUpdateEncounterWarningModal = $state(false);
 
     // Subscribe to the stores
     let encounters = $derived($encounterStore);
@@ -278,14 +286,11 @@
 
         saveTimeout = setTimeout(async () => {
             try {
-                console.log("Auto-saving...", $state.snapshot(wipEncounter));
                 localStorage.setItem(
                     localStorageKey,
                     JSON.stringify(wipEncounter),
                 );
-                
-                console.log("Auto-saved!", $state.snapshot(wipEncounter));
-            } catch (e) {
+                            } catch (e) {
                 error = e instanceof Error ? e.message : "Failed to save draft";
             }
         }, AUTOSAVE_DELAY);
@@ -296,8 +301,7 @@
     }
 
     // Modify the createEncounter function
-    async function createEncounter(event: SubmitEvent) {
-        event.preventDefault();
+    async function createEncounter() {
 
         try {
             // Prepare the encounter data based on type
@@ -710,7 +714,7 @@
     }
 </script>
 
-<form on:submit={createEncounter}>
+<form>
     <Card>
         <div class="encounter-header">
             <h2>Create New Encounter</h2>
@@ -1073,10 +1077,20 @@
             </div>
         {/if}
 
-        <!-- Submit button -->
-        <Button large submit colour="blue"
-            >{editingEncounter ? "Update" : "Create"} Encounter</Button
+        {#if editingEncounter} 
+        <Button large onclick={() => {if (chosenSessionId) {
+            showUpdateEncounterWarningModal = true;
+        } else {
+            createEncounter();
+         }}} colour="blue"
+            >Update Encounter</Button
         >
+         {:else}
+         <Button large onclick={() => createEncounter()} colour="blue"
+            >Create Encounter</Button
+        >
+
+        {/if}
     </Card>
 </form>
 
@@ -1086,6 +1100,17 @@
     allowedTabs={libraryTabs}
     bind:editingEncounter={wipEncounter}
 />
+
+<ConfirmationModal
+    bind:show={showUpdateEncounterWarningModal}
+    on:confirm={() => {
+        showUpdateEncounterWarningModal = false;
+        createEncounter();
+    }}
+    on:cancel={() => {
+        showUpdateEncounterWarningModal = false;
+    }}
+>You are updating a session-linked encounter. This will clear any item or gold assignments related to this encounter in the session. Are you sure? </ConfirmationModal>
 
 <style>
     .encounters-page {
