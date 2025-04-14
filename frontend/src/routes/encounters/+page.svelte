@@ -39,6 +39,8 @@
     import Button from '$lib/components/core/Button.svelte';
     import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
     import Modal from '$lib/components/core/Modal.svelte';
+    import EncounterList from '$lib/components/encounter/EncounterList.svelte';
+    import EncounterViewer from '$lib/components/encounter/EncounterViewer.svelte';
 
 library.add(faLink)
 
@@ -99,14 +101,6 @@ library.add(faLink)
         await encounterStore.deleteEncounter(id);
         deletingEncounter = null;
     }
-
-    let sessionIx = $derived.by(() => {
-        let sessionIx : Map<number, number> = new Map();
-        campaignSessions.forEach((session, ix) => {
-            sessionIx.set(session.id, ix);
-        });
-        return sessionIx;
-    });
 
     // Fetch campaigns data
     async function fetchCampaigns() {
@@ -178,62 +172,9 @@ library.add(faLink)
         }
     });
 
-    function getEnemyDetails(id: number) {
-        return libraryEnemies.entities.get(id);
-    }
-
-    function getHazardDetails(id: number) {
-        return libraryHazards.entities.get(id);
-    }
-
-    function getItemDetails(id: number) {
-        return libraryItems.entities.get(id);
-    }
 
     async function fetchEncounters() {
         await encounterStore.fetchEncounters();
-    }
-
-    // Add this reactive statement to sort and filter encounters
-    let filteredAndSortedEncounters = $derived(encounters
-    .filter(enc => hideAccomplishments ? (enc.encounter_type != 'accomplishment' && enc.encounter_type != 'unknown' && enc.encounter_type != 'rewardInitialization') : true)
-    .filter(enc => enc.name.toLowerCase().includes(encounterFilter.toLowerCase()))
-    .sort((a, b) => {
-            const direction = sortDirection === 'asc' ? 1 : -1;
-            switch (encounterSort) {
-                case 'name':
-                    return direction * a.name.localeCompare(b.name);
-                // TODO: Other sorts require not draftEncounter but encounter-specific data
-                case 'level':
-                    return direction * (a.party_level - b.party_level);
-                case 'xp':
-                    return direction * (a.total_experience - b.total_experience);
-                default:
-                    return 0;
-            }
-        })); 
-
-    // TODO: modularize, along with css classes
-    function getClassForDifficulty(difficulty: EncounterDifficulty): string {
-        switch (difficulty) {
-            case 'Trivial':
-                return 'difficulty-trivial';
-            case 'Low':
-                return 'difficulty-low';
-            case 'Moderate':
-                return 'difficulty-moderate';
-            case 'Severe':
-                return 'difficulty-severe';
-            case 'Extreme':
-                return 'difficulty-extreme';
-            default:
-                return '';
-        }
-    }
-
-    function getAdjustmentName(adjustment: number): string {
-        if (adjustment === 0) return 'Normal';
-        return adjustment > 0 ? 'Elite' : 'Weak';
     }
 
     function linkEncounterToSession(encounter: Partial<Encounter>, sessionId: number | null) {
@@ -253,7 +194,9 @@ library.add(faLink)
             inline: 'nearest'
         });
     }; 
-    
+
+    let encounterList : EncounterViewer | null = $state(null);
+    let encounterFilterCounter = $state(0);
 </script>
 
 <div class="encounters-page">
@@ -273,158 +216,37 @@ library.add(faLink)
         <Card bind:collapsed={encountersListClosed}>
             <div slot="header">
                 <h2>
-                    Existing Encounters ({filteredAndSortedEncounters.length})
+                    Existing Encounters ({encounterFilterCounter})
                 </h2>
             </div>
-                <div class="filter-sort">
-                    <input
-                        type="text"
-                        placeholder="Filter encounters..."
-                        bind:value={encounterFilter}
-                        class="filter-input"
-                    />
-                    <div class="sort-controls">
-                        <select bind:value={encounterSort}>
-                            <option value="name">Sort by Name</option>
-                            <option value="level">Sort by Level</option>
-                            <option value="xp">Sort by XP</option>
-                        </select>
-                        <Button colour='white' onclick={() => sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'}>
-                           {sortDirection === 'asc' ? '↑' : '↓'}
+            <div>
+                <EncounterList onupdatefilter={(es) => {encounterFilterCounter = es.length}} let:encounter>
+                    {#if !encounter.session_id}
+                    <Button colour='green' onclick={() => linkingEncounter = encounter}>
+                        Link to session
+                    </Button>
+                    {:else}
+                    <Button colour='red' onclick={() => linkEncounterToSession(encounter, null)}>
+                        Unlink from session
+                    </Button>
+                {/if}
+    
+                        <Button colour='blue' onclick={() => {editingEncounter = encounter; scrollToEncounterEditor() }}>
 
-                        </Button>
-   
-                    </div>
-                </div>
-                <div class="hide-accomplishments">
-                    <input type="checkbox" bind:checked={hideAccomplishments} />
-                    <span>Hide Accomplishments</span>
-                </div>
-            <Card background="light">
-                {#each filteredAndSortedEncounters as encounter (encounter.id)}
-                <Card bind:collapsed={
-                        () => encounterOpenStates[encounter.id]  ?? true,
-                        (val) => encounterOpenStates[encounter.id] = val}
-                    >
-                    <div slot="header" class="encounter-summary">
-                        <h3>{encounter.name}</h3>
-                        <div class="encounter-meta">
-                            {#if encounter.session_id}
-                                <span class="status linked">Linked: Session {sessionIx.get(encounter.session_id)}</span>
-                            {:else}
-                                <span class="status prepared">Prepared</span>
-                            {/if}
-                            <span class="xp">XP: {encounter.total_experience} (<span class="{getClassForDifficulty(getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience))}">{getSeverityFromFinalExperience(encounter.total_experience, encounter.extra_experience).toWellFormed()}</span>)</span>
-                            <span class="party">Level {encounter.party_level} ({encounter.party_size} players)</span>
-                        </div>
-                    </div>
-                    <!-- TODO: You have an encounter viewer modal, switch it out for this-->
-                    <div class="encounter-details">
-                        <p>{encounter.description}</p>
-                        
-                        <div class="details">
-                            {#if encounter.enemies}
-                            <div class="detail-section">
-                                <h4>Enemies ({encounter.enemies.length})</h4>
-                                <ul>
-                                    {#each encounter.enemies as encounterEnemy : EncounterEnemy}
-                                        {#if getEnemyDetails(encounterEnemy.id)}
-                                            <li>{getEnemyDetails(encounterEnemy.id)?.name} 
-                                                {#if encounterEnemy.level_adjustment !== 0}
-                                                    ({getAdjustmentName(encounterEnemy.level_adjustment)})
-                                                {/if}
-                                                (Level {(getEnemyDetails(encounterEnemy.id)?.level || 0) + encounterEnemy.level_adjustment})
-                                                (XP: {getCreatureExperienceFromLevel(encounter.party_level, getEnemyDetails(encounterEnemy.id)?.level || 0)})</li>
-                                        {/if}
-                                    {/each}
-                                </ul>
-                            </div>
-                            {/if}
-                            {#if encounter.hazards}
-
-                            <div class="detail-section">
-                                <h4>Hazards ({encounter.hazards.length})</h4>
-                                <ul>
-                                    {#each encounter.hazards as hazardId}
-                                        {@const hazardDetails = getHazardDetails(hazardId)}
-
-                                        {#if hazardDetails}
-                                            <li>{getHazardDetails(hazardId)?.name} (XP: {getHazardExperienceFromLevel(encounter.party_level, hazardDetails.level || 0, hazardDetails.complex)})</li>
-                                        {/if}
-                                    {/each}
-                                </ul>
-                            </div>
-                            {/if}
-                            {#if encounter.subsystem_type}
-                            <div class="detail-section">
-                                <h4>Subsystem</h4>
-                                <p>Subsystem Type: {encounter.subsystem_type}</p>
-                                <ul>
-                                    {#each encounter.subsystem_checks || [] as check}
-                                        <li> {check.name} 
-
-                                            ({#each check.roll_options as roll, i}
-                                            {roll.skill} DC {roll.dc}{#if i < check.roll_options.length - 1},&nbsp;{/if} 
-                                            {/each})
-
-                                        </li>
-                                        
-                                        
-                                    {/each}
-                                </ul>
-                            </div>
-
-
-                            {/if}
-
-                            <div class="detail-section">
-                                <h4>Treasure</h4>
-                                <p>Currency: {encounter.treasure_currency}</p>
-                                <ul>
-                                    {#each encounter.treasure_items as itemId}
-                                        {#if getItemDetails(itemId)}
-                                            <li>{getItemDetails(itemId)?.name}</li>
-                                        {/if}
-                                    {/each}
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="actions">
-
-                        {#if !encounter.session_id}
-
-                        <Button colour='green' onclick={() => linkingEncounter = encounter}>
-                            Link to session
+                            Edit
                         </Button>
                         
-                        {:else}
-                        
-                
-                        <Button colour='red' onclick={() => linkEncounterToSession(encounter, null)}>
-                            Unlink from session
-                        </Button>
-                        {/if}
+                    <Button colour='blue' onclick={() => {encounterCreator.loadEncounterCopyToDraft(encounter); scrollToEncounterEditor() }}>
+                        Clone into draft
+                    </Button>
+    
+                <Button colour='red' onclick={() => deletingEncounter = encounter.id}>
+                    Delete
+                </Button>
+    
 
-                                <Button colour='blue' onclick={() => {editingEncounter = encounter; scrollToEncounterEditor()}}>
-                                    Edit
-                                </Button>
-                                
-                            <Button colour='blue' onclick={() =>  encounterCreator.loadEncounterCopyToDraft(encounter)}>
-                                Clone into draft
-                            </Button>
-
-                        <Button colour='red' onclick={() => deletingEncounter = encounter.id}>
-                            Delete
-                        </Button>
-
-
-                            </div>
-                            
-                    </div>
-
-                </Card>
-                {/each}
-            </Card>
+                </EncounterList>
+            </div>
         </Card>
     {/if}
     

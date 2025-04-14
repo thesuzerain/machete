@@ -16,6 +16,7 @@
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
     import QuickAccomplishment from '../encounter/QuickAccomplishment.svelte';
+    import EncounterLinkerModal from '../modals/EncounterLinkerModal.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -310,6 +311,7 @@
     // Add these state variables
     let viewingEncounter : Encounter | null = $state(null);
     let showEncounterViewer = $state(false);
+    let showEncounterLinker = $state(false);
 
     // Add this function
     function viewEncounter(encounter : Encounter) {
@@ -452,6 +454,9 @@
                         Add Accomplishment
                     </Button>
                     {/if}
+                    <Button colour="blue" onclick={() => showEncounterLinker = true}>
+                        Link Encounter
+                    </Button>
                     <Button colour="green" onclick={createNewEncounter}>
                         Create New Encounter
                     </Button>                    
@@ -604,6 +609,12 @@
     bind:encounter={viewingEncounter}
     bind:show={showEncounterViewer}
 />
+
+<EncounterLinkerModal
+    bind:show={showEncounterLinker}
+    bind:sessionId={selectedSessionId}
+/>
+
 
 <style>
     .session-selector {
