@@ -88,6 +88,7 @@
         // Creating a new encounter
         const finalizedEncounter: CreateEncounterFinalized = {
             ...wipEncounter,
+            extra_experience: xp,
             total_experience: xp,
             total_items_value: treasure_sum,
             session_id: selectedSessionId,

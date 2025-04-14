@@ -753,7 +753,7 @@
                         <input
                             type="number"
                             id="playerCount"
-                            disabled={editingEncounter ? true : false}
+                            disabled={editingEncounter && chosenSessionId ? true : false}
                             bind:value={wipEncounter.party_size}
                             min="1"
                             max="6"

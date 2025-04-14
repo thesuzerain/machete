@@ -600,8 +600,8 @@
     </Modal>
 
 
-<EncounterViewer 
-    encounter={viewingEncounter}
+<EncounterViewer   
+    bind:encounter={viewingEncounter}
     bind:show={showEncounterViewer}
 />
 

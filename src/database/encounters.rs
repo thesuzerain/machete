@@ -280,6 +280,7 @@ pub async fn insert_encounters(
         // TODO: Mofiy this so that it only does these db call if needed
         // (This may be redundant- it's related to the total_experience value)
         // TODO: Also do this in 'edit_encounter'
+
         let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
             &enemy_levels,
             &hazard_level_complexities,

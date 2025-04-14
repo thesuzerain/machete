@@ -64,7 +64,7 @@
 </script>
 
 {#if encounter}
-<Modal show={show && !!encounter} closeButton>
+<Modal bind:show={show} closeButton>
     <div slot="header">
         <h2>{encounter.name}</h2>
     </div>

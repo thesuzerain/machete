@@ -239,6 +239,13 @@ pub fn calculate_total_adjusted_experience(
     party_level: u8,
     party_size: u8,
 ) -> i32 {
+    if (enemy_levels.is_empty() && hazard_level_complexities.is_empty()) 
+        || party_level == 0
+        || party_size == 0
+    {
+        return 0;
+    }
+
     let mut total_experience: i32 = 0;
     for level in enemy_levels {
         total_experience += calculate_enemy_experience(*level as i8, party_level);
@@ -253,20 +260,60 @@ pub fn calculate_total_adjusted_experience(
         }
     }
 
+    println!("Raw experience: {}", total_experience);
+
     let diff_off = party_size as i32 - 4;
-    if total_experience - 40 - 10 * diff_off >= 160 {
-        return total_experience;
+    // TODO: Extract these into constants, see: frontend/src/lib/utils/encounter.ts
+    // and earlier in this file
+    if total_experience - 40 * diff_off >= 160 {
+        return total_experience - 40 * diff_off;
     }
     if total_experience - 30 * diff_off >= 120 {
-        return total_experience;
+        return total_experience - 30 * diff_off;
     }
     if total_experience - 20 * diff_off >= 80 {
-        return total_experience;
+        return total_experience - 20 * diff_off;
     }
     if total_experience - 20 * diff_off >= 60 {
-        return total_experience;
+        return total_experience - 20 * diff_off;
     }
     total_experience
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_total_adjusted_experience;
+
+    #[test]
+    fn test_experience_calculation() {
+        let total = calculate_total_adjusted_experience(
+            &[3, 2, 3], &[], 
+            2, 
+            5);
+        assert_eq!(total, 130);
+
+        let blank_encounter = calculate_total_adjusted_experience(
+            &[], 
+            &[], 
+            0, 
+            0);
+        assert_eq!(blank_encounter, 0);
+
+        let blank_encounter = calculate_total_adjusted_experience(
+            &[], 
+            &[], 
+            10, 
+            5);
+        assert_eq!(blank_encounter, 0);
+
+        let pool_encounter = calculate_total_adjusted_experience(
+            &[6, 4, 5], 
+            &[], 
+            5, 
+        3);
+        assert_eq!(pool_encounter, 170);
+
+    }
 }
 
 pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
