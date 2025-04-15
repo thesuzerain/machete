@@ -43,7 +43,7 @@ pub async fn get_user_by_name(
 }
 
 pub async fn insert_user(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     username: &str,
     password_hash: &str,
 ) -> crate::Result<InternalId> {
@@ -56,14 +56,14 @@ pub async fn insert_user(
         username,
         password_hash
     )
-    .fetch_one(exec)
+    .fetch_one(&mut **tx)
     .await?;
 
     Ok(InternalId(id.id as u32))
 }
 
 pub async fn delete_user(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     user_id: InternalId,
 ) -> crate::Result<()> {
     sqlx::query!(
@@ -73,14 +73,14 @@ pub async fn delete_user(
         "#,
         user_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
 }
 
 pub async fn create_session(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     user_id: InternalId,
     session_id: &str,
 ) -> crate::Result<()> {
@@ -92,7 +92,7 @@ pub async fn create_session(
         user_id.0 as i32,
         session_id,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
@@ -126,7 +126,7 @@ pub async fn get_user_for_session(
 }
 
 pub async fn delete_session(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: &str,
 ) -> crate::Result<()> {
     sqlx::query!(
@@ -136,7 +136,7 @@ pub async fn delete_session(
         "#,
         session_id,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

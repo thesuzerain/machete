@@ -346,7 +346,7 @@ pub async fn get_items_search(
 }
 
 pub async fn insert_items(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     items: &[InsertLibraryItem],
 ) -> crate::Result<()> {
     // TODO: Don't *need* two tables for this
@@ -360,7 +360,7 @@ pub async fn insert_items(
         .filter_map(|i| i.requested_id)
         .map(|id| id.0 as i32)
         .collect::<Vec<i32>>();
-    check_library_requested_ids(exec, &requested_ids).await?;
+    check_library_requested_ids(&mut **tx, &requested_ids).await?;
 
     let ids = sqlx::query!(
         r#"
@@ -397,7 +397,7 @@ pub async fn insert_items(
             .map(|c| c.remastering_alt_id.as_ref().map(|id| id.0 as i32))
             .collect::<Vec<Option<i32>>>() as _,
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?
     .into_iter()
     .map(|row| Ok(row.id))
@@ -424,7 +424,7 @@ pub async fn insert_items(
             &item.item_type.to_string(),
             apex_stat.as_ref(),
         )
-        .execute(exec)
+        .execute(&mut **tx)
         .await?;
 
         // Insert runes, if it is a rune
@@ -451,7 +451,7 @@ pub async fn insert_items(
                 potency as i16,
                 applied_to.to_string(),
             )
-            .execute(exec)
+            .execute(&mut **tx)
             .await?;
         } else {
             // Insert any runes that this may have!
@@ -483,7 +483,7 @@ pub async fn insert_items(
                     .map(|r| r.to_parts().1 as i32)
                     .collect::<Vec<i32>>(),
             )
-            .fetch_all(exec)
+            .fetch_all(&mut **tx)
             .await?;
         }
 
@@ -506,7 +506,7 @@ pub async fn insert_items(
                 .map(|sb| sb.bonus as i32)
                 .collect::<Vec<i32>>(),
         )
-        .execute(exec)
+        .execute(&mut **tx)
         .await?;
     }
 

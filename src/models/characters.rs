@@ -156,7 +156,7 @@ impl Skill {
     }
 }
 
-/* 
+/*
     Lore should parse three different ways.
     1. A string with just "Lore" => Lore(None)
     2. A string with "Lore (Some string)" => Lore(Some(Some string))
@@ -175,10 +175,10 @@ pub mod skill_serialize {
         #[serde(untagged)]
         pub enum SkillWrapper {
             Skill(String),
-            Lore { 
+            Lore {
                 #[serde(rename = "Lore")]
                 lore: Option<String>,
-            }
+            },
         }
         if let Ok(lore_wrapper) = SkillWrapper::deserialize(deserializer) {
             match lore_wrapper {
@@ -195,7 +195,7 @@ pub mod skill_serialize {
             Err(serde::de::Error::custom("Invalid skill"))
         }
     }
-    
+
     pub fn serialize<S>(skill: &Skill, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -205,10 +205,8 @@ pub mod skill_serialize {
             Skill::Lore(None) => serializer.serialize_str("Lore"),
             _ => serializer.serialize_str(&skill.to_string()),
         }
-    }    
+    }
 }
-
-
 
 #[cfg(test)]
 mod tests {

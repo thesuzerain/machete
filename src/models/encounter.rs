@@ -80,7 +80,6 @@ pub struct EncounterEnemy {
     pub level_adjustment: i16,
 }
 
-
 pub enum EncounterDifficulty {
     Trivial,
     Low,
@@ -239,7 +238,7 @@ pub fn calculate_total_adjusted_experience(
     party_level: u8,
     party_size: u8,
 ) -> i32 {
-    if (enemy_levels.is_empty() && hazard_level_complexities.is_empty()) 
+    if (enemy_levels.is_empty() && hazard_level_complexities.is_empty())
         || party_level == 0
         || party_size == 0
     {
@@ -284,33 +283,17 @@ mod tests {
 
     #[test]
     fn test_experience_calculation() {
-        let total = calculate_total_adjusted_experience(
-            &[3, 2, 3], &[], 
-            2, 
-            5);
+        let total = calculate_total_adjusted_experience(&[3, 2, 3], &[], 2, 5);
         assert_eq!(total, 130);
 
-        let blank_encounter = calculate_total_adjusted_experience(
-            &[], 
-            &[], 
-            0, 
-            0);
+        let blank_encounter = calculate_total_adjusted_experience(&[], &[], 0, 0);
         assert_eq!(blank_encounter, 0);
 
-        let blank_encounter = calculate_total_adjusted_experience(
-            &[], 
-            &[], 
-            10, 
-            5);
+        let blank_encounter = calculate_total_adjusted_experience(&[], &[], 10, 5);
         assert_eq!(blank_encounter, 0);
 
-        let pool_encounter = calculate_total_adjusted_experience(
-            &[6, 4, 5], 
-            &[], 
-            5, 
-        3);
+        let pool_encounter = calculate_total_adjusted_experience(&[6, 4, 5], &[], 5, 3);
         assert_eq!(pool_encounter, 170);
-
     }
 }
 

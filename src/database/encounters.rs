@@ -583,7 +583,7 @@ pub async fn edit_encounter(
         )
         .execute(&mut **tx)
         .await?;
-    
+
         // Drop all existing encounter_skill_checks
         sqlx::query!(
             r#"

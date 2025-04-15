@@ -187,7 +187,7 @@ pub async fn get_classes_search(
 }
 
 pub async fn insert_classes(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     classes: &[InsertLibraryClass],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
@@ -201,7 +201,7 @@ pub async fn insert_classes(
         .filter_map(|i| i.requested_id)
         .map(|id| id.0 as i32)
         .collect::<Vec<i32>>();
-    check_library_requested_ids(exec, &requested_ids).await?;
+    check_library_requested_ids(&mut **tx, &requested_ids).await?;
 
     let ids = sqlx::query!(
         r#"
@@ -238,7 +238,7 @@ pub async fn insert_classes(
             .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
             .collect::<Vec<Option<i32>>>() as _,
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?
     .into_iter()
     .map(|row| Ok(row.id))
@@ -260,7 +260,7 @@ pub async fn insert_classes(
             class.hp as i32,
             &class.traditions,
         )
-        .execute(exec)
+        .execute(&mut **tx)
         .await?;
     }
 

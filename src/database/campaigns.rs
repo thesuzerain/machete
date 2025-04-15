@@ -1,6 +1,6 @@
+use crate::models::campaign::CampaignPartial;
 use crate::models::encounter::EncounterType;
 use crate::models::ids::InternalId;
-use crate::models::campaign::CampaignPartial;
 use crate::ServerError;
 
 use super::encounters::{self, InsertEncounter};

@@ -109,7 +109,9 @@ async fn insert_creatures(
     Json(payload): Json<Vec<InsertLibraryCreature>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-    database::creatures::insert_creatures(&pool, &payload).await?;
+    let mut tx = pool.begin().await?;
+    database::creatures::insert_creatures(&mut tx, &payload).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -165,7 +167,9 @@ async fn insert_items(
     Json(payload): Json<Vec<InsertLibraryItem>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-    database::items::insert_items(&pool, &payload).await?;
+    let mut tx = pool.begin().await?;
+    database::items::insert_items(&mut tx, &payload).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -221,7 +225,9 @@ async fn insert_spells(
     Json(payload): Json<Vec<InsertLibrarySpell>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-    database::spells::insert_spells(&pool, &payload).await?;
+    let mut tx = pool.begin().await?;
+    database::spells::insert_spells(&mut tx, &payload).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -277,8 +283,9 @@ async fn insert_hazards(
     Json(payload): Json<Vec<InsertLibraryHazard>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-
-    database::hazards::insert_hazards(&pool, &payload).await?;
+    let mut tx = pool.begin().await?;
+    database::hazards::insert_hazards(&mut tx, &payload).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -318,8 +325,10 @@ async fn insert_classes(
     Json(payload): Json<Vec<InsertLibraryClass>>,
 ) -> Result<impl IntoResponse, ServerError> {
     extract_admin_from_headers(&jar, &headers, &pool).await?;
-    database::classes::insert_classes(&pool, &payload)
+    let mut tx = pool.begin().await?;
+    database::classes::insert_classes(&mut tx, &payload)
         .await
         .unwrap();
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }

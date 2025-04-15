@@ -156,7 +156,9 @@ async fn edit_character(
         return Err(ServerError::NotFound);
     }
 
-    database::characters::edit_character(&pool, character_id, &character).await?;
+    let mut tx = pool.begin().await?;
+    database::characters::edit_character(&mut tx, character_id, &character).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -174,8 +176,9 @@ async fn delete_character(
     {
         return Err(ServerError::NotFound);
     }
-
-    database::characters::delete_character(&pool, character_id).await?;
+    let mut tx = pool.begin().await?;
+    database::characters::delete_character(&mut tx, character_id).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -207,7 +210,9 @@ async fn insert_log(
         return Err(ServerError::NotFound);
     }
 
-    database::logs::insert_log(&pool, id, &log).await?;
+    let mut tx = pool.begin().await?;
+    database::logs::insert_log(&mut tx, id, &log).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -227,7 +232,9 @@ async fn edit_log(
         return Err(ServerError::NotFound);
     }
 
-    database::logs::edit_log(&pool, user.id, log_id, &log).await?;
+    let mut tx = pool.begin().await?;
+    database::logs::edit_log(&mut tx, user.id, log_id, &log).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -246,7 +253,9 @@ async fn delete_log(
         return Err(ServerError::NotFound);
     }
 
-    database::logs::delete_log(&pool, user.id, log_id).await?;
+    let mut tx = pool.begin().await?;
+    database::logs::delete_log(&mut tx, user.id, log_id).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -296,7 +305,9 @@ async fn insert_events(
         }
     }
 
-    database::events::insert_events(&pool, id, events.event_group, &events.events).await?;
+    let mut tx = pool.begin().await?;
+    database::events::insert_events(&mut tx, id, events.event_group, &events.events).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -315,8 +326,9 @@ async fn edit_event(
     {
         return Err(ServerError::NotFound);
     }
-
-    database::events::edit_event(&pool, user.id, event_id, &event).await?;
+    let mut tx = pool.begin().await?;
+    database::events::edit_event(&mut tx, user.id, event_id, &event).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -334,8 +346,9 @@ async fn delete_event(
     {
         return Err(ServerError::NotFound);
     }
-
-    database::events::delete_events(&pool, user.id, &[event_id]).await?;
+    let mut tx = pool.begin().await?;
+    database::events::delete_events(&mut tx, user.id, &[event_id]).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -350,8 +363,9 @@ async fn delete_events(
     if database::events::get_events_ids(&pool, &ids).await?.len() != ids.len() {
         return Err(ServerError::NotFound);
     }
-
-    database::events::delete_events(&pool, user.id, &ids).await?;
+    let mut tx = pool.begin().await?;
+    database::events::delete_events(&mut tx, user.id, &ids).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -407,7 +421,9 @@ async fn edit_sessions(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::update_sessions(&pool, &session).await?;
+    let mut tx = pool.begin().await?;
+    database::sessions::update_sessions(&mut tx, &session).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -426,7 +442,9 @@ async fn delete_session(
         return Err(ServerError::NotFound);
     }
 
-    database::sessions::delete_session(&pool, session_id).await?;
+    let mut tx = pool.begin().await?;
+    database::sessions::delete_session(&mut tx, session_id).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

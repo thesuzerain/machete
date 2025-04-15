@@ -110,7 +110,7 @@ pub async fn get_owned_logs_ids(
 
 /// Campaign ownership needs to already be checked
 pub async fn insert_log(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     campaign_id: InternalId,
     log: &InsertLog,
 ) -> crate::Result<InternalId> {
@@ -125,13 +125,13 @@ pub async fn insert_log(
         campaign_id.0 as i32,
         log.description.as_deref(),
     )
-    .fetch_one(exec)
+    .fetch_one(&mut **tx)
     .await?
     .id;
 
     // Add events associated with the log
     events::insert_events(
-        exec,
+        &mut *tx,
         campaign_id,
         Some(InternalId(log_id as u32)),
         &log.events,
@@ -143,7 +143,7 @@ pub async fn insert_log(
 
 // InsertLog is used, but list of events is ignored
 pub async fn edit_log(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     log_id: InternalId,
     new_log: &InsertLog,
@@ -164,14 +164,14 @@ pub async fn edit_log(
         log_id.0 as i32,
         owner.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
 }
 
 pub async fn delete_log(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     log_id: InternalId,
 ) -> crate::Result<()> {
@@ -186,14 +186,14 @@ pub async fn delete_log(
         "#,
         log_id.0 as i32,
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?
     .iter()
     .map(|row| InternalId(row.id as u32))
     .collect::<Vec<_>>();
 
     // Delete all events associated with the log
-    events::delete_events(exec, owner, &event_ids).await?;
+    events::delete_events(&mut *tx, owner, &event_ids).await?;
 
     sqlx::query!(
         r#"
@@ -208,7 +208,7 @@ pub async fn delete_log(
         log_id.0 as i32,
         owner.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

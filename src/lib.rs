@@ -30,9 +30,7 @@ pub async fn run_server() {
     let pool = database::connect().await.unwrap();
     log::info!("Connected to database");
 
-    let app_state = AppState {
-        pool: pool.clone(),
-    };
+    let app_state = AppState { pool: pool.clone() };
 
     // build our application with a route
     let app = Router::new()

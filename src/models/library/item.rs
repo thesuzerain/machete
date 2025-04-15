@@ -1,9 +1,9 @@
 use super::{GameSystem, Rarity};
+use crate::models::characters::skill_serialize;
 use crate::models::{
     characters::{Skill, Stat},
     ids::InternalId,
 };
-use crate::models::characters::skill_serialize;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
