@@ -327,8 +327,7 @@ async fn insert_classes(
     extract_admin_from_headers(&jar, &headers, &pool).await?;
     let mut tx = pool.begin().await?;
     database::classes::insert_classes(&mut tx, &payload)
-        .await
-        .unwrap();
+        .await?;
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
