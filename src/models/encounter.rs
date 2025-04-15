@@ -260,8 +260,6 @@ pub fn calculate_total_adjusted_experience(
         }
     }
 
-    println!("Raw experience: {}", total_experience);
-
     let diff_off = party_size as i32 - 4;
     // TODO: Extract these into constants, see: frontend/src/lib/utils/encounter.ts
     // and earlier in this file

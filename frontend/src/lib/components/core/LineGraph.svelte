@@ -142,7 +142,7 @@
         {/if}
       </g>
       {/each}
-      feasfesfeasfesaf
+      
       <!-- Y-axis and horizontal grid lines -->
       <g class="y-axis" transform="translate({marginLeft}, 0)" pointer-events='none'>
         <path class="domain" stroke="black" d="M{insetLeft}, {marginTop} V{height - marginBottom + 6}"/>

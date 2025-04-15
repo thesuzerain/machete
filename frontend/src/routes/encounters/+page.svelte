@@ -40,7 +40,7 @@
     import ConfirmationModal from '$lib/components/modals/ConfirmationModal.svelte';
     import Modal from '$lib/components/core/Modal.svelte';
     import EncounterList from '$lib/components/encounter/EncounterList.svelte';
-    import EncounterViewer from '$lib/components/encounter/EncounterViewer.svelte';
+    import EncounterViewer from '$lib/components/encounter/EncounterViewerModal.svelte';
 
 library.add(faLink)
 
@@ -333,25 +333,6 @@ library.add(faLink)
 
     .encounter-details {
         padding: 1.5rem;
-    }
-
-    .status {
-        padding: 0.25rem 0.75rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .status.prepared { 
-        background: #dbeafe; 
-        color: #1e40af; 
-    }
-
-    .status.linked { 
-        background: #dcfce7; 
-        color: #166534; 
     }
 
 

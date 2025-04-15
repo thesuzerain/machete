@@ -7,7 +7,7 @@
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
     import EncounterList from "../encounter/EncounterList.svelte";
-import EncounterViewer from "../encounter/EncounterViewer.svelte";
+    import EncounterViewer from "../encounter/EncounterViewerModal.svelte";
 
     interface Props {
         show: boolean;

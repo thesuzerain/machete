@@ -172,6 +172,16 @@
         </div>
 
 <div>
+    <div class="gold-row">
+        Gold
+        <input 
+            type="number" 
+            bind:value={wipEncounter.treasure_currency}
+            min="0"
+            placeholder="Enter gold amount"
+        />
+
+    </div>
 <div>
     {#if libraryModal}
     <EncounterLibraryItemSelector libraryObjectType='item' partyLevel={wipEncounter.party_level} {libraryModal} bind:data={wipEncounter.treasure_items} />
@@ -221,6 +231,15 @@
         border: 1px solid #e5e7eb;
         border-radius: 0.375rem;
         text-align: center;
+    }
+
+    .gold-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+        width: fit-content;
     }
 
     </style>

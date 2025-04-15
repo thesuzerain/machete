@@ -2,7 +2,7 @@
     import { fade } from 'svelte/transition';
     import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
-    import { itemStore } from '$lib/stores/libraryStore';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import { encounterStore } from '$lib/stores/encounters';
     import { goto } from '$app/navigation';
@@ -10,13 +10,14 @@
     import { onMount } from 'svelte';
     import RangeSlider from 'svelte-range-slider-pips';
     import { compile } from 'svelte/compiler';
-    import EncounterViewer from '../encounter/EncounterViewer.svelte';
+    import EncounterViewer from '../encounter/EncounterViewerModal.svelte';
     import type { AccomplishmentLevel, Encounter } from '$lib/types/encounters';
     import Card from '../core/Card.svelte';
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
     import QuickAccomplishment from '../encounter/QuickAccomplishment.svelte';
     import EncounterLinkerModal from '../modals/EncounterLinkerModal.svelte';
+    import EncounterSummary from '../encounter/EncounterSummary.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -38,6 +39,7 @@
     let tempDescription = $state('');
 
     let items = $derived($itemStore);
+    let creatures = $derived($creatureStore);
     let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
     let selectedSession : CampaignSession | null = $derived(campaignSessions.find(s => s.id === selectedSessionId)|| null);
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
@@ -122,13 +124,30 @@
     }
 
     async function handleEncountersUpdate() {
-        // TODO: Refactor
+        // TODO: Refactor, modular?
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
         }, [] as number[]);
-        await itemStore.fetchEntities({
+
+        const requiredCreatures = sessionEncounters.reduce((acc, encounter) => {
+            return acc.concat((encounter.enemies ?? []).map(e => e.id));
+        }, [] as number[]);
+
+        const requiredHazards = sessionEncounters.reduce((acc, encounter) => {
+            return acc.concat(encounter.hazards ?? []);
+        }, [] as number[]);
+        
+        await Promise.all([
+            itemStore.fetchEntities({
             ids: requiredItems.join(','),
-        })
+        }), 
+            creatureStore.fetchEntities({
+                ids: requiredCreatures.join(','),
+            }),
+            hazardStore.fetchEntities({
+                ids: requiredHazards.join(','),
+            }),
+    ]); 
 
         // Update compiled rewards.
         let session = campaignSessions.find(s => s.id === selectedSessionId);
@@ -476,6 +495,20 @@
             <div class="encounters-list">
                 <h4>Combat & Other Encounters</h4>
                 {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
+                    <EncounterSummary encounter={encounter} size='normal'>
+
+                        <Button colour="black" onclick={() => viewEncounter(encounter)}>
+                            View
+                        </Button>
+                        <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
+                            Edit
+                        </Button>
+                        <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
+                            Unlink
+                        </Button>
+
+                    </EncounterSummary>
+
                     <Card><div class="encounter-card">
                         <div class="encounter-info">
                             <h4>{encounter.name}</h4>
@@ -500,30 +533,15 @@
                 <div class="accomplishments-list accomplishments">
                     <h4>Accomplishments</h4>
                     {#each sessionEncounters.filter(e => e.encounter_type === 'accomplishment') as encounter}
-                        <Card tight>
+                    <EncounterSummary size='short' encounter={encounter}>
+                        <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
+                            Edit
+                        </Button>
+                        <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
+                            Remove
+                        </Button>
+                    </EncounterSummary>
 
-                        <div class="accomplishment-card">
-                            <div class="accomplishment-info">
-                                <h4>{encounter.name}</h4>
-                                {#if encounter.total_experience > 0}
-                                    <span>XP: {encounter.total_experience}</span>
-                                {/if}
-                                {#if encounter.treasure_items.length > 0}
-                                    <span>Items: {encounter.treasure_items.map(item => items.entities.get(item)?.name).join(', ')}</span>
-                                {/if}
-
-                                
-                            </div>
-                            <div class="encounter-actions">
-                                <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
-                                    Edit
-                                </Button>
-                                <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
-                                    Remove
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
                     {/each}
                 </div>
             {/if}
@@ -587,7 +605,7 @@
     {/if}
 </div>
 
-    <Modal show={showSessionOrderModal} closeButton>
+    <Modal bind:show={showSessionOrderModal} closeButton>
         <div slot="header">
             <h2>Reorder Sessions</h2>
         </div>
@@ -664,15 +682,8 @@
 
     .accomplishments-list {
         display: grid;
-        gap: 0.5rem;
+        gap: 0.25rem;
         margin: 0;
-    }
-    .accomplishment-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
     }
 
     .encounter-card {
