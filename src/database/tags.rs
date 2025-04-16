@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 // TODO: not sure if I like this
 pub async fn insert_and_return_tags(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     items: Vec<String>,
 ) -> crate::Result<HashMap<String, i32>> {
     if items.is_empty() {
@@ -21,7 +21,7 @@ pub async fn insert_and_return_tags(
         // TODO: optimize this too
         &items.iter().map(|x| x.clone()).collect::<Vec<String>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     // Now, fetch all ids for these tags
@@ -36,7 +36,7 @@ pub async fn insert_and_return_tags(
         // TODO: optimize this too
         &items.iter().map(|x| x.clone()).collect::<Vec<String>>(),
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?;
 
     let ids = ids

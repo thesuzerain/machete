@@ -8,6 +8,7 @@
     import BrowseLibraryModal from '../modals/BrowseLibraryModal.svelte';
     import { itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
+    import { statsStore } from '$lib/stores/stats';
 
     interface Props {
         selectedCampaignId: number;
@@ -44,7 +45,6 @@
         extra_experience: 0,
         party_level: 1,
         party_size: 4,
-        status: "Draft",
         subsystem_type: "chase",
         subsystem_checks: [],
     });
@@ -88,13 +88,17 @@
         // Creating a new encounter
         const finalizedEncounter: CreateEncounterFinalized = {
             ...wipEncounter,
+            extra_experience: xp,
             total_experience: xp,
             total_items_value: treasure_sum,
             session_id: selectedSessionId,
         };
 
         await encounterStore.addEncounter(finalizedEncounter);
-        await campaignSessionStore.fetchCampaignSessions(selectedCampaignId);
+        await Promise.all([
+            campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
+            statsStore.fetchStats(selectedCampaignId),
+        ]);
 
         onAddEncounter();
 
@@ -111,7 +115,6 @@
             extra_experience: 0,
             party_level: 1,
             party_size: 4,
-            status: "Draft",
             subsystem_type: "chase",
             subsystem_checks: [],
         }
@@ -169,6 +172,16 @@
         </div>
 
 <div>
+    <div class="gold-row">
+        Gold
+        <input 
+            type="number" 
+            bind:value={wipEncounter.treasure_currency}
+            min="0"
+            placeholder="Enter gold amount"
+        />
+
+    </div>
 <div>
     {#if libraryModal}
     <EncounterLibraryItemSelector libraryObjectType='item' partyLevel={wipEncounter.party_level} {libraryModal} bind:data={wipEncounter.treasure_items} />
@@ -218,6 +231,15 @@
         border: 1px solid #e5e7eb;
         border-radius: 0.375rem;
         text-align: center;
+    }
+
+    .gold-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+        width: fit-content;
     }
 
     </style>

@@ -1,0 +1,1 @@
+ALTER TABLE encounters DROP COLUMN IF EXISTS status;

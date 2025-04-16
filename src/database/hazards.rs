@@ -266,7 +266,7 @@ pub async fn get_hazards_search(
 }
 
 pub async fn insert_hazards(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     hazards: &[InsertLibraryHazard],
 ) -> crate::Result<()> {
     // TODO: Do we *need* two tables for this?
@@ -281,7 +281,7 @@ pub async fn insert_hazards(
         .filter_map(|i| i.requested_id)
         .map(|id| id.0 as i32)
         .collect::<Vec<i32>>();
-    check_library_requested_ids(exec, &requested_ids).await?;
+    check_library_requested_ids(&mut **tx, &requested_ids).await?;
 
     let ids = sqlx::query!(
         r#"
@@ -318,7 +318,7 @@ pub async fn insert_hazards(
             .map(|c| c.remastering_alt_id.map(|id| id.0 as i32))
             .collect::<Vec<Option<i32>>>() as _,
     )
-    .fetch_all(exec)
+    .fetch_all(&mut **tx)
     .await?
     .into_iter()
     .map(|row| Ok(row.id))
@@ -339,7 +339,7 @@ pub async fn insert_hazards(
         &hazards.iter().map(|c| c.haunt).collect::<Vec<bool>>(),
         &hazards.iter().map(|c| c.complex).collect::<Vec<bool>>(),
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

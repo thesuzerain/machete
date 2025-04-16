@@ -100,7 +100,7 @@ pub async fn get_chracter_id(
 }
 
 pub async fn edit_character(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     character_id: InternalId,
     character: &ModifyCharacter,
 ) -> crate::Result<()> {
@@ -118,7 +118,7 @@ pub async fn edit_character(
         character_id.0 as i32,
     );
 
-    query.execute(exec).await?;
+    query.execute(&mut **tx).await?;
 
     Ok(())
 }
@@ -169,7 +169,7 @@ pub async fn insert_characters(
 }
 
 pub async fn delete_character(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     character_id: InternalId,
 ) -> crate::Result<()> {
     // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
@@ -181,7 +181,7 @@ pub async fn delete_character(
         "#,
         character_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -191,7 +191,7 @@ pub async fn delete_character(
         "#,
         character_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -201,7 +201,7 @@ pub async fn delete_character(
         "#,
         character_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query!(
@@ -211,7 +211,7 @@ pub async fn delete_character(
         "#,
         character_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

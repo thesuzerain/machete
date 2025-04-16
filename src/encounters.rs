@@ -22,9 +22,6 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_encounters))
         .route("/", post(insert_encounter))
-        .route("/draft", get(get_encounter_draft))
-        .route("/draft", post(insert_encounter_draft))
-        .route("/draft", delete(clear_encounter_draft))
         .route("/:id", get(get_encounter))
         .route("/:id", patch(edit_encounter))
         .route("/:id", delete(delete_encounter))
@@ -90,7 +87,7 @@ async fn edit_encounter(
     }
 
     let mut tx = pool.begin().await?;
-    database::encounters::edit_encounter(&mut tx, encounter_id, &encounter).await?;
+    database::encounters::edit_encounter(&mut tx, encounter_id, user.id, &encounter).await?;
     tx.commit().await?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -102,7 +99,7 @@ async fn delete_encounter(
     Path(encounter_id): Path<InternalId>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-
+    println!("Deleting encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?
@@ -118,44 +115,6 @@ async fn delete_encounter(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_encounter_draft(
-    State(pool): State<PgPool>,
-    jar: CookieJar,
-) -> Result<impl IntoResponse, ServerError> {
-    let user = extract_user_from_cookies(&jar, &pool).await?;
-
-    let mut tx = pool.begin().await?;
-    let encounter = database::encounters::get_encounter_draft(&mut tx, user.id).await?;
-    tx.commit().await?;
-
-    Ok(Json(encounter))
-}
-
-async fn insert_encounter_draft(
-    State(pool): State<PgPool>,
-    jar: CookieJar,
-    Json(event): Json<InsertEncounter>,
-) -> Result<impl IntoResponse, ServerError> {
-    let user = extract_user_from_cookies(&jar, &pool).await?;
-
-    let mut tx = pool.begin().await?;
-    database::encounters::insert_user_encounter_draft(&mut tx, user.id, &event).await?;
-    tx.commit().await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn clear_encounter_draft(
-    State(pool): State<PgPool>,
-    jar: CookieJar,
-) -> Result<impl IntoResponse, ServerError> {
-    let user = extract_user_from_cookies(&jar, &pool).await?;
-
-    let mut tx = pool.begin().await?;
-    database::encounters::clear_user_encounter_draft(&mut tx, user.id).await?;
-    tx.commit().await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 async fn delete_session_link(
     State(pool): State<PgPool>,
     jar: CookieJar,
@@ -163,6 +122,7 @@ async fn delete_session_link(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
+    println!("Deleting session link for encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?

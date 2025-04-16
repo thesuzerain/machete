@@ -172,7 +172,7 @@ pub async fn get_sessions(
 }
 
 pub async fn update_sessions(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     sessions: &HashMap<InternalId, ModifySession>,
 ) -> crate::Result<()> {
     // TODO: Create non-iterative version of this (or rather just move iteration onto postgres side)
@@ -193,7 +193,7 @@ pub async fn update_sessions(
             session.description.clone(),
             session.play_date
         );
-        query.execute(exec).await?;
+        query.execute(&mut **tx).await?;
     }
     Ok(())
 }
@@ -275,7 +275,7 @@ pub async fn insert_sessions(
 }
 
 pub async fn delete_session(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: InternalId,
 ) -> crate::Result<()> {
     // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
@@ -286,7 +286,7 @@ pub async fn delete_session(
         "#,
         session_id.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

@@ -1,15 +1,17 @@
 use serde::{Deserialize, Serialize};
 
 use super::{characters::Skill, ids::InternalId};
+use crate::models::characters::skill_serialize;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Encounter {
     pub id: InternalId,
-    pub status: CompletionStatus,
     pub name: String,
     pub description: Option<String>,
 
+    // Only if this is linked to a session
     pub session_id: Option<InternalId>,
+    pub campaign_id: Option<InternalId>,
 
     pub owner: InternalId,
 
@@ -68,6 +70,7 @@ pub struct EncounterSubsystemCheck {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EncounterSubsystemRoll {
+    #[serde(with = "skill_serialize")]
     pub skill: Skill,
     pub dc: u8,
 }
@@ -77,40 +80,6 @@ pub struct EncounterEnemy {
     pub id: InternalId,
     #[serde(default)]
     pub level_adjustment: i16,
-}
-
-// TODO: We may want to remove this
-#[derive(Deserialize, Serialize, Debug, Default, Clone, Copy)]
-pub enum CompletionStatus {
-    Draft,
-    #[default]
-    Prepared,
-    Archived,
-    Success,
-    Failure,
-}
-
-impl CompletionStatus {
-    pub fn as_i32(&self) -> i32 {
-        match self {
-            CompletionStatus::Draft => 0,
-            CompletionStatus::Prepared => 1,
-            CompletionStatus::Archived => 2,
-            CompletionStatus::Success => 3,
-            CompletionStatus::Failure => 4,
-        }
-    }
-
-    pub fn from_i32(i: i32) -> Self {
-        match i {
-            0 => CompletionStatus::Draft,
-            1 => CompletionStatus::Prepared,
-            2 => CompletionStatus::Archived,
-            3 => CompletionStatus::Success,
-            4 => CompletionStatus::Failure,
-            _ => panic!("Invalid status"),
-        }
-    }
 }
 
 pub enum EncounterDifficulty {
@@ -271,6 +240,13 @@ pub fn calculate_total_adjusted_experience(
     party_level: u8,
     party_size: u8,
 ) -> i32 {
+    if (enemy_levels.is_empty() && hazard_level_complexities.is_empty())
+        || party_level == 0
+        || party_size == 0
+    {
+        return 0;
+    }
+
     let mut total_experience: i32 = 0;
     for level in enemy_levels {
         total_experience += calculate_enemy_experience(*level as i8, party_level);
@@ -286,17 +262,19 @@ pub fn calculate_total_adjusted_experience(
     }
 
     let diff_off = party_size as i32 - 4;
-    if total_experience - 40 - 10 * diff_off >= 160 {
-        return total_experience;
+    // TODO: Extract these into constants, see: frontend/src/lib/utils/encounter.ts
+    // and earlier in this file
+    if total_experience - 40 * diff_off >= 160 {
+        return total_experience - 40 * diff_off;
     }
     if total_experience - 30 * diff_off >= 120 {
-        return total_experience;
+        return total_experience - 30 * diff_off;
     }
     if total_experience - 20 * diff_off >= 80 {
-        return total_experience;
+        return total_experience - 20 * diff_off;
     }
     if total_experience - 20 * diff_off >= 60 {
-        return total_experience;
+        return total_experience - 20 * diff_off;
     }
     total_experience
 }
@@ -313,5 +291,25 @@ pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
         2 => 80,
         3 => 120,
         4.. => 160,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_total_adjusted_experience;
+
+    #[test]
+    fn test_experience_calculation() {
+        let total = calculate_total_adjusted_experience(&[3, 2, 3], &[], 2, 5);
+        assert_eq!(total, 130);
+
+        let blank_encounter = calculate_total_adjusted_experience(&[], &[], 0, 0);
+        assert_eq!(blank_encounter, 0);
+
+        let blank_encounter = calculate_total_adjusted_experience(&[], &[], 10, 5);
+        assert_eq!(blank_encounter, 0);
+
+        let pool_encounter = calculate_total_adjusted_experience(&[6, 4, 5], &[], 5, 3);
+        assert_eq!(pool_encounter, 170);
     }
 }

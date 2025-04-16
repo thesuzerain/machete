@@ -1,15 +1,16 @@
 import type { Skill } from "./types";
 
-export type EncounterStatus = 'Draft' | 'Prepared' | 'Completed' | 'Archived' | 'Success' | 'Failure';
 export type EncounterType = 'combat' | 'accomplishment' | 'rewardInitialization' | 'subsystem' | 'unknown';
 export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'unknown';
 
 export interface Encounter {
     id: number;
-    session_id: number | null;
-    status: EncounterStatus;
     name: string;
     description: string;
+
+    // Value or null together
+    session_id: number | null;
+    campaign_id: number | null;
 
     encounter_type: EncounterType;
     
@@ -70,8 +71,6 @@ export interface CreateOrReplaceEncounter {
     // Subsystem fields
     subsystem_type?: SubsystemCategory;
     subsystem_checks?: SkillCheck[];
-
-    status: EncounterStatus;
 } 
 
 export interface EncounterEnemy {
@@ -81,8 +80,8 @@ export interface EncounterEnemy {
 
 export interface CreateOrReplaceEncounterExtended extends CreateOrReplaceEncounter {    
     // On creation, these are optionally omitted and, if so, are calculated by the backend
-    total_experience: number;
-    total_items_value: number;
+    total_experience: number | null;
+    total_items_value: number | null;
 } 
 
 export interface CreateEncounterFinalized extends CreateOrReplaceEncounterExtended {    

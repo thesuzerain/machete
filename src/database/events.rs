@@ -154,7 +154,7 @@ pub async fn get_events_ids(
 
 /// Requires ownership of the campaign to be checked
 pub async fn insert_events(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     campaign_id: InternalId,
     log_id: Option<InternalId>,
     events: &[InsertEvent],
@@ -192,14 +192,14 @@ pub async fn insert_events(
         &event_types,
         event_groups as _,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
 }
 
 pub async fn edit_event(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     event_id: InternalId,
     new_event: &EditEvent,
@@ -227,14 +227,14 @@ pub async fn edit_event(
         event_id.0 as i32,
         owner.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
 }
 
 pub async fn delete_events(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     owner: InternalId,
     event_id: &[InternalId],
 ) -> crate::Result<()> {
@@ -255,7 +255,7 @@ pub async fn delete_events(
         &event_id.iter().map(|id| id.0 as i32).collect::<Vec<i32>>(),
         owner.0 as i32,
     )
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())

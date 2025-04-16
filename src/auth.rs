@@ -96,8 +96,9 @@ async fn signup(
         return Err(crate::ServerError::BadRequest("User already exists".into()));
     }
 
+    let mut tx = pool.begin().await?;
     let password_hash = bcrypt::hash(user.password, bcrypt::DEFAULT_COST).unwrap();
-    let id = database::auth::insert_user(&pool, &user.username, &password_hash).await?;
+    let id = database::auth::insert_user(&mut tx, &user.username, &password_hash).await?;
 
     let token: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
@@ -110,7 +111,8 @@ async fn signup(
     cookie.set_path("/");
     jar = jar.add(cookie);
 
-    database::auth::create_session(&pool, id, &token).await?;
+    database::auth::create_session(&mut tx, id, &token).await?;
+    tx.commit().await?;
     Ok((
         jar,
         Json(Session {
@@ -141,7 +143,9 @@ async fn login(
             .map(char::from)
             .collect();
 
-        database::auth::create_session(&pool, user_id, &token).await?;
+        let mut tx = pool.begin().await?;
+        database::auth::create_session(&mut tx, user_id, &token).await?;
+        tx.commit().await?;
 
         let mut cookie = Cookie::new(SESSION_COOKIE_NAME, token.clone());
         cookie.set_max_age(Some(Duration::days(7)));
@@ -164,7 +168,9 @@ async fn logout(
     mut jar: CookieJar,
 ) -> Result<impl IntoResponse, crate::ServerError> {
     if let Some(session_id) = jar.get(SESSION_COOKIE_NAME) {
-        database::auth::delete_session(&pool, session_id.value()).await?;
+        let mut tx = pool.begin().await?;
+        database::auth::delete_session(&mut tx, session_id.value()).await?;
+        tx.commit().await?;
         jar = jar.remove(Cookie::from(SESSION_COOKIE_NAME));
     }
     Ok((jar, StatusCode::NO_CONTENT))

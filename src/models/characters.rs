@@ -20,7 +20,7 @@ pub enum Stat {
     Charisma,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Skill {
     Acrobatics,
     Arcana,
@@ -39,7 +39,6 @@ pub enum Skill {
     Stealth,
     Survival,
     Thievery,
-    #[serde(other)]
     Unknown,
 }
 
@@ -154,5 +153,92 @@ impl Skill {
             Self::Thievery,
         ]
         .into_iter()
+    }
+}
+
+/*
+    Lore should parse three different ways.
+    1. A string with just "Lore" => Lore(None)
+    2. A string with "Lore (Some string)" => Lore(Some(Some string))
+    3. A 'directly' serialized structure - {"Lore":"Wizards"} or {"Lore":null} (Though we won't use this)
+*/
+pub mod skill_serialize {
+    use serde::Deserialize;
+
+    use crate::models::characters::Skill;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Skill, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        pub enum SkillWrapper {
+            Skill(String),
+            Lore {
+                #[serde(rename = "Lore")]
+                lore: Option<String>,
+            },
+        }
+        if let Ok(lore_wrapper) = SkillWrapper::deserialize(deserializer) {
+            match lore_wrapper {
+                SkillWrapper::Skill(s) => {
+                    if let Some(skill) = Skill::from_str(&s) {
+                        Ok(skill)
+                    } else {
+                        Err(serde::de::Error::custom(format!("Invalid skill: {}", s)))
+                    }
+                }
+                SkillWrapper::Lore { lore } => Ok(Skill::Lore(lore)),
+            }
+        } else {
+            Err(serde::de::Error::custom("Invalid skill"))
+        }
+    }
+
+    pub fn serialize<S>(skill: &Skill, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match skill {
+            Skill::Lore(Some(lore)) => serializer.serialize_str(&format!("Lore ({})", lore)),
+            Skill::Lore(None) => serializer.serialize_str("Lore"),
+            _ => serializer.serialize_str(&skill.to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_lore_parsing() {
+        use super::Skill;
+        use crate::models::characters::skill_serialize;
+
+        #[derive(serde::Deserialize)]
+        pub struct TestStruct {
+            #[serde(with = "skill_serialize")]
+            pub skill: Skill,
+        }
+
+        let skill = r#"{"skill": "Athletics"}"#;
+        let skill = serde_json::from_str::<TestStruct>(skill).unwrap();
+        assert_eq!(skill.skill, Skill::Athletics);
+
+        let lore_str = r#"{ "skill": "Lore (Wizards)" }"#;
+        let lore = serde_json::from_str::<TestStruct>(lore_str).unwrap();
+        assert_eq!(lore.skill, Skill::Lore(Some("Wizards".to_string())));
+
+        let lore_str = r#"{ "skill": "Lore" }"#;
+        let lore = serde_json::from_str::<TestStruct>(lore_str).unwrap();
+        assert_eq!(lore.skill, Skill::Lore(None));
+
+        let lore_str = r#"{ "skill": { "Lore": null } }"#;
+        let lore = serde_json::from_str::<TestStruct>(lore_str).unwrap();
+        assert_eq!(lore.skill, Skill::Lore(None));
+
+        let lore_str = r#"{ "skill": { "Lore": "Wizards" } }"#;
+        let lore = serde_json::from_str::<TestStruct>(lore_str).unwrap();
+        assert_eq!(lore.skill, Skill::Lore(Some("Wizards".to_string())));
     }
 }

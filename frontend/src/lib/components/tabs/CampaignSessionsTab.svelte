@@ -2,7 +2,7 @@
     import { fade } from 'svelte/transition';
     import type { CampaignSession, CompiledRewards } from '$lib/types/types';
     import { characterStore } from '$lib/stores/characters';
-    import { itemStore } from '$lib/stores/libraryStore';
+    import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import { encounterStore } from '$lib/stores/encounters';
     import { goto } from '$app/navigation';
@@ -10,12 +10,15 @@
     import { onMount } from 'svelte';
     import RangeSlider from 'svelte-range-slider-pips';
     import { compile } from 'svelte/compiler';
-    import EncounterViewer from '../encounter/EncounterViewer.svelte';
+    import EncounterViewer from '../encounter/EncounterViewerModal.svelte';
     import type { AccomplishmentLevel, Encounter } from '$lib/types/encounters';
     import Card from '../core/Card.svelte';
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
     import QuickAccomplishment from '../encounter/QuickAccomplishment.svelte';
+    import EncounterLinkerModal from '../modals/EncounterLinkerModal.svelte';
+    import EncounterSummary from '../encounter/EncounterSummary.svelte';
+    import { color } from 'd3';
 
     interface Props {
         selectedCampaignId: number;
@@ -37,6 +40,7 @@
     let tempDescription = $state('');
 
     let items = $derived($itemStore);
+    let creatures = $derived($creatureStore);
     let campaignSessions = $derived(($campaignSessionStore.get(selectedCampaignId)) || []);
     let selectedSession : CampaignSession | null = $derived(campaignSessions.find(s => s.id === selectedSessionId)|| null);
     let sessionEncounters = $derived(selectedSession ? ($encounterStore.filter(e => selectedSession.encounter_ids.includes(e.id))) : []);
@@ -44,6 +48,24 @@
 
     // Track which characters are present in the session separately from rewards
     let presentCharacters = $state(new Set<number>());
+
+    // Level at 'start' of session- get previous
+    let sessionIx = $derived.by(() => {
+        let sessionIx: Map<number, number> = new Map();
+        campaignSessions.forEach((session, ix) => {
+            sessionIx.set(session.id, ix);
+        });
+        return sessionIx;
+    });
+    let levelAtStart = $derived.by(() => {
+        if (!selectedSessionId) return 0;
+        const sessionIxValue = sessionIx.get(selectedSessionId);
+        if (sessionIxValue === undefined) return 0;
+        const previousSession = campaignSessions[sessionIxValue - 1];
+        return previousSession.level_at_end;
+    });
+
+
 
     // Calculate total rewards for the session
     interface TotalRewards {
@@ -121,13 +143,30 @@
     }
 
     async function handleEncountersUpdate() {
-        // TODO: Refactor
+        // TODO: Refactor, modular?
         const requiredItems = sessionEncounters.reduce((acc, encounter) => {
             return acc.concat(encounter.treasure_items);
         }, [] as number[]);
-        await itemStore.fetchEntities({
+
+        const requiredCreatures = sessionEncounters.reduce((acc, encounter) => {
+            return acc.concat((encounter.enemies ?? []).map(e => e.id));
+        }, [] as number[]);
+
+        const requiredHazards = sessionEncounters.reduce((acc, encounter) => {
+            return acc.concat(encounter.hazards ?? []);
+        }, [] as number[]);
+        
+        await Promise.all([
+            itemStore.fetchEntities({
             ids: requiredItems.join(','),
-        })
+        }), 
+            creatureStore.fetchEntities({
+                ids: requiredCreatures.join(','),
+            }),
+            hazardStore.fetchEntities({
+                ids: requiredHazards.join(','),
+            }),
+    ]); 
 
         // Update compiled rewards.
         let session = campaignSessions.find(s => s.id === selectedSessionId);
@@ -246,6 +285,23 @@
         goto(`/encounters?encounterId=${encounterId}&returnToSessionId=${selectedSessionId}`);
     }
 
+    function correctEncounter(encounterId: number) {
+        // Quick correct for party size and level
+        const encounter = sessionEncounters.find(e => e.id === encounterId);
+        if (!encounter) return;
+        const partySize = encounter.party_size || 0;
+        const partyLevel = encounter.party_level || 0;
+        const newPartySize = presentCharacters.size;
+        const newPartyLevel = levelAtStart;
+        encounterStore.updateEncounter(encounterId, {
+            party_size: newPartySize,
+            party_level: newPartyLevel,
+            total_experience: null
+        });
+        encounter.party_size = newPartySize;
+        encounter.party_level = newPartyLevel;
+    }
+
     function dragItemAssignmentConsider(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
         compiledItemRewardsWithIds[cid] = e.detail.items;
     }
@@ -310,6 +366,7 @@
     // Add these state variables
     let viewingEncounter : Encounter | null = $state(null);
     let showEncounterViewer = $state(false);
+    let showEncounterLinker = $state(false);
 
     // Add this function
     function viewEncounter(encounter : Encounter) {
@@ -452,6 +509,9 @@
                         Add Accomplishment
                     </Button>
                     {/if}
+                    <Button colour="blue" onclick={() => showEncounterLinker = true}>
+                        Link Encounter
+                    </Button>
                     <Button colour="green" onclick={createNewEncounter}>
                         Create New Encounter
                     </Button>                    
@@ -471,54 +531,39 @@
             <div class="encounters-list">
                 <h4>Combat & Other Encounters</h4>
                 {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
-                    <Card><div class="encounter-card">
-                        <div class="encounter-info">
-                            <h4>{encounter.name}</h4>
-                            <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
-                        </div>
-                        <div class="encounter-actions">
-                            <Button colour="black" onclick={() => viewEncounter(encounter)}>
-                                View
+                    <EncounterSummary encounter={encounter} size='normal' expectedPartySize={presentCharacters.size} expectedPartyLevel={levelAtStart}>
+
+                        <Button colour="black" onclick={() => viewEncounter(encounter)}>
+                            View
+                        </Button>
+                        {#if selectedSessionId && (encounter.party_size != presentCharacters.size || encounter.party_level != levelAtStart)}
+                            <Button colour="blue" onclick={() => correctEncounter(encounter.id)}>
+                                Correct party information
                             </Button>
-                            <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
-                                Edit
-                            </Button>
-                            <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
-                                Unlink
-                            </Button>
-                        </div>
-                    </div>
-                    </Card>
+                        {/if}
+                        <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
+                            Edit
+                        </Button>
+                        <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
+                            Unlink
+                        </Button>
+
+                    </EncounterSummary>
                 {/each}
             </div>
             {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}
                 <div class="accomplishments-list accomplishments">
                     <h4>Accomplishments</h4>
                     {#each sessionEncounters.filter(e => e.encounter_type === 'accomplishment') as encounter}
-                        <Card tight>
+                    <EncounterSummary size='short' encounter={encounter}>
+                        <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
+                            Edit
+                        </Button>
+                        <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
+                            Remove
+                        </Button>
+                    </EncounterSummary>
 
-                        <div class="accomplishment-card">
-                            <div class="accomplishment-info">
-                                <h4>{encounter.name}</h4>
-                                {#if encounter.total_experience > 0}
-                                    <span>XP: {encounter.total_experience}</span>
-                                {/if}
-                                {#if encounter.treasure_items.length > 0}
-                                    <span>Items: {encounter.treasure_items.map(item => items.entities.get(item)?.name).join(', ')}</span>
-                                {/if}
-
-                                
-                            </div>
-                            <div class="encounter-actions">
-                                <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
-                                    Edit
-                                </Button>
-                                <Button colour="red" onclick={() => deleteEncounter(encounter.id)}>
-                                    Remove
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
                     {/each}
                 </div>
             {/if}
@@ -582,7 +627,7 @@
     {/if}
 </div>
 
-    <Modal show={showSessionOrderModal} closeButton>
+    <Modal bind:show={showSessionOrderModal} closeButton>
         <div slot="header">
             <h2>Reorder Sessions</h2>
         </div>
@@ -600,10 +645,16 @@
     </Modal>
 
 
-<EncounterViewer 
-    encounter={viewingEncounter}
+<EncounterViewer   
+    bind:encounter={viewingEncounter}
     bind:show={showEncounterViewer}
 />
+
+<EncounterLinkerModal
+    bind:show={showEncounterLinker}
+    bind:sessionId={selectedSessionId}
+/>
+
 
 <style>
     .session-selector {
@@ -653,15 +704,8 @@
 
     .accomplishments-list {
         display: grid;
-        gap: 0.5rem;
+        gap: 0.25rem;
         margin: 0;
-    }
-    .accomplishment-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
     }
 
     .encounter-card {

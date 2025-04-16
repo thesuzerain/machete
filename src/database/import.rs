@@ -5,9 +5,7 @@ use crate::{
         sessions::InsertSession,
     },
     models::{
-        campaign::CampaignSessionCharacterRewards,
-        encounter::{CompletionStatus, EncounterType},
-        ids::InternalId,
+        campaign::CampaignSessionCharacterRewards, encounter::EncounterType, ids::InternalId,
     },
     ServerError,
 };
@@ -189,16 +187,13 @@ pub async fn import_with_functions(
                 session_order: (ix * 1000) as u32,
                 play_date: s.date,
                 characters: Some(
-                    s.compiled_rewards
-                        .iter()
-                        .map(|(character_name, _)| {
+                    s.compiled_rewards.keys().map(|character_name| {
                             character_name_to_id
                                 .get(character_name)
                                 .ok_or(ServerError::BadRequest(format!(
                                     "Character {} not found in 'characters'",
                                     character_name
-                                )))
-                                .map(|id| *id)
+                                ))).copied()
                         })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
@@ -212,24 +207,17 @@ pub async fn import_with_functions(
     let insert_encounters = campaign
         .encounters
         .iter()
-        .map(|e| {
-            println!("IMPORTING: {:?}", e);
-            InsertEncounter {
-                name: e.name.clone(),
-                description: e.description.clone(),
-                status: CompletionStatus::Prepared,
+        .map(|e| InsertEncounter {
+            name: e.name.clone(),
+            description: e.description.clone(),
 
-                session_id: session_ids_in_order.get(e.session_ix).cloned(),
-                party_level: e.party_level as u8,
-                party_size: e.party_size as u8,
-                encounter_type: e.encounter_type.clone(),
-                treasure_items: e.treasure_items.clone(),
-                treasure_currency: e.treasure_currency,
-                extra_experience: e.extra_experience,
-
-                total_experience: None,  // TODO: Calculate total experience
-                total_items_value: None, // TODO: Calculate total treasure value
-            }
+            session_id: session_ids_in_order.get(e.session_ix).cloned(),
+            party_level: e.party_level as u8,
+            party_size: e.party_size as u8,
+            encounter_type: e.encounter_type.clone(),
+            treasure_items: e.treasure_items.clone(),
+            treasure_currency: e.treasure_currency,
+            extra_experience: e.extra_experience,
         })
         .collect_vec();
     super::encounters::insert_encounters(&mut *tx, owner, &insert_encounters).await?;
