@@ -5,9 +5,12 @@ export type SubsystemCategory = 'chase' | 'infiltration' | 'research' | 'unknown
 
 export interface Encounter {
     id: number;
-    session_id: number | null;
     name: string;
     description: string;
+
+    // Value or null together
+    session_id: number | null;
+    campaign_id: number | null;
 
     encounter_type: EncounterType;
     
@@ -77,8 +80,8 @@ export interface EncounterEnemy {
 
 export interface CreateOrReplaceEncounterExtended extends CreateOrReplaceEncounter {    
     // On creation, these are optionally omitted and, if so, are calculated by the backend
-    total_experience: number;
-    total_items_value: number;
+    total_experience: number | null;
+    total_items_value: number | null;
 } 
 
 export interface CreateEncounterFinalized extends CreateOrReplaceEncounterExtended {    

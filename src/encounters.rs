@@ -87,7 +87,7 @@ async fn edit_encounter(
     }
 
     let mut tx = pool.begin().await?;
-    database::encounters::edit_encounter(&mut tx, encounter_id, &encounter).await?;
+    database::encounters::edit_encounter(&mut tx, encounter_id, user.id, &encounter).await?;
     tx.commit().await?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -99,7 +99,7 @@ async fn delete_encounter(
     Path(encounter_id): Path<InternalId>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-
+    println!("Deleting encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?
@@ -122,6 +122,7 @@ async fn delete_session_link(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
+    println!("Deleting session link for encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?

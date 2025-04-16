@@ -153,10 +153,6 @@ pub async fn insert_campaign(
                 encounter_type: EncounterType::RewardInitialization,
                 party_level: 1,
                 party_size: 1,
-
-                // We can safely leave these None here, as they are calculated from the characters and items.
-                total_experience: None,
-                total_items_value: None,
             };
             encounters::insert_encounters(&mut *tx, owner, &vec![insert_encounter]).await?;
         }

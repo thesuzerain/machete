@@ -16,18 +16,29 @@
     } from "$lib/utils/encounter";
     import { faLink } from "@fortawesome/free-solid-svg-icons";
     import { campaignSessionStore } from "$lib/stores/campaignSessions";
-    import { selectedCampaignStore } from "$lib/stores/campaigns";
+    import {
+        campaignStore,
+        selectedCampaignStore,
+    } from "$lib/stores/campaigns";
     import { onMount } from "svelte";
 
     interface Props {
         encounter: Encounter;
         size?: "title" | "short" | "normal" | "detailed";
+        expectedPartySize?: number;
+        expectedPartyLevel?: number;
     }
-    let { encounter, size = "normal" }: Props = $props();
+    let {
+        encounter,
+        size = "normal",
+        expectedPartySize = encounter.party_size,
+        expectedPartyLevel = encounter.party_level,
+    }: Props = $props();
 
     let items = $derived($itemStore);
     let creatures = $derived($creatureStore);
     let globalCampaignId = $derived($selectedCampaignStore);
+    let campaigns = $derived($campaignStore);
     let campaignSessions = $derived(
         $campaignSessionStore.get(globalCampaignId || 0) || [],
     );
@@ -35,18 +46,17 @@
     onMount(async () => {
         // TODO: Refactor, modular?
 
-        
         await Promise.all([
-                    itemStore.fetchEntities({
-                    ids: encounter.treasure_items.join(','),
-                }), 
-                    creatureStore.fetchEntities({
-                        ids: (encounter.enemies ?? []).map(e => e.id).join(','),
-                    }),
-                    hazardStore.fetchEntities({
-                        ids: (encounter.hazards ?? []).join(','),
-                    }),
-            ]); 
+            itemStore.fetchEntities({
+                ids: encounter.treasure_items.join(","),
+            }),
+            creatureStore.fetchEntities({
+                ids: (encounter.enemies ?? []).map((e) => e.id).join(","),
+            }),
+            hazardStore.fetchEntities({
+                ids: (encounter.hazards ?? []).join(","),
+            }),
+        ]);
     });
 
     // TODO: modularize, along with css classes
@@ -79,6 +89,13 @@
         });
         return sessionIx;
     });
+    $effect(() => {
+        console.log("sessionIx", sessionIx);
+        console.log("campaignSessions", campaignSessions);
+        console.log("globalCampaignId", globalCampaignId);
+        console.log("campaignSessionStore", $campaignSessionStore);
+        console.log("cc", $campaignSessionStore.get(globalCampaignId || 0));
+    });
 </script>
 
 {#if size == "short"}
@@ -109,7 +126,29 @@
     <Card
         ><div class="encounter-card">
             <div class="encounter-info">
-                <h4>{encounter.name}</h4>
+                <div class="encounter-info-row">
+                    <h4>{encounter.name}</h4>
+                    <span class="encounter-normal-title-row">
+                        (<span
+                            class={getClassForDifficulty(
+                                getSeverityFromFinalExperience(
+                                    encounter.total_experience,
+                                    encounter.extra_experience,
+                                ),
+                            )}
+                            >{getSeverityFromFinalExperience(
+                                encounter.total_experience,
+                                encounter.extra_experience,
+                            )}</span
+                        >)
+                        {#if encounter.party_size != expectedPartySize}
+                            (Party size: {encounter.party_size})
+                        {/if}
+                        {#if encounter.party_level != expectedPartyLevel}
+                            (Party level: {encounter.party_level})
+                        {/if}
+                    </span>
+                </div>
                 {#if encounter.enemies && encounter.enemies.length > 0}
                     <div class="encounter-info-row">
                         <h5>Enemies:</h5>
@@ -308,42 +347,55 @@
         {/if}
 
         {#if encounter.treasure_currency > 0 || encounter.treasure_items.length > 0}
-
-        <Card>
-            <h3>Treasure</h3>
-            <p class="currency">Currency: {encounter.treasure_currency}gp</p>
-            {#if encounter.treasure_items && encounter.treasure_items.length > 0}
-                <ul>
-                    {#each encounter.treasure_items as itemId}
-                        {@const itemDetails = $itemStore.entities.get(itemId)}
-                        {#if itemDetails}
-                            <li class="item-entry">
-                                <span class="item-name"
-                                    >{itemDetails?.name}</span
-                                >
-                                <a
-                                    href={getFullUrl(itemDetails?.url || "")}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="entity-link"
-                                >
-                                    <FontAwesomeIcon icon={faLink} />
-                                </a>
-                            </li>
-                        {/if}
-                    {/each}
-                </ul>
-            {/if}
-        </Card>
+            <Card>
+                <h3>Treasure</h3>
+                <p class="currency">
+                    Currency: {encounter.treasure_currency}gp
+                </p>
+                {#if encounter.treasure_items && encounter.treasure_items.length > 0}
+                    <ul>
+                        {#each encounter.treasure_items as itemId}
+                            {@const itemDetails =
+                                $itemStore.entities.get(itemId)}
+                            {#if itemDetails}
+                                <li class="item-entry">
+                                    <span class="item-name"
+                                        >{itemDetails?.name}</span
+                                    >
+                                    <a
+                                        href={getFullUrl(
+                                            itemDetails?.url || "",
+                                        )}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="entity-link"
+                                    >
+                                        <FontAwesomeIcon icon={faLink} />
+                                    </a>
+                                </li>
+                            {/if}
+                        {/each}
+                    </ul>
+                {/if}
+            </Card>
         {/if}
     </div>
+    <div class="encounter-actions">
+        <slot />
+    </div>
+
 {:else if size == "title"}
     <div class="encounter-title">
         <h3>{encounter.name}</h3>
         <div class="encounter-title-meta">
-            {#if encounter.session_id}
+            {#if encounter.session_id && encounter.campaign_id && encounter.campaign_id == globalCampaignId}
                 <span class="status linked"
                     >Linked: Session {sessionIx.get(encounter.session_id)}</span
+                >
+            {:else if encounter.campaign_id}
+                <span class="status linked"
+                    >Linked: Campaign {campaigns.get(encounter.campaign_id)
+                        ?.name}</span
                 >
             {:else}
                 <span class="status prepared">Prepared</span>
@@ -409,6 +461,10 @@
         gap: 0.5rem;
     }
 
+    .encounter-normal-title-row-piece {
+        display: flex;
+    }
+
     .encounter-info-names {
         display: flex;
         flex-wrap: wrap;
@@ -427,7 +483,6 @@
         align-items: center;
         margin-bottom: 0rem;
     }
-
 
     .encounter-description {
         margin-bottom: 1.5rem;
@@ -525,6 +580,13 @@
         min-width: 200px;
     }
 
+    .encounter-details {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
     /* Difficulty colors */
     .difficulty-trivial {
         color: var(--color-difficulty-trivial);
@@ -542,6 +604,7 @@
         color: var(--color-difficulty-extreme);
     }
 
+
     .status {
         padding: 0.25rem 0.75rem;
         border-radius: 999px;
@@ -551,14 +614,13 @@
         letter-spacing: 0.05em;
     }
 
-    .status.prepared { 
-        background: #dbeafe; 
-        color: #1e40af; 
+    .status.prepared {
+        background: #dbeafe;
+        color: #1e40af;
     }
 
-    .status.linked { 
-        background: #dcfce7; 
-        color: #166534; 
+    .status.linked {
+        background: #dcfce7;
+        color: #166534;
     }
-
 </style>

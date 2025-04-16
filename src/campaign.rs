@@ -434,6 +434,8 @@ async fn delete_session(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
+    println!("Deleting session {session_id}");
+
     // Check if user has access to the session
     if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
         .await?
@@ -506,6 +508,8 @@ async fn unlink_session_encounters(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
+    println!("Unlinking encounter {encounter_id} from session {session_id}");
+    println!("User: {user:?}");
     // Check if user has access to the session
     if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
         .await?

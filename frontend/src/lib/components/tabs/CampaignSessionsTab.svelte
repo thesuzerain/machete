@@ -18,6 +18,7 @@
     import QuickAccomplishment from '../encounter/QuickAccomplishment.svelte';
     import EncounterLinkerModal from '../modals/EncounterLinkerModal.svelte';
     import EncounterSummary from '../encounter/EncounterSummary.svelte';
+    import { color } from 'd3';
 
     interface Props {
         selectedCampaignId: number;
@@ -47,6 +48,24 @@
 
     // Track which characters are present in the session separately from rewards
     let presentCharacters = $state(new Set<number>());
+
+    // Level at 'start' of session- get previous
+    let sessionIx = $derived.by(() => {
+        let sessionIx: Map<number, number> = new Map();
+        campaignSessions.forEach((session, ix) => {
+            sessionIx.set(session.id, ix);
+        });
+        return sessionIx;
+    });
+    let levelAtStart = $derived.by(() => {
+        if (!selectedSessionId) return 0;
+        const sessionIxValue = sessionIx.get(selectedSessionId);
+        if (sessionIxValue === undefined) return 0;
+        const previousSession = campaignSessions[sessionIxValue - 1];
+        return previousSession.level_at_end;
+    });
+
+
 
     // Calculate total rewards for the session
     interface TotalRewards {
@@ -264,6 +283,23 @@
 
     function editEncounter(encounterId: number) {
         goto(`/encounters?encounterId=${encounterId}&returnToSessionId=${selectedSessionId}`);
+    }
+
+    function correctEncounter(encounterId: number) {
+        // Quick correct for party size and level
+        const encounter = sessionEncounters.find(e => e.id === encounterId);
+        if (!encounter) return;
+        const partySize = encounter.party_size || 0;
+        const partyLevel = encounter.party_level || 0;
+        const newPartySize = presentCharacters.size;
+        const newPartyLevel = levelAtStart;
+        encounterStore.updateEncounter(encounterId, {
+            party_size: newPartySize,
+            party_level: newPartyLevel,
+            total_experience: null
+        });
+        encounter.party_size = newPartySize;
+        encounter.party_level = newPartyLevel;
     }
 
     function dragItemAssignmentConsider(cid : number, e: CustomEvent<DndEvent<DndRewardItem>>) {
@@ -495,11 +531,16 @@
             <div class="encounters-list">
                 <h4>Combat & Other Encounters</h4>
                 {#each sessionEncounters.filter(e => e.encounter_type !== 'accomplishment') as encounter}
-                    <EncounterSummary encounter={encounter} size='normal'>
+                    <EncounterSummary encounter={encounter} size='normal' expectedPartySize={presentCharacters.size} expectedPartyLevel={levelAtStart}>
 
                         <Button colour="black" onclick={() => viewEncounter(encounter)}>
                             View
                         </Button>
+                        {#if selectedSessionId && (encounter.party_size != presentCharacters.size || encounter.party_level != levelAtStart)}
+                            <Button colour="blue" onclick={() => correctEncounter(encounter.id)}>
+                                Correct party information
+                            </Button>
+                        {/if}
                         <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
                             Edit
                         </Button>
@@ -508,25 +549,6 @@
                         </Button>
 
                     </EncounterSummary>
-
-                    <Card><div class="encounter-card">
-                        <div class="encounter-info">
-                            <h4>{encounter.name}</h4>
-                            <div class="encounter-info-row"><p>XP: {encounter.total_experience}</p><p>Gold: {encounter.treasure_currency}</p></div>
-                        </div>
-                        <div class="encounter-actions">
-                            <Button colour="black" onclick={() => viewEncounter(encounter)}>
-                                View
-                            </Button>
-                            <Button colour="blue" onclick={() => editEncounter(encounter.id)}>
-                                Edit
-                            </Button>
-                            <Button colour="red" onclick={() => removeEncounterFromSession(encounter.id)}>
-                                Unlink
-                            </Button>
-                        </div>
-                    </div>
-                    </Card>
                 {/each}
             </div>
             {#if sessionEncounters.some(e => e.encounter_type === 'accomplishment')}

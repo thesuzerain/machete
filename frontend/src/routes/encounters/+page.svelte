@@ -182,6 +182,7 @@ library.add(faLink)
         if (sessionId && globalCampaignId) {
             campaignSessionStore.linkEncounterToSession(globalCampaignId, sessionId, encounter.id);
         } else {
+            console.log('Unlinking encounter from session');
             encounterStore.unlinkEncounterFromSession(encounter.id);
         }
     }
@@ -222,14 +223,14 @@ library.add(faLink)
             <div>
                 <EncounterList onupdatefilter={(es) => {encounterFilterCounter = es.length}} let:encounter>
                     {#if !encounter.session_id}
-                    <Button colour='green' onclick={() => linkingEncounter = encounter}>
-                        Link to session
-                    </Button>
-                    {:else}
-                    <Button colour='red' onclick={() => linkEncounterToSession(encounter, null)}>
-                        Unlink from session
-                    </Button>
-                {/if}
+                        <Button colour='green' onclick={() => linkingEncounter = encounter}>
+                            Link to session
+                        </Button>
+                        {:else}
+                        <Button colour='red' onclick={() => linkEncounterToSession(encounter, null)}>
+                            Unlink from session
+                        </Button>
+                    {/if}
     
                         <Button colour='blue' onclick={() => {editingEncounter = encounter; scrollToEncounterEditor() }}>
 

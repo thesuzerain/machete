@@ -184,9 +184,9 @@ pub mod skill_serialize {
             match lore_wrapper {
                 SkillWrapper::Skill(s) => {
                     if let Some(skill) = Skill::from_str(&s) {
-                        return Ok(skill);
+                        Ok(skill)
                     } else {
-                        return Err(serde::de::Error::custom(format!("Invalid skill: {}", s)));
+                        Err(serde::de::Error::custom(format!("Invalid skill: {}", s)))
                     }
                 }
                 SkillWrapper::Lore { lore } => Ok(Skill::Lore(lore)),

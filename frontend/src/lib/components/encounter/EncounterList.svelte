@@ -29,17 +29,18 @@
 
     interface Props {
         onupdatefilter?: (encounters: Encounter[]) => void;
+        restrictToCampaign?: boolean;
         forceHideUnlinked?: boolean;
     }
 
-    let { onupdatefilter = () => {}, forceHideUnlinked = false }: Props =
+    let { onupdatefilter = () => {}, forceHideUnlinked = false, restrictToCampaign = false }: Props =
         $props();
 
     let hideAccomplishments = $state(true);
     let hideUnlinked = $state(forceHideUnlinked ? true : false);
+    let hideOtherCampaigns = $state(true);
 
     // Subscribe to the stores
-    let encounters = $derived($encounterStore);
     let campaigns = $derived($campaignStore);
     let libraryEnemies = $derived($creatureStore);
     let libraryHazards = $derived($hazardStore);
@@ -48,6 +49,17 @@
     let campaignSessions = $derived(
         $campaignSessionStore.get(globalCampaignId || 0) || [],
     );
+
+    let encounters = $derived.by(() => {
+        let innerEncounters = $encounterStore;
+        if (restrictToCampaign) {
+            innerEncounters = innerEncounters.filter(
+                (encounter) => encounter.session_id ? campaignSessions.some((session) => session.id === encounter.session_id) : false,
+            );
+        }
+        return innerEncounters;
+    });
+
 
     let editingEncounter: Encounter | null = $state(null);
     let linkingEncounter: Encounter | null = $state(null);
@@ -70,6 +82,16 @@
                       enc.encounter_type != "rewardInitialization"
                     : true,
             )
+            .filter((enc) => {
+                if (hideOtherCampaigns) {
+                    return (
+                        enc.campaign_id === globalCampaignId ||
+                        enc.campaign_id === null ||
+                        enc.session_id === null
+                    );
+                }
+                return true;
+            })
             .filter((enc) => (hideUnlinked ? enc.session_id === null : true))
             .filter((enc) =>
                 enc.name.toLowerCase().includes(encounterFilter.toLowerCase()),
@@ -171,14 +193,19 @@
     </div>
     <div class="hide-accomplishments">
         <input type="checkbox" bind:checked={hideAccomplishments} />
-        <span>Hide Accomplishments</span>
+        <span>Hide accomplishments</span>
     </div>
     {#if !forceHideUnlinked}
         <div class="hide-accomplishments">
             <input type="checkbox" bind:checked={hideUnlinked} />
-            <span>Hide Unlinked Encounters</span>
+            <span>Hide unlinked encounters</span>
         </div>
     {/if}
+    <div class="hide-accomplishments">
+        <input type="checkbox" bind:checked={hideOtherCampaigns} />
+        <span>Hide other campaigns</span>
+    </div>
+
     <Card background="grey">
         {#if filteredAndSortedEncounters.length === 0}
             <div class="empty-state">

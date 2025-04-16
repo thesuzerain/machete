@@ -16,6 +16,7 @@ use super::items::ItemFiltering;
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct EncounterFilters {
     pub ids: Option<CommaSeparatedVec>,
+    pub campaign_id: Option<InternalId>,
     pub name: Option<String>,
     pub encounter_type: Option<String>,
 }
@@ -45,10 +46,6 @@ pub struct InsertEncounter {
     pub treasure_items: Vec<InternalId>,
     pub treasure_currency: f32,
     pub extra_experience: i32,
-
-    // These are derived values. If provided, they will be considered as an override.
-    pub total_experience: Option<i32>,
-    pub total_items_value: Option<f32>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -72,10 +69,6 @@ pub struct ModifyEncounter {
 
     pub party_level: Option<u8>,
     pub party_size: Option<u8>,
-
-    // These are derived values. If provided, they will be considered as an override.
-    pub total_experience: Option<i32>,
-    pub total_items_value: Option<f32>,
 }
 
 // TODO: May be prudent to make a separate models system for the database.
@@ -102,6 +95,7 @@ pub async fn get_encounters(
             en.name,
             en.description,
             en.session_id,
+            any_value(cs.campaign_id) as campaign_id,
             ee.enemies,
             ee.level_adjustments as enemy_level_adjustments,
             eh.hazards,
@@ -117,6 +111,7 @@ pub async fn get_encounters(
             JSONB_AGG(jsonb_build_object('name', esc.name, 'vp', esc.vp, 'roll_options', esc.roll_options)) as subsystem_rolls,
             en.owner
         FROM encounters en
+        LEFT JOIN campaign_sessions cs ON en.session_id = cs.id
         LEFT JOIN LATERAL (
             SELECT 
                 ARRAY_AGG(enemy) FILTER (WHERE ee.enemy IS NOT NULL) as enemies, 
@@ -143,6 +138,7 @@ pub async fn get_encounters(
             AND ($2::int[] IS NULL OR en.id = ANY($2::int[]))
             AND ($3::integer IS NULL OR en.encounter_type_id = $4)
             AND en.owner = $4
+            AND ($5::int IS NULL OR cs.campaign_id = $5)
         GROUP BY en.id, ee.enemies, ee.level_adjustments, eh.hazards, eti.items
     "#,
         condition.name,
@@ -152,6 +148,7 @@ pub async fn get_encounters(
             .as_deref()
             .map(|x| EncounterType::id_from_string(x)),
         owner.0 as i64,
+        condition.campaign_id.map(|id| id.0 as i32),
     );
 
     let events = query
@@ -181,7 +178,7 @@ pub async fn get_encounters(
                 serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
             let encounter_subsystem_type = row
                 .subsystem_type_id
-                .map(|id| EncounterSubsystemType::from_i32(id as i32));
+                .map(EncounterSubsystemType::from_i32);
             let encounter_type = EncounterType::from_id_and_parts(
                 row.encounter_type_id,
                 enemies,
@@ -195,6 +192,7 @@ pub async fn get_encounters(
                 name: row.name,
                 description: row.description,
                 session_id: row.session_id.map(|id| InternalId(id as u32)),
+                campaign_id: row.campaign_id.map(|id| InternalId(id as u32)),
                 party_level: row.party_level as u32,
                 party_size: row.party_size as u32,
                 owner: InternalId(row.owner as u32),
@@ -286,16 +284,9 @@ pub async fn insert_encounters(
             &hazard_level_complexities,
             encounter.party_level,
             encounter.party_size,
-        ) + encounter.extra_experience as i32;
+        ) + encounter.extra_experience;
         let derived_total_treasure_value =
             treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
-
-        let total_experience = encounter
-            .total_experience
-            .unwrap_or(derived_total_experience as i32);
-        let total_items_value = encounter
-            .total_items_value
-            .unwrap_or(derived_total_treasure_value as f32);
 
         let encounter_id = sqlx::query!(
             r#"
@@ -311,8 +302,8 @@ pub async fn insert_encounters(
             encounter.party_size as i64,
             encounter.party_level as i64,
             encounter.extra_experience as i64,
-            total_experience as i64,
-            total_items_value as f64,
+            derived_total_experience as i64,
+            derived_total_treasure_value as f64,
             owner.0 as i64,
         )
         .fetch_one(&mut **tx)
@@ -419,6 +410,7 @@ pub async fn insert_encounters(
 pub async fn edit_encounter(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     encounter_id: InternalId,
+    owner: InternalId,
     new_encounter: &ModifyEncounter,
 ) -> crate::Result<()> {
     let enemies = new_encounter
@@ -459,11 +451,8 @@ pub async fn edit_encounter(
         party_level = COALESCE($5, party_level),
         extra_experience = COALESCE($6, extra_experience),
         encounter_type_id = COALESCE($7, encounter_type_id),
-        subsystem_type_id = COALESCE($8, subsystem_type_id),
-        
-        total_experience = COALESCE($9, total_experience),
-        total_items_value = COALESCE($10, total_items_value)
-        WHERE id = $11
+        subsystem_type_id = COALESCE($8, subsystem_type_id)
+        WHERE id = $9
         "#,
         new_encounter.name.as_deref(),
         new_encounter.description.as_deref(),
@@ -476,8 +465,6 @@ pub async fn edit_encounter(
             .subsystem_type
             .as_ref()
             .map(|e| e.as_i32() as i32),
-        new_encounter.total_experience.map(|e| e as i32),
-        new_encounter.total_items_value.map(|e| e as f64),
         encounter_id.0 as i64,
     )
     .fetch_optional(&mut **tx)
@@ -634,6 +621,58 @@ pub async fn edit_encounter(
             .await?;
         }
     }
+
+    // Calculate the new total_experience and total_items_value. Fetch the encounter.
+    // TODO: This is a bit of a hack.
+    // TODO: This maybe also modularizable
+    let encounter = get_encounters(
+        &mut **tx,
+        owner,
+        &EncounterFilters::from_ids(&[encounter_id]),
+    )
+    .await?
+    .into_iter()
+    .next()
+    .ok_or(crate::ServerError::NotFound)?;
+    let enemy_ids = encounter
+        .encounter_type
+        .get_enemies()
+        .iter()
+        .map(|e| e.id)
+        .collect::<Vec<InternalId>>();
+    let enemy_level_adjustments = encounter
+        .encounter_type
+        .get_enemies()
+        .iter()
+        .map(|e| e.level_adjustment)
+        .collect::<Vec<i16>>();
+    let enemy_levels = get_levels_enemies(&mut **tx, &enemy_ids, &enemy_level_adjustments).await?;
+    let hazard_level_complexities =
+        get_levels_complexities_hazards(&mut **tx, &encounter.encounter_type.get_hazards()).await?;
+    let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
+
+    let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
+        &enemy_levels,
+        &hazard_level_complexities,
+        encounter.party_level as u8,
+        encounter.party_size as u8,
+    ) + encounter.extra_experience as i32;
+    let derived_total_treasure_value =
+        treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
+
+    sqlx::query!(
+        r#"
+        UPDATE encounters
+        SET total_experience = $1,
+            total_items_value = $2
+        WHERE id = $3
+        "#,
+        derived_total_experience as i64,
+        derived_total_treasure_value as f64,
+        encounter_id.0 as i64,
+    )
+    .execute(&mut **tx)
+    .await?;
 
     // Unlink and re-link the encounter to the session if needed
     // TODO: We can refactor this editing to not need to explicitly unlinking/relinking (by being more explicit)

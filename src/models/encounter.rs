@@ -9,7 +9,9 @@ pub struct Encounter {
     pub name: String,
     pub description: Option<String>,
 
+    // Only if this is linked to a session
     pub session_id: Option<InternalId>,
+    pub campaign_id: Option<InternalId>,
 
     pub owner: InternalId,
 
@@ -277,6 +279,21 @@ pub fn calculate_total_adjusted_experience(
     total_experience
 }
 
+pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
+    let level_diff = level as i32 - party_level as i32;
+    match level_diff {
+        ..=-4 => 10,
+        -3 => 15,
+        -2 => 20,
+        -1 => 30,
+        0 => 40,
+        1 => 60,
+        2 => 80,
+        3 => 120,
+        4.. => 160,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::calculate_total_adjusted_experience;
@@ -294,20 +311,5 @@ mod tests {
 
         let pool_encounter = calculate_total_adjusted_experience(&[6, 4, 5], &[], 5, 3);
         assert_eq!(pool_encounter, 170);
-    }
-}
-
-pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
-    let level_diff = level as i32 - party_level as i32;
-    match level_diff {
-        ..=-4 => 10,
-        -3 => 15,
-        -2 => 20,
-        -1 => 30,
-        0 => 40,
-        1 => 60,
-        2 => 80,
-        3 => 120,
-        4.. => 160,
     }
 }
