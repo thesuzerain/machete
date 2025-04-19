@@ -1,0 +1,1 @@
+ALTER TABLE library_items ADD COLUMN IF NOT EXISTS base_item_id BIGINT;

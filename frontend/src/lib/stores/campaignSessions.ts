@@ -129,7 +129,7 @@ function createCampaignSessionStore() {
             }
         },
         
-        deleteCampaignSessions: async (campaignId : number, id: number) => {
+        deleteCampaignSession: async (campaignId : number, id: number) => {
             try {
                 const response = await fetch(`${API_URL}/campaign/${campaignId}/sessions/${id}`, {
                     method: 'DELETE',

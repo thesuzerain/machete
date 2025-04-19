@@ -99,7 +99,6 @@ async fn delete_encounter(
     Path(encounter_id): Path<InternalId>,
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
-    println!("Deleting encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?
@@ -122,7 +121,6 @@ async fn delete_session_link(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    println!("Deleting session link for encounter: {}", encounter_id);
     // Check if user has access to the encounter
     if database::encounters::get_owned_encounter_ids(&pool, &[encounter_id], user.id)
         .await?

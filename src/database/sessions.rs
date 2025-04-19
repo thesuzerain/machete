@@ -278,7 +278,38 @@ pub async fn delete_session(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: InternalId,
 ) -> crate::Result<()> {
-    // TODO:  Ensure FE has suitable checks for this (campaign ownership, but also, confirmation modal)
+    sqlx::query!(
+        r#"
+        UPDATE encounters
+        SET session_id = NULL
+        WHERE session_id = $1
+        "#,
+        session_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // First delete campaign_session_characters, campaign_session_character_items
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_session_character_items
+        WHERE session_id = $1
+        "#,
+        session_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_session_characters
+        WHERE session_id = $1
+        "#,
+        session_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
     sqlx::query!(
         r#"
         DELETE FROM campaign_sessions

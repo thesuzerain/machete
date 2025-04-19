@@ -4,13 +4,15 @@
   import { campaignSessionStore } from '$lib/stores/campaignSessions';
   import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
   import type { Campaign } from '$lib/types/types';
-  import CampaignModal from '../modals/CampaignModal.svelte';
+  import NewCampaignModal from '../modals/NewCampaignModal.svelte';
+  import EditCampaignModal from '../modals/EditCampaignModal.svelte';
   import { onMount } from 'svelte';
     import Button from '../core/Button.svelte';
 
     export let error: string | null;
 
-    let showNewCampaignModal = false;
+    let showNewNewCampaignModal = false;
+    let showEditCampaignModal = false;
     let editingCampaign: Campaign | null = null;
 
     $: campaigns = $campaignStore;
@@ -43,32 +45,38 @@
     {#if $selectedCampaignStore}
     <Button colour="blue" onclick={() => {
         editingCampaign = selectedCampaign ? selectedCampaign : null
-        showNewCampaignModal = true
+        console.log('Editing campaign', editingCampaign);
+        showEditCampaignModal = true
     }}>
         Edit Campaign
     </Button>
 
         {/if}
 
-        <Button colour="blue" onclick={() => showNewCampaignModal = true}>
+        <Button colour="blue" onclick={() => showNewNewCampaignModal = true}>
             New Campaign
         </Button>
     </div>
 </div>
 
-<CampaignModal
-    bind:show={showNewCampaignModal}
-    bind:editingCampaign
+<NewCampaignModal
+    bind:show={showNewNewCampaignModal}
     on:saved={(e : CustomEvent<number>) => {
-        showNewCampaignModal = false;
-        editingCampaign = null;
-        
+        showNewNewCampaignModal = false;
         if (e.detail) {
             $selectedCampaignStore = e.detail;
         }
     }}
     on:close={() => {
-        showNewCampaignModal = false;
+        showNewNewCampaignModal = false;
+    }}
+/>
+
+<EditCampaignModal
+    bind:show={showEditCampaignModal}
+    bind:editingCampaign
+    on:close={() => {
+        showNewNewCampaignModal = false;
         editingCampaign = null;
     }}
 />

@@ -296,7 +296,6 @@
         encounterStore.updateEncounter(encounterId, {
             party_size: newPartySize,
             party_level: newPartyLevel,
-            total_experience: null
         });
         encounter.party_size = newPartySize;
         encounter.party_level = newPartyLevel;
@@ -417,6 +416,18 @@
         // Update the UI state to match
         await handleEncountersUpdate();
     }
+
+    async function handleSessionDelete() {
+        if (!selectedSession) return;
+        await campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
+        // next session
+        const nextSession = campaignSessions.find(s => s.id !== selectedSession.id);
+        if (nextSession) {
+            selectedSessionId = nextSession.id;
+        } else {
+            selectedSessionId = null;
+        }
+    }
 </script>
 
 <div class="characters-section" transition:fade>
@@ -428,7 +439,15 @@
             {/each}
         </select>
         <Button colour="blue" onclick={() => initializeSessionReorder()}>
-            Edit sessions
+            Reorder sessions
+        </Button>
+        <Button colour="red" onclick={() => {
+            if (selectedSession) {
+                campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
+                selectedSessionId = null;
+            }
+        }}>
+            Delete session
         </Button>
         <Button colour="green" onclick={createNewSession}>
             New session

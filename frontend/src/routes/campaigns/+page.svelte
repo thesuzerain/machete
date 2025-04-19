@@ -4,7 +4,7 @@
     import { campaignStore, selectedCampaignStore } from '$lib/stores/campaigns';
     import { characterStore } from '$lib/stores/characters';
     import type { Campaign, InsertEvent, Log } from '$lib/types/types';
-    import CampaignModal from '$lib/components/modals/CampaignModal.svelte';
+    import NewCampaignModal from '$lib/components/modals/NewCampaignModal.svelte';
     import CampaignCharactersTab from '$lib/components/tabs/CampaignCharactersTab.svelte';
     import { classStore } from '$lib/stores/libraryStore';
     import { API_URL } from '$lib/config';
@@ -20,7 +20,7 @@ import { statsStore } from '$lib/stores/stats';
 
     let loading = true;
     let error: string | null = null;
-    let showNewCampaignModal = false;
+    let showNewNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
     let activeTab: 'summary' | 'sessions' | 'characters' | 'export' = 'summary';
     let campaignLogs: Log[] = [];

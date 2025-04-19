@@ -495,13 +495,13 @@
         border-radius: 8px;
     }
 
-    ul {
+    .encounter-details ul {
         list-style: none;
         padding: 0;
         margin: 0;
     }
 
-    li {
+    .encounter-details li {
         padding: 0.75rem;
         background: var(--color-bg);
         border-radius: 4px;

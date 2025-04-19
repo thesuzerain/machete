@@ -28,6 +28,12 @@ pub struct InsertCampaignInitializationCharacter {
     pub items: Vec<InternalId>,
 }
 
+#[derive(serde::Deserialize, Debug)]
+pub struct ModifyCampaign {
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_campaigns_owner(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
@@ -158,4 +164,115 @@ pub async fn insert_campaign(
         }
     }
     Ok(InternalId(id as u32))
+}
+
+
+pub async fn delete_campaign(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    campaign_id: InternalId,
+) -> crate::Result<()> {
+    // First, unlink all encounters
+    sqlx::query!(
+        r#"
+        UPDATE encounters
+        SET session_id = NULL
+        WHERE session_id IN (
+            SELECT id
+            FROM campaign_sessions
+            WHERE campaign_id = $1
+        )
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Then, delete all campaign_sessions, campaign_session_characters, campaign_session_character_items
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_session_character_items
+        WHERE session_id IN (
+            SELECT id
+            FROM campaign_sessions
+            WHERE campaign_id = $1
+        )
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_session_characters
+        WHERE session_id IN (
+            SELECT id
+            FROM campaign_sessions
+            WHERE campaign_id = $1
+        )
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM campaign_sessions
+        WHERE campaign_id = $1
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Delete characters
+    sqlx::query!(
+        r#"
+        DELETE FROM characters
+        WHERE id IN (
+            SELECT id
+            FROM characters
+            WHERE campaign = $1
+        )
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Finally, delete the campaign
+    sqlx::query!(
+        r#"
+        DELETE FROM campaigns
+        WHERE id = $1
+        "#,
+        campaign_id.0 as i32,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn edit_campaign(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    campaign_id: InternalId,
+    modify: &ModifyCampaign,
+) -> crate::Result<()> {
+    let query = sqlx::query!(
+        r#"
+        UPDATE campaigns
+        SET name = COALESCE($1, name),
+            description = COALESCE($2, description)
+        WHERE id = $3
+        "#,
+        modify.name.as_ref(),
+        modify.description.as_ref(),
+        campaign_id.0 as i32,
+    );
+
+    query.execute(&mut **tx).await?;
+
+    Ok(())
 }

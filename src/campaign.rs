@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_user_from_cookies,
     database::{
-        import::ImportCampaign,
-        sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions},
+        campaigns::ModifyCampaign, import::ImportCampaign, sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions}
     },
     models::ids::InternalId,
     AppState,
@@ -35,6 +34,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_campaigns))
         .route("/", post(insert_campaign))
+        .route("/:id", patch(edit_campaign))
+        .route("/:id", delete(delete_campaign))
         .route("/import", post(import_campaign)) // TODO: Does this need to differ from generic 'insert'?
         .route("/:id/export", get(export_campaign))
         .route("/:id/stats", get(get_stats))
@@ -76,6 +77,49 @@ async fn get_campaigns(
     let user = extract_user_from_cookies(&jar, &pool).await?;
     let campaigns = database::campaigns::get_campaigns_owner(&pool, user.id).await?;
     Ok(Json(campaigns))
+}
+
+async fn edit_campaign(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+    Json(campaign): Json<ModifyCampaign>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+    database::campaigns::edit_campaign(&mut tx, id, &campaign).await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_campaign(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    Path(id): Path<InternalId>,
+) -> Result<impl IntoResponse, ServerError> {
+    let user = extract_user_from_cookies(&jar, &pool).await?;
+
+    // Check if user has access to the campaign
+    if database::campaigns::get_owned_campaign_id(&pool, id, user.id)
+        .await?
+        .is_none()
+    {
+        return Err(ServerError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+    database::campaigns::delete_campaign(&mut tx, id).await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn insert_campaign(
@@ -434,8 +478,6 @@ async fn delete_session(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    println!("Deleting session {session_id}");
-
     // Check if user has access to the session
     if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
         .await?
@@ -508,8 +550,6 @@ async fn unlink_session_encounters(
 ) -> Result<impl IntoResponse, ServerError> {
     let user = extract_user_from_cookies(&jar, &pool).await?;
 
-    println!("Unlinking encounter {encounter_id} from session {session_id}");
-    println!("User: {user:?}");
     // Check if user has access to the session
     if database::sessions::get_owned_session_ids(&pool, &[session_id], user.id)
         .await?

@@ -12,10 +12,9 @@
 
     interface Props {
         show: boolean;
-        editingCampaign: Campaign | null;
     }
 
-    let { show = $bindable(), editingCampaign = $bindable() }: Props = $props();
+    let { show = $bindable() }: Props = $props();
 
     interface InitialCharacter {
         name: string;
@@ -79,18 +78,11 @@
         console.log("removeCharacter", index);
     }
 
-    // Reset form when modal opens or editingCampaign changes
     $effect(() => {
         if (show) {
-            if (editingCampaign) {
-                name = editingCampaign.name;
-                description = editingCampaign.description || "";
-                activeTab = "create"; // Force create tab when editing
-            } else {
-                name = "";
-                description = "";
-                importJson = "";
-            }
+            name = "";
+            description = "";
+            importJson = "";
         }
     });
 
@@ -151,28 +143,26 @@
 
 <Modal bind:show bind:error closeButton>
     <div slot="header">
-        <h2>{editingCampaign ? "Edit" : "New"} Campaign</h2>
+        <h2>New Campaign</h2>
     </div>
     <div class="modal-size">
-        {#if !editingCampaign}
-            <div class="tabs">
-                <button
-                    class="tab-button"
-                    class:active={activeTab === "create"}
-                    on:click={() => (activeTab = "create")}
-                >
-                    Initialize Existing
-                </button>
+        <div class="tabs">
+            <button
+                class="tab-button"
+                class:active={activeTab === "create"}
+                on:click={() => (activeTab = "create")}
+            >
+                Initialize Existing
+            </button>
 
-                <button
-                    class="tab-button"
-                    class:active={activeTab === "import"}
-                    on:click={() => (activeTab = "import")}
-                >
-                    Import
-                </button>
-            </div>
-        {/if}
+            <button
+                class="tab-button"
+                class:active={activeTab === "import"}
+                on:click={() => (activeTab = "import")}
+            >
+                Import
+            </button>
+        </div>
 
         <form on:submit|preventDefault={handleSubmit}>
             {#if activeTab === "import"}

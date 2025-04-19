@@ -137,6 +137,7 @@ pub struct InsertLibraryItem {
     pub runes: Vec<Rune>,
     pub apex_stat: Option<Stat>,
     pub remastering_alt_id: Option<InternalId>,
+    pub base_item_id: Option<InternalId>,
 
     // Extra insertion-specific fields
     pub runic_context: Option<InsertRune>,
