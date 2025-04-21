@@ -69,7 +69,6 @@
     }
 
     async function addAccomplishment() {
-        console.log("Adding accomplishment");
         if (!canAddAccomplishment) return;
         
         let xpUnparsed = useCustomXP ? customXPAmount : accomplishmentType!;

@@ -18,7 +18,6 @@
     import {
         getCreatureExperienceFromLevel,
         getHazardExperienceFromLevel,
-        getSeverityFromFinalExperience,
         type EncounterDifficulty,
     } from "$lib/utils/encounter";
     import Button from "../core/Button.svelte";
@@ -146,7 +145,7 @@
             case "Extreme":
                 return "difficulty-extreme";
             default:
-                return "";
+                return "difficulty-unknown";
         }
     }
 

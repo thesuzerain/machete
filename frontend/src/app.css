@@ -91,11 +91,11 @@
   --color-rarity-rare: var(--color-blue);
   --color-rarity-unique: var(--color-purple);
 
-  --color-difficulty-trivial: var(--color-green);
-  --color-difficulty-low: var(--color-yellow);
+  --color-difficulty-trivial: var(--color-green-text); /* TODO: Should this and for extreme be a different defined color? */
+  --color-difficulty-low: var(--color-green);
   --color-difficulty-moderate: var(--color-yellow);
   --color-difficulty-severe: var(--color-red);
-  --color-difficulty-extreme: var(--color-red);
+  --color-difficulty-extreme: var(--color-red-selected);
 
   /* Check 'success' and 'error' ones and if they should be these */
   --color-large-deficit: var(--color-red);

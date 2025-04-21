@@ -29,10 +29,8 @@
 
     // Reset form when modal opens or editingCampaign changes
     $effect(() => {
-        console.log("Bump");
         if (show) {
             if (editingCampaign) {
-                console.log(">Editing campaign", editingCampaign);
                 name = editingCampaign.name;
                 description = editingCampaign.description || "";
             } 

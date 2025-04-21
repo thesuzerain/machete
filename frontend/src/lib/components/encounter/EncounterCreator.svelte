@@ -8,7 +8,6 @@
     import {
         getCreatureExperienceFromLevel,
         getSeverityFromRawExperience,
-        getRewardForLevelSeverity,
         EncounterDifficulty,
         getAdjustedExperienceFromPartySize,
         getHazardExperienceFromLevel,
@@ -61,6 +60,8 @@
     import Button from "../core/Button.svelte";
     import EncounterLibraryItemSelector from "./EncounterLibraryItemSelector.svelte";
     import ConfirmationModal from "../modals/ConfirmationModal.svelte";
+    import EncounterXpCalculatorInfoModal from "../modals/EncounterXpCalculatorInfoModal.svelte";
+    import EncounterDifficultyBar from "./EncounterDifficultyBar.svelte";
 
     interface Props {
         editingEncounter: Encounter | null;
@@ -83,7 +84,7 @@
 
     // Add new state for auto-saving
     let saveTimeout: NodeJS.Timeout;
-    const AUTOSAVE_DELAY = 2000; // 2 seconds
+    const AUTOSAVE_DELAY = 250;
 
     // Add subsystem state variables
     let skillChecks = $state<SkillCheck[]>([]);
@@ -279,6 +280,7 @@
 
     // Auto-save function
     async function autoSave() {
+        console.log("Auto-saving draft encounter...");
         if (saveTimeout) clearTimeout(saveTimeout);
 
         // Do not autosave if we are editing an existing encounter
@@ -290,6 +292,7 @@
                     localStorageKey,
                     JSON.stringify(wipEncounter),
                 );
+                console.log("Draft encounter auto-saved");
                             } catch (e) {
                 error = e instanceof Error ? e.message : "Failed to save draft";
             }
@@ -517,7 +520,7 @@
             case "Extreme":
                 return "difficulty-extreme";
             default:
-                return "";
+            return "difficulty-unknown";
         }
     }
 
@@ -671,6 +674,7 @@
 
     let libraryTabs: LibraryEntityType[] = $state(["creature"]);
     let showLibraryModal = $state(false);
+    let showExperienceInformationModal = $state(false);
     function openLibrary(entityType: LibraryEntityType) {
         //TODO: reset
         if (entityType === "creature") {
@@ -775,6 +779,7 @@
                 <div
                     class="difficulty-indicator {encounterDifficulty.toLowerCase()}"
                 >
+                <div>
                     <div>
                         Total earned XP: <b>{totalEarnedXP}</b>
                         ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount}
@@ -790,6 +795,9 @@
                         level <b>{wipEncounter.party_level}</b> players
                     {/if}
                 </div>
+                    <Button tight onclick={() => showExperienceInformationModal = true}> Learn more </Button>
+                </div>
+                <EncounterDifficultyBar experience={subtotalXPEnemies + subtotalXPHazards} partySize={wipEncounter.party_size} />
             </Card>
         </div>
 
@@ -1112,6 +1120,8 @@
     }}
 >You are updating a session-linked encounter. This will clear any item or gold assignments related to this encounter in the session. Are you sure? </ConfirmationModal>
 
+<EncounterXpCalculatorInfoModal bind:show={showExperienceInformationModal} />
+
 <style>
     .encounters-page {
         padding: 2rem;
@@ -1196,6 +1206,8 @@
 
     .difficulty-indicator {
         padding-left: 1rem;
+        display: flex;
+        justify-content: space-between;
     }
 
     .name-input {

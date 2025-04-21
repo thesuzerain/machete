@@ -9,9 +9,7 @@
     import { 
         getCreatureExperienceFromLevel, 
         getSeverityFromRawExperience, 
-        getRewardForLevelSeverity,
         EncounterDifficulty, 
-        getSeverityFromFinalExperience,
         getHazardExperienceFromLevel
 
 

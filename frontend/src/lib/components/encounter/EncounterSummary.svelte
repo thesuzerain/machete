@@ -73,7 +73,7 @@
             case "Extreme":
                 return "difficulty-extreme";
             default:
-                return "";
+            return "difficulty-unknown";
         }
     }
 
@@ -88,13 +88,6 @@
             sessionIx.set(session.id, ix);
         });
         return sessionIx;
-    });
-    $effect(() => {
-        console.log("sessionIx", sessionIx);
-        console.log("campaignSessions", campaignSessions);
-        console.log("globalCampaignId", globalCampaignId);
-        console.log("campaignSessionStore", $campaignSessionStore);
-        console.log("cc", $campaignSessionStore.get(globalCampaignId || 0));
     });
 </script>
 
