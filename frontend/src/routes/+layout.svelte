@@ -6,6 +6,7 @@
     import "../app.css";
   import CampaignSelector from "$lib/components/selectors/CampaignSelector.svelte";
     import Button from "$lib/components/core/Button.svelte";
+    import NotificationDisplay from "$lib/components/notifications/NotificationDisplay.svelte";
 
   let error: string | null = null;
     let showLoginModal = false;
@@ -63,6 +64,7 @@
         <SignupModal bind:show={showSignupModal} />
 
     </div>
+    <NotificationDisplay />
 {/if}
 
 <style>

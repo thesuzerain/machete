@@ -50,7 +50,6 @@
   --color-light-grey-selected: #333333;
 
 
-
   /* Variables */
   --color-text-light: #ffffff;
   --color-text-dark: #212529;
@@ -69,6 +68,10 @@
   --color-bg: var(--color-bg-white);
   --color-bg-raised: var(--color-grey);
   --color-bg-light-raised: var(--color-light-grey);
+
+  --color-bg-disabled: var(--color-grey);
+  --color-bg-disabled-hover: var(--color-grey);
+  --color-disabled-text: var(--color-text-light);
 
   /* color-bg-border should be a litte darker. You have a few uses of darker ones that should be color-bg-border but it was too bright */
   --color-bg-border: var(--color-light-grey);

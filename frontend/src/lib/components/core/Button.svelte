@@ -5,6 +5,7 @@
         colour? : Colour;
         large? : boolean;
         tight? : boolean;
+        left? : boolean;
         onclick? : () => void;
         selected? : boolean;
         disabled? : boolean;
@@ -15,6 +16,7 @@
     let { 
         colour = 'black',
         large = false,
+        left = false,
         selected = false,
         tight = false,
         submit = false,
@@ -37,9 +39,11 @@
 </script>
 
 <button type={submit ? "submit":"button"} onclick={(e) => onClick(e)} disabled={disabled ?? false} class="{classLargeness} {selected ? classSelectedColour : classColour}" class:selected={shouldSelectedColourVersion}
-    class:disabled={disabled} class:tight={tight}
+    class:disabled={disabled} class:tight={tight} 
 >
+    <div class:left={left}>
         <slot />
+        <div>
     </button>
 
 <style>
@@ -51,6 +55,7 @@
     border-radius: 0.375rem;
     font-weight: 500;
     white-space: nowrap;
+    min-height: 100%;
 }
 
 .button-large {
@@ -128,12 +133,24 @@
 
 .disabled {
     cursor: not-allowed;
-    background-color: #9ca3af;
-    color: white;
+    background-color: var(--color-bg-disabled);
+    color: var(--color-disabled-text);
+}
+
+.disabled:hover {
+    background-color: var(--color-bg-disabled-hover);
 }
 
 .tight {
-    padding: 0.25rem 0.5rem;
+    height: fit-content;
+}
+
+.left {
+    margin-left: 0;
+    align-items: right;
+    display: flex;
+    justify-content: flex-start;
+    margin-right: auto;
 }
 
 </style> 

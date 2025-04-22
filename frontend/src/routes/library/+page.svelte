@@ -17,6 +17,7 @@
     import { goto } from '$app/navigation';
     import type { Encounter } from '$lib/types/encounters';
     import Library from '$lib/components/library/Library.svelte';
+    import { notificationStore } from '$lib/stores/notifications';
 
     export let data: { activeEncounterId: number | null, startTab: string | null };
 
@@ -120,9 +121,6 @@
     // Modify encounter state handling
     let currentEncounter: Encounter | null = null;
     let isEncounterMode = false;
-
-    // Add state for notification
-    let notification: string | null = null;
 
     let lockToCommonRange = false;
 
@@ -260,9 +258,7 @@
             });
             currentEncounter = await responseGet.json();
             
-            // Show success message
-            notification = `Added ${entity.name} to encounter as ${type}`;
-            setTimeout(() => notification = null, 3000); // Clear notification after 3 seconds
+            notificationStore.success(`Added ${entity.name} to encounter as ${type}`);
         } catch (e) {
             console.error(e);
             error = e instanceof Error ? e.message : `Failed to add to encounter`;

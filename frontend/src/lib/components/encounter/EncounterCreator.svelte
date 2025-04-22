@@ -186,7 +186,7 @@
             // TODO: This pattern is repeated in multiple places, consider refactoring
             // Load any enemies that are in current encounters
             const enemyIds = new Set(
-                encounters.flatMap(e => e.enemies ?? []).map((e) => e?.id)
+                encounters.flatMap(e => e.enemies ?? []).concat(wipEncounter.enemies ?? []).map((e) => e?.id)
             );
 
             if (enemyIds.size > 0) {
@@ -197,7 +197,7 @@
 
             // Load any hazards that are in current encounters
             const hazardIds = new Set(
-                encounters.flatMap(e => e.hazards ?? [])
+                encounters.flatMap(e => e.hazards ?? []).concat(wipEncounter.hazards ?? [])
             );
             if (hazardIds.size > 0) {
                 await hazardStore.fetchEntities({
@@ -207,7 +207,7 @@
 
             // Load any items that are in current encounters
             const itemIds = new Set(
-                encounters.flatMap(e => e.treasure_items ?? [])
+                encounters.flatMap(e => e.treasure_items ?? []).concat(wipEncounter.treasure_items ?? [])
             );
             if (itemIds.size > 0) {
                 await itemStore.fetchEntities({
@@ -370,8 +370,8 @@
                     treasure_items: [],
                     extra_experience: 0,
                     treasure_currency: 0,
-                    party_level: 1,
-                    party_size: 4,
+                    party_level: wipEncounter.party_level,
+                    party_size: wipEncounter.party_size,
                     subsystem_type: "chase",
                     subsystem_checks: [],
                 };
@@ -402,8 +402,8 @@
                     treasure_items: [],
                     extra_experience: 0,
                     treasure_currency: 0,
-                    party_level: 1,
-                    party_size: 4,
+                    party_level: wipEncounter.party_level,
+                    party_size:    wipEncounter.party_size,
                     subsystem_type: "chase",
                     subsystem_checks: [],
                 };
@@ -488,6 +488,27 @@
         }, 0),
     );
 
+    let subtotalXPAllCombat: number = $derived(
+        wipEncounter.encounter_type === "combat"
+            ? subtotalXPEnemies + subtotalXPHazards
+            : 0,
+    );
+
+        // Sum up the total XP for the encounter, adjusted by party
+    // Does not include extra experience
+    let subtotalXPPartyAdjusted: number = $derived(
+        getAdjustedExperienceFromPartySize(
+            subtotalXPAllCombat,
+            wipEncounter.party_size,
+        ),
+    );
+    let adjustedXPAmount: number = $derived(
+        subtotalXPPartyAdjusted - (subtotalXPAllCombat),
+    );
+    let totalEarnedXP: number = $derived(
+        subtotalXPPartyAdjusted + wipEncounter.extra_experience,
+    );
+
     async function pickDefaultCampaignForParty(newCampaignId: number | null) {
         if (newCampaignId) {
             const campaign = $campaignStore.get(newCampaignId);
@@ -566,35 +587,22 @@
         ),
     );
 
-    // Sum up the total XP for the encounter, adjusted by party
-    // Does not include extra experience
-    let subtotalXPPartyAdjusted: number = $derived(
-        getAdjustedExperienceFromPartySize(
-            subtotalXPEnemies + subtotalXPHazards,
-            wipEncounter.party_size,
-        ),
-    );
-    let adjustedXPAmount: number = $derived(
-        subtotalXPPartyAdjusted - (subtotalXPEnemies + subtotalXPHazards),
-    );
-    let totalEarnedXP: number = $derived(
-        subtotalXPPartyAdjusted + wipEncounter.extra_experience,
-    );
-
     // Add reactive statements for auto-saving
     // TODO: Are these code smell usages of effect? I don't know enough Svelte yet to say so.
     $effect(() => {
-        autoSave();
-        if (
-            wipEncounter.name &&
-            wipEncounter.description &&
-            wipEncounter.enemies &&
-            wipEncounter.hazards &&
-            wipEncounter.treasure_items &&
-            wipEncounter.extra_experience
-        ) {
-            autoSave();
-        }
+        wipEncounter.name;
+        wipEncounter.description;
+        wipEncounter.encounter_type;
+        wipEncounter.party_size;
+        wipEncounter.party_level;
+        wipEncounter.treasure_currency;
+        wipEncounter.treasure_items;
+        wipEncounter.extra_experience;
+        wipEncounter.subsystem_type;
+        wipEncounter.subsystem_checks;
+        wipEncounter.hazards;
+        wipEncounter.enemies;
+         autoSave()
     });
 
     // Handle encounter type change
@@ -675,47 +683,7 @@
     let libraryTabs: LibraryEntityType[] = $state(["creature"]);
     let showLibraryModal = $state(false);
     let showExperienceInformationModal = $state(false);
-    function openLibrary(entityType: LibraryEntityType) {
-        //TODO: reset
-        if (entityType === "creature") {
-            libraryTabs = ["creature"];
-        } else if (entityType === "hazard") {
-            libraryTabs = ["hazard"];
-        } else if (entityType === "item") {
-            // TODO: Include spells for future use of scrolls, wands
-            libraryTabs = ["item", "spell"];
-        } else {
-            return;
-        }
-        showLibraryModal = true;
-    }
 
-    // TODO: Edit this maybe with a better LibraryEntity definition
-    async function addEntityFromLibrary(
-        entityType: LibraryEntityType,
-        entity: LibraryEntity,
-    ) {
-        // TODO: Maybe remove this? might be better to keep in library
-        return;
-        if (entityType === "creature") {
-            wipEncounter.enemies = [
-                ...(wipEncounter.enemies || []),
-                { id: entity.id, level_adjustment: 0 },
-            ];
-        } else if (entityType === "hazard") {
-            wipEncounter.hazards = [...(wipEncounter.hazards || []), entity.id];
-        } else if (entityType === "item") {
-            wipEncounter.treasure_items = [
-                ...(wipEncounter.treasure_items || []),
-                entity.id,
-            ];
-        }
-
-        // TODO: Spells
-
-        // TODO: patch request here
-        // Do we want to do a patch request here? I dont think we need to
-    }
 </script>
 
 <form>
@@ -726,6 +694,20 @@
                 >Reset encounter editor</Button
             >
         </div>
+        {#if chosenSessionId && editingEncounter && campaignSessions && chosenSessionIndex !== -1}
+        <Card background="red">
+            <div style="display: flex; justify-content: space-between;">
+            <span>You are editing an encounter linked to session {chosenSessionIndex + 1}: <i>{campaignSessions[
+                chosenSessionIndex
+            ].name}</i>. Updating it may result in the session metadata changing.</span>
+            <Button
+                onclick={() => {
+                    if(chosenSessionId) returnToSession(chosenSessionId);
+                }}
+            >Return to session</Button>
+            </div>
+        </Card>
+        {/if}
         <div class="encounter-form-container">
             <Card background="light">
                 <h3>Encounter Configuration</h3>
@@ -757,7 +739,6 @@
                         <input
                             type="number"
                             id="playerCount"
-                            disabled={editingEncounter && chosenSessionId ? true : false}
                             bind:value={wipEncounter.party_size}
                             min="1"
                             max="6"
@@ -768,7 +749,6 @@
                         <input
                             type="number"
                             id="partyLevel"
-                            disabled={editingEncounter ? true : false}
                             bind:value={wipEncounter.party_level}
                             min="1"
                             max="20"
@@ -776,16 +756,16 @@
                     </div>
                 </div>
 
+                {#if wipEncounter.encounter_type === "combat"}
                 <div
-                    class="difficulty-indicator {encounterDifficulty.toLowerCase()}"
+                    class="difficulty-indicator"
                 >
                 <div>
                     <div>
                         Total earned XP: <b>{totalEarnedXP}</b>
-                        ({subtotalXPEnemies} + {subtotalXPHazards} + {adjustedXPAmount}
-                        + {wipEncounter.extra_experience})
+                            ({subtotalXPAllCombat} + {adjustedXPAmount}
+                            + {wipEncounter.extra_experience})
                     </div>
-                    {#if wipEncounter.encounter_type === "combat"}
                         This is a <b
                             class={getClassForDifficulty(encounterDifficulty)}
                             >{encounterDifficulty.toLowerCase()}</b
@@ -793,11 +773,23 @@
                         difficulty encounter for
                         <b>{wipEncounter.party_size}</b>
                         level <b>{wipEncounter.party_level}</b> players
-                    {/if}
                 </div>
                     <Button tight onclick={() => showExperienceInformationModal = true}> Learn more </Button>
                 </div>
-                <EncounterDifficultyBar experience={subtotalXPEnemies + subtotalXPHazards} partySize={wipEncounter.party_size} />
+                <EncounterDifficultyBar experience={subtotalXPAllCombat} partySize={wipEncounter.party_size} />
+                {:else}
+                <div class = "non-combat-indicator">
+                    <p>
+                        Total earned XP: <b>{totalEarnedXP}</b>
+                    </p>
+                    <p>
+                        This is <b>non-combat</b> encounter.
+                    </p>
+
+                </div>
+                
+
+                {/if}
             </Card>
         </div>
 
@@ -1208,6 +1200,10 @@
         padding-left: 1rem;
         display: flex;
         justify-content: space-between;
+    }
+
+    .non-combat-indicator {
+        padding-left: 1rem;
     }
 
     .name-input {

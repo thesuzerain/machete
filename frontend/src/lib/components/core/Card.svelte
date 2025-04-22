@@ -2,7 +2,7 @@
 
     import { fade } from "svelte/transition";
 
-    type BackgroundColour = 'light' | 'grey' | 'dark';
+    type BackgroundColour = 'light' | 'grey' | 'dark' | 'red';
 
     interface Props {
         collapsed?: boolean | undefined;
@@ -79,6 +79,13 @@
 }
 .colour-dark.outlined {
     border: 1px solid var(--color-bg-raised-border);
+}
+
+.colour-red {
+    background: var(--color-bg-error);
+}
+.colour-red.outlined {
+    border: 1px solid var(--color-bg-error-border);
 }
 
 .colour-light {

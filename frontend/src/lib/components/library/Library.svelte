@@ -21,6 +21,7 @@
     import type { CreateOrReplaceEncounter } from '$lib/types/encounters';
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import Button from '../core/Button.svelte';
+    import { notificationStore } from '$lib/stores/notifications';
 
     export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
     export let activeTab: LibraryEntityType  = allowedTabs[0];
@@ -124,8 +125,6 @@
     // Modify encounter state handling
     $: isEncounterMode = editingEncounter;
 
-    // Add state for notification
-    let notification: string | null = null;
 
     let lockToCommonRange = false;
 
@@ -208,10 +207,8 @@
                 break;
             // TODO: Spell
         }
-        
-        // Show success message
-        notification = `Added ${entity.name} to encounter as ${type}`;
-        setTimeout(() => notification = null, 3000); // Clear notification after 3 seconds
+            
+        notificationStore.success(`Added ${entity.name} to encounter as ${type}`, 3000);
     }
 
     async function fetchLibraryData(reset: boolean = false) {
@@ -536,10 +533,6 @@
     {#if loading}
         <div class="loading">Loading more items...</div>
     {/if}
-
-    {#if notification}
-        <div class="notification" transition:fade>{notification}</div>
-    {/if}
 </div>
 
 <style>
@@ -834,19 +827,6 @@
 
     .view-encounter:hover {
         text-decoration: underline;
-    }
-
-
-    .notification {
-        position: fixed;
-        top: 1rem;
-        right: 5rem;
-        background: var(--color-bg-success); 
-        color: var(--color-text-light); 
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        box-shadow: var(--shadow);
-        z-index: 100;
     }
 
     .table-container tr:nth-child(even) {

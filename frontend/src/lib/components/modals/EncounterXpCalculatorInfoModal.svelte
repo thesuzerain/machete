@@ -30,6 +30,9 @@
 </script>
 
 <Modal bind:show closeButton>
+    <div slot="header">
+        <h2>XP and Difficulty Calculation</h2>
+    </div>
     <Card>
         <h3>XP Calculation</h3>
         <p>

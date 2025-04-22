@@ -3,6 +3,7 @@
     import { selectedCampaignStore } from '$lib/stores/campaigns';
     import { campaignSessionStore } from '$lib/stores/campaignSessions';
     import { encounterStore } from '$lib/stores/encounters';
+    import { notificationStore } from '$lib/stores/notifications';
     import type { Encounter } from '$lib/types/encounters';
     import Button from '../core/Button.svelte';
     import Modal from '../core/Modal.svelte';
@@ -28,6 +29,7 @@
         if (!encounter.id || !globalCampaignId) return;
         if (sessionId && globalCampaignId) {
             campaignSessionStore.linkEncounterToSession(globalCampaignId, sessionId, encounter.id);
+            notificationStore.success('Encounter linked to session');
         } 
     }
 

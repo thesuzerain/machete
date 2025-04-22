@@ -93,8 +93,8 @@
 
 {#if size == "short"}
     <Card tight>
-        <div class="accomplishment-card">
-            <div class="accomplishment-info">
+        <div class="short-card">
+            <div class="short-info">
                 <h4>{encounter.name}</h4>
                 {#if encounter.total_experience > 0}
                     <span>XP: {encounter.total_experience}</span>
@@ -117,9 +117,9 @@
     </Card>
 {:else if size == "normal"}
     <Card
-        ><div class="encounter-card">
-            <div class="encounter-info">
-                <div class="encounter-info-row">
+        ><div class="normal-card">
+            <div class="normal-info">
+                <div class="normal-info-row">
                     <h4>{encounter.name}</h4>
                     <span class="encounter-normal-title-row">
                         (<span
@@ -143,9 +143,9 @@
                     </span>
                 </div>
                 {#if encounter.enemies && encounter.enemies.length > 0}
-                    <div class="encounter-info-row">
+                    <div class="normal-info-row">
                         <h5>Enemies:</h5>
-                        <div class="encounter-info-names">
+                        <div class="normal-info-names">
                             {#each encounter.enemies || [] as enemy, i}
                                 {@const enemyData = creatures.entities.get(
                                     enemy.id,
@@ -162,9 +162,9 @@
                     </div>
                 {/if}
                 {#if encounter.hazards && encounter.hazards.length > 0}
-                    <div class="encounter-info-row">
+                    <div class="normal-info-row">
                         <h5>Hazards:</h5>
-                        <div class="encounter-info-names">
+                        <div class="normal-info-names">
                             {#each encounter.hazards || [] as hazard, i}
                                 {@const hazardData =
                                     creatures.entities.get(hazard)}
@@ -179,9 +179,9 @@
                     </div>
                 {/if}
                 {#if encounter.treasure_items.length > 0}
-                    <div class="encounter-info-row">
+                    <div class="normal-info-row">
                         <h5>Items:</h5>
-                        <div class="encounter-info-names">
+                        <div class="normal-info-names">
                             {#each encounter.treasure_items || [] as item, i}
                                 {@const itemData = items.entities.get(item)}
                                 {#if itemData}
@@ -196,7 +196,7 @@
                     </div>
                 {/if}
 
-                <div class="encounter-info-row">
+                <div class="normal-info-row">
                     <p>
                         XP: {encounter.total_experience}, Gold: {encounter.treasure_currency}
                     </p>
@@ -208,7 +208,7 @@
         </div>
     </Card>
 {:else if size == "detailed"}
-    <div class="encounter-meta">
+    <div class="detailed-meta">
         <span class="xp"
             >XP: {encounter.total_experience}
             (<span
@@ -229,11 +229,11 @@
         >
     </div>
 
-    <div class="encounter-description">
+    <div class="detailed-description">
         <p>{encounter.description}</p>
     </div>
 
-    <div class="encounter-details">
+    <div class="detailed-details">
         {#if encounter.enemies && encounter.enemies.length > 0}
             <Card>
                 <h3>Enemies ({encounter.enemies.length})</h3>
@@ -417,18 +417,18 @@
 <div></div>
 
 <style>
-    .accomplishment-card {
+    .short-card {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
-    .accomplishment-info {
+    .short-info {
         display: flex;
         gap: 1rem;
     }
-    .encounter-card {
+    .normal-card {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -439,17 +439,17 @@
         gap: 0.5rem;
     }
 
-    .encounter-info h4 {
+    .normal-info h4 {
         margin-bottom: 0.75rem;
         color: var(--color-text-secondary);
     }
 
-    .encounter-info h5 {
+    .normal-info h5 {
         color: var(--color-text-secondary);
         font-size: 1rem;
     }
 
-    .encounter-info-row {
+    .normal-info-row {
         display: flex;
         gap: 0.5rem;
     }
@@ -458,12 +458,12 @@
         display: flex;
     }
 
-    .encounter-info-names {
+    .normal-info-names {
         display: flex;
         flex-wrap: wrap;
     }
 
-    .encounter-meta {
+    .detailed-meta {
         display: flex;
         gap: 1rem;
         align-items: center;
@@ -477,7 +477,7 @@
         margin-bottom: 0rem;
     }
 
-    .encounter-description {
+    .detailed-description {
         margin-bottom: 1.5rem;
     }
 
@@ -488,13 +488,13 @@
         border-radius: 8px;
     }
 
-    .encounter-details ul {
+    .detailed-details ul {
         list-style: none;
         padding: 0;
         margin: 0;
     }
 
-    .encounter-details li {
+    .detailed-details li {
         padding: 0.75rem;
         background: var(--color-bg);
         border-radius: 4px;
@@ -573,7 +573,7 @@
         min-width: 200px;
     }
 
-    .encounter-details {
+    .detailed-details {
         display: flex;
         flex-direction: column;
         gap: 1rem;

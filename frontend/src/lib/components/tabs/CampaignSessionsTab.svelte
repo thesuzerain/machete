@@ -19,6 +19,7 @@
     import EncounterLinkerModal from '../modals/EncounterLinkerModal.svelte';
     import EncounterSummary from '../encounter/EncounterSummary.svelte';
     import { color } from 'd3';
+    import DropdownButton from '../core/DropdownButton.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -65,7 +66,22 @@
         return previousSession.level_at_end;
     });
 
+    let thisSessionIx = $derived.by(() => {
+        if (!selectedSessionId) return 0;
+        const sessionIxValue = sessionIx.get(selectedSessionId);
+        if (sessionIxValue === undefined) return 0;
+        return sessionIxValue;
+    });
 
+    let nextSessionIx = $derived.by(() => {
+        if (campaignSessions.length <= thisSessionIx) return undefined;
+        return campaignSessions[thisSessionIx + 1];
+    });
+
+    let prevSessionIx = $derived.by(() => {
+        if (thisSessionIx === 0) return undefined;
+        return campaignSessions[thisSessionIx - 1];
+    });
 
     // Calculate total rewards for the session
     interface TotalRewards {
@@ -438,20 +454,47 @@
                 <option value={session.id}>Session {ind}: {session.name}</option>
             {/each}
         </select>
-        <Button colour="blue" onclick={() => initializeSessionReorder()}>
-            Reorder sessions
-        </Button>
-        <Button colour="red" onclick={() => {
-            if (selectedSession) {
-                campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
-                selectedSessionId = null;
+
+        <!-- Next session-->
+         {#if selectedSessionId !== null}
+
+        <Button
+        colour="blue"
+        disabled={!prevSessionIx}
+        onclick={() => {
+            if (prevSessionIx) {
+                selectedSessionId = prevSessionIx.id;
+                handleSessionChange();
             }
-        }}>
-            Delete session
-        </Button>
-        <Button colour="green" onclick={createNewSession}>
-            New session
-        </Button>
+        }}
+    >&lt;</Button>
+
+            <Button
+            colour="blue"
+            disabled={!nextSessionIx}
+            onclick={() => {
+                if (nextSessionIx) {
+                    selectedSessionId = nextSessionIx.id;
+                    handleSessionChange();
+                }
+            }}
+        >&gt;</Button>
+
+
+         {/if}
+ 
+        <DropdownButton colour="blue" label="Session options">
+            <Button left colour="blue" onclick={createNewSession} >Create session</Button>
+            <Button left colour="blue"
+            onclick={() => initializeSessionReorder()}
+            >Reorder sessions</Button>
+            <Button left colour="blue" onclick={() => {
+                if (selectedSession) {
+                    campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
+                    selectedSessionId = null;
+                }
+            }}>Delete session</Button>
+        </DropdownButton>
     </div>
 
     {#if selectedSession}
@@ -678,7 +721,7 @@
 <style>
     .session-selector {
         display: flex;
-        gap: 1rem;
+        gap: 0.5rem;
         margin-bottom: 2rem;
     }
 
