@@ -34,10 +34,10 @@ pub async fn connect() -> Result<PgPool, sqlx::Error> {
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")] // TODO: Camelcase when everything is converted to camelcase
 pub enum LegacyStatus {
+    #[default]
     All,        // Includes both (duplicates)
     Legacy,     // Includes legacy then remaster (but only where no duplicates)
     LegacyOnly, // Only legacy, no remaster
-    #[default]
     Remaster, // Includes remaster then legacy (but only where no duplicates)
     RemasterOnly, // Only remaster, no legacy
 }
