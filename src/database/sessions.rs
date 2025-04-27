@@ -12,6 +12,8 @@ pub struct InsertSession {
     pub name: Option<String>,
     pub description: Option<String>,
     pub play_date: Option<DateTime<Utc>>,
+
+    // Present characters
     pub characters: Option<Vec<InternalId>>,
 }
 
@@ -71,12 +73,13 @@ pub async fn get_sessions(
                     'session_id', csc.session_id,
                     'character_id', csc.character_id,
                     'gold_rewards', csc.gold_rewards,
-                    'item_rewards', csc.item_rewards
+                    'item_rewards', csc.item_rewards,
+                    'present', csc.present
                 )
             ) filter (where csc.session_id is not null) as character_rewards
             FROM (
                 SELECT
-                    csc.session_id, csc.character_id, csc.gold_rewards,
+                    csc.session_id, csc.character_id, csc.gold_rewards, csc.present,
                     ARRAY_AGG(item_id) FILTER (WHERE item_id IS NOT NULL) as item_rewards
                 FROM campaign_session_characters csc
                 LEFT JOIN campaign_session_character_items csci ON csci.character_id = csc.character_id AND csci.session_id = csc.session_id
@@ -103,6 +106,7 @@ pub async fn get_sessions(
             #[derive(Deserialize, Debug)]
             struct RowCharacterRewards {
                 character_id: i32,
+                present: bool,
                 gold_rewards: f64,
                 item_rewards: Option<Vec<i32>>,
                 session_id: i32,
@@ -127,6 +131,7 @@ pub async fn get_sessions(
                                     .iter()
                                     .map(|e| InternalId(*e as u32))
                                     .collect(),
+                                present: row.present,
                                 gold: row.gold_rewards,
                             },
                         );
@@ -260,12 +265,13 @@ pub async fn insert_sessions(
         let characters = characters.iter().map(|e| e.0 as i32).collect::<Vec<i32>>();
         sqlx::query!(
             r#"
-            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards)
-            SELECT $1, character_id, 0
-            FROM UNNEST($2::int[]) as character_id
+            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards, present)
+            SELECT $1, character_id, 0, true
+            FROM UNNEST($2::int[]) as c(character_id)
         "#,
             ids[i].0 as i32,
             &characters,
+
         )
         .execute(&mut **tx)
         .await?;
@@ -653,12 +659,13 @@ pub async fn edit_encounter_session_character_assignments(
     for (character_id, update) in &updates.compiled_rewards {
         sqlx::query!(
             r#"
-            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards)
-            VALUES ($1, $2, $3)
+            INSERT INTO campaign_session_characters (session_id, character_id, gold_rewards, present)
+            VALUES ($1, $2, $3, $4)
             "#,
             session_id.0 as i32,
             character_id.0 as i64,
             update.gold,
+            update.present,
         )
         .execute(&mut **tx)
         .await?;

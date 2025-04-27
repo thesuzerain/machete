@@ -53,6 +53,7 @@ export interface InsertCampaignSession {
 export interface CompiledRewards {
     gold: number;
     items: number[];
+    present: boolean;
 }
 
 export interface InsertCampaignSessionEncounterLinksMetadata {

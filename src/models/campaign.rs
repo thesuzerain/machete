@@ -73,5 +73,6 @@ pub struct CampaignSession {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CampaignSessionCharacterRewards {
     pub gold: f64,
+    pub present: bool,
     pub items: Vec<InternalId>,
 }

@@ -1,0 +1,1 @@
+ALTER TABLE campaign_session_characters ADD COLUMN IF NOT EXISTS present BOOLEAN DEFAULT TRUE;

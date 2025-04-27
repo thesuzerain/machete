@@ -98,6 +98,8 @@ pub struct ImportSession {
 #[derive(Serialize, Debug, Deserialize)]
 pub struct ImportSessionCharacterRewards {
     pub gold: f32,
+    // Default to true (if the reward struct is provided) for backwards compatibility
+    pub present: Option<bool>,
     pub items: Vec<InternalId>,
 }
 
@@ -239,6 +241,7 @@ pub async fn import_with_functions(
                     *character_id,
                     CampaignSessionCharacterRewards {
                         gold: rewards.gold as f64,
+                        present: rewards.present.unwrap_or(true),
                         items: rewards.items.clone(),
                     },
                 ))
@@ -306,6 +309,7 @@ pub async fn export(
                         character.name.clone(),
                         ImportSessionCharacterRewards {
                             gold: rewards.gold as f32,
+                            present: Some(rewards.present),
                             items: rewards.items.to_vec(),
                         },
                     )

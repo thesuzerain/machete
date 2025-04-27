@@ -20,6 +20,7 @@
     import EncounterSummary from '../encounter/EncounterSummary.svelte';
     import { color } from 'd3';
     import DropdownButton from '../core/DropdownButton.svelte';
+    import ConfirmationModal from '../modals/ConfirmationModal.svelte';
 
     interface Props {
         selectedCampaignId: number;
@@ -32,10 +33,12 @@
 
 
     let showSessionOrderModal = $state(false);
+    let deletingSession = $state(false);
     let editingName = $state(false);
     let editingDescription = $state(false);
     let selectedSessionId: number | null = $state(null);
     let showCharacterSelector = $state(false);
+    let showNonPresent = $state(false);
 
     let tempName = $state('');
     let tempDescription = $state('');
@@ -73,14 +76,24 @@
         return sessionIxValue;
     });
 
-    let nextSessionIx = $derived.by(() => {
+    let nextSession = $derived.by(() => {
         if (campaignSessions.length <= thisSessionIx) return undefined;
         return campaignSessions[thisSessionIx + 1];
     });
 
-    let prevSessionIx = $derived.by(() => {
+    let prevSession = $derived.by(() => {
         if (thisSessionIx === 0) return undefined;
         return campaignSessions[thisSessionIx - 1];
+    });
+
+    let firstSession = $derived.by(() => {
+        if (campaignSessions.length === 0) return undefined;
+        return campaignSessions[0];
+    });
+
+    let lastSession = $derived.by(() => {
+        if (campaignSessions.length === 0) return undefined;
+        return campaignSessions[campaignSessions.length - 1];
     });
 
     // Calculate total rewards for the session
@@ -146,10 +159,12 @@
         await handleEncountersUpdate();
         // Update present characters based on compiled rewards
         if (selectedSession) {
+            console.log('selectedSession', selectedSession);
             presentCharacters = new Set(
                 Object.keys(selectedSession.compiled_rewards)
                     .map(Number)
                     .filter(id => id !== -1)
+                    .filter(id => selectedSession.compiled_rewards[id].present)
             );
         } else {
             presentCharacters = new Set();
@@ -200,8 +215,8 @@
         });
         compiledGoldRewards[-1] = session.unassigned_gold_rewards;
 
-        // Add entries for all present characters
-        for (const charId of presentCharacters) {
+        // Add entries for all characters  characters
+        for (const charId of campaignCharacters.map(c => c.id)) {
             const rewards = session.compiled_rewards[charId] || { gold: 0, items: [] };
             compiledGoldRewards[charId] = rewards.gold;
             compiledItemRewardsWithIds[charId] = rewards.items.map((iid, ix) => {
@@ -365,13 +380,15 @@
         const updatedCompiledRewards: Record<number, CompiledRewards> = {};
         
         // Include rewards for all present characters
-        for (const charId of presentCharacters) {
+        for (const charId of campaignCharacters.map(c => c.id)) {
             updatedCompiledRewards[charId] = {
                 gold: compiledGoldRewards[charId] || 0,
+                present: presentCharacters.has(charId),
                 items: compiledItemRewardsWithIds[charId]?.map(item => item.itemId) || []
             };
         }
 
+        console.log("U;dating encounter links metadata with:", updatedCompiledRewards);
         await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId,  
             selectedSession.id, {
             compiled_rewards: updatedCompiledRewards
@@ -416,7 +433,6 @@
 
     async function updateSessionCharacters(characterId: number, present: boolean) {
         if (!selectedSession) return;
-
         if (present) {
             presentCharacters.add(characterId);
         } else {
@@ -435,11 +451,12 @@
 
     async function handleSessionDelete() {
         if (!selectedSession) return;
+        const newSession = prevSession?.id;
         await campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
-        // next session
-        const nextSession = campaignSessions.find(s => s.id !== selectedSession.id);
-        if (nextSession) {
-            selectedSessionId = nextSession.id;
+        console.log('newSession', newSession);
+        if (newSession) {
+            selectedSessionId = newSession;
+            await handleSessionChange();
         } else {
             selectedSessionId = null;
         }
@@ -456,14 +473,25 @@
         </select>
 
         <!-- Next session-->
+         
          {#if selectedSessionId !== null}
+         <Button
+         colour="blue"
+         disabled={!firstSession || selectedSessionId === firstSession.id}
+         onclick={() => {
+             if (firstSession) {
+                 selectedSessionId = firstSession.id;
+                 handleSessionChange();
+             }
+         }}
+     >&lt;&lt;</Button>
 
         <Button
         colour="blue"
-        disabled={!prevSessionIx}
+        disabled={!prevSession}
         onclick={() => {
-            if (prevSessionIx) {
-                selectedSessionId = prevSessionIx.id;
+            if (prevSession) {
+                selectedSessionId = prevSession.id;
                 handleSessionChange();
             }
         }}
@@ -471,14 +499,26 @@
 
             <Button
             colour="blue"
-            disabled={!nextSessionIx}
+            disabled={!nextSession}
             onclick={() => {
-                if (nextSessionIx) {
-                    selectedSessionId = nextSessionIx.id;
+                if (nextSession) {
+                    selectedSessionId = nextSession.id;
                     handleSessionChange();
                 }
             }}
         >&gt;</Button>
+
+
+        <Button
+            colour="blue"
+            disabled={!lastSession || selectedSessionId === lastSession.id}
+            onclick={() => {
+                if (lastSession) {
+                    selectedSessionId = lastSession.id;
+                    handleSessionChange();
+                }
+            }}
+        >&gt;&gt;</Button>
 
 
          {/if}
@@ -489,10 +529,7 @@
             onclick={() => initializeSessionReorder()}
             >Reorder sessions</Button>
             <Button left colour="blue" onclick={() => {
-                if (selectedSession) {
-                    campaignSessionStore.deleteCampaignSession(selectedCampaignId, selectedSession.id);
-                    selectedSessionId = null;
-                }
+                deletingSession = true;
             }}>Delete session</Button>
         </DropdownButton>
     </div>
@@ -644,8 +681,21 @@
                     <p>At end of session, we are level {selectedSession.level_at_end} with {selectedSession.experience_at_end} XP</p>
                 </div>
             </Card>
+            {#if compiledItemRewardsTotal > 0}
+            <div class="non-present-checkbox">
+                
+                <input type="checkbox" bind:checked={showNonPresent} />
+                <label on:click={() => showNonPresent = !showNonPresent}>
+                    
+                
+                Show non-present characters</label>
+            </div>
+            {/if}
+
             <div class="item-division-characters">
                 {#each compiledItemRewardsIter as [cid, characterItems]}
+                {#if showNonPresent || presentCharacters.has(cid) || cid === -1}
+
                 <div class="item-division-character-column">
 
                     {#if compiledGoldTotal > 0 || compiledItemRewardsTotal > 0}
@@ -683,6 +733,8 @@
                     </div>
                     {/if}
                 </div>
+
+                {/if}
                 {/each}
                 </div>
         </div>
@@ -717,6 +769,12 @@
     bind:sessionId={selectedSessionId}
 />
 
+<ConfirmationModal
+    bind:show={deletingSession}
+    on:confirm={handleSessionDelete}
+    on:cancel={() => deletingSession = false}
+    confirmationString="Delete session"
+> Are you sure you want to delete this session? All linked encounters will be unlinked. This action cannot be undone. </ConfirmationModal>
 
 <style>
     .session-selector {
@@ -881,50 +939,11 @@
         gap: 0.5rem;
     }
 
-    .name-description-row {
-        display: flex;
-        gap: 1rem;
-    }
-
-    .name-description-row input {
-        flex: 1;
-    }
-
-    .accomplishment-inputs {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .accomplishment-buttons {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-
-    .custom-xp {
-        display: flex;
-        justify-content: center;
-    }
-
-    .custom-xp input[type="number"] {
-        width: 200px;
-        padding: 0.5rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.375rem;
-        text-align: center;
-    }
-
     .encounters-list h4 {
         margin-bottom: 0.75rem;
         color: var(--color-text-secondary);
     }
 
-    .accomplishment-info {
-        display: flex;
-        gap: 1rem;
-    }
 
     .character-selector {
         margin: 1rem 0;
@@ -947,5 +966,24 @@
         width: 1rem;
         height: 1rem;
     }
+
+    .non-present-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: fit-content;
+        cursor: pointer;
+    }
+
+    .non-present-checkbox input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+        cursor: pointer;
+    }
+
+    .non-present-checkbox label {
+        cursor: pointer;
+    }
+
 
 </style> 
