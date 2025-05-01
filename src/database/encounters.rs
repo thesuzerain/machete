@@ -8,6 +8,7 @@ use crate::models::encounter::{
 use crate::models::ids::InternalId;
 use crate::models::query::CommaSeparatedVec;
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 
 use super::creatures::CreatureFiltering;
 use super::hazards::HazardFiltering;
@@ -785,12 +786,12 @@ pub async fn delete_encounters(
 // Helper function accessing creatures databases to get levels of enemies given their ids and adjustments
 // Used for default experience calculation
 async fn get_levels_enemies(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     enemies: &[InternalId],
     enemy_level_adjustments: &[i16],
 ) -> crate::Result<Vec<i16>> {
     let ids = enemies.iter().map(|id| id.0).collect::<Vec<u32>>();
-    let creatures = super::creatures::get_creatures(exec, &CreatureFiltering::from_ids(&ids))
+    let creatures = super::creatures::get_creatures(conn, &CreatureFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|c| (c.id, c.level))
@@ -812,11 +813,11 @@ async fn get_levels_enemies(
 // Helper function accessing hazards databases to get levels of hazards given their ids
 // Used for default experience calculation
 async fn get_levels_complexities_hazards(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     hazards: &[InternalId],
 ) -> crate::Result<Vec<(i16, bool)>> {
     let ids = hazards.iter().map(|id| id.0).collect::<Vec<u32>>();
-    let hazards_fetched = super::hazards::get_hazards(exec, &HazardFiltering::from_ids(&ids))
+    let hazards_fetched = super::hazards::get_hazards(conn, &HazardFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|h| (h.id, (h.level, h.complex)))
@@ -834,12 +835,12 @@ async fn get_levels_complexities_hazards(
 // Helper function accessing items databases to get values of items given their ids
 // Used for default treasure value calculation
 async fn get_values_items(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     items: &[InternalId],
 ) -> crate::Result<Vec<f32>> {
     // TODO: This needs to handle 'priceless' items better- currently just estimates as 0
     let ids = items.iter().map(|id| id.0).collect::<Vec<u32>>();
-    let items_fetched = super::items::get_items(exec, &ItemFiltering::from_ids(&ids))
+    let items_fetched = super::items::get_items(conn, &ItemFiltering::from_ids(&ids))
         .await?
         .into_iter()
         .map(|i| (i.id, i.price.unwrap_or(0.0) as f32))

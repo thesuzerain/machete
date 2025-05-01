@@ -12,16 +12,15 @@ pub mod hazard;
 pub mod item;
 pub mod spell;
 
-// TODO: It may be prudent here to remove Clone, to prevent accidental duplication of what may be large data structures.
-/// A library of all items that a campaign might reference.
-/// This includes creatures, items, spells, etc.
-/// Currently serving as an application level model for campaign context.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Library {
-    pub items: HashMap<InternalId, LibraryItem>,
-    pub creatures: HashMap<InternalId, LibraryCreature>,
-    pub spells: HashMap<InternalId, LibrarySpell>,
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryObjectType {
+    Creature,
+    Item,
+    Hazard,
+    Spell,
 }
+
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]

@@ -47,6 +47,7 @@
 
 <style>
 .modal-shape {
-    min-width: 100vh;
+    width: 130vh;
+    height: 100vh;
 }
 </style> 

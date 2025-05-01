@@ -3,12 +3,7 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        classes::{ClassSearch, InsertLibraryClass},
-        creatures::{CreatureFiltering, CreatureSearch, InsertLibraryCreature},
-        hazards::{HazardFiltering, HazardSearch, InsertLibraryHazard},
-        items::{InsertLibraryItem, ItemFiltering, ItemSearch},
-        spells::{InsertLibrarySpell, SpellFiltering, SpellSearch},
-        DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
+        classes::{ClassSearch, InsertLibraryClass}, creatures::{CreatureFiltering, CreatureSearch, InsertLibraryCreature}, hazards::{HazardFiltering, HazardSearch, InsertLibraryHazard}, items::{InsertLibraryItem, ItemFiltering, ItemSearch}, spells::{InsertLibrarySpell, SpellFiltering, SpellSearch}, tags::InsertTag, DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT
     },
     models::library::{
         classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
@@ -53,6 +48,8 @@ pub fn router() -> Router<AppState> {
         .route("/classes", get(get_classes))
         .route("/classes/search", get(get_classes_search))
         .route("/classes", post(insert_classes))
+        .route("/tags", post(insert_tags))
+        .route("/tags", get(get_tags))
 }
 
 async fn get_creatures(
@@ -66,7 +63,8 @@ async fn get_creatures(
         )));
     }
 
-    let creatures = database::creatures::get_creatures(&pool, &payload).await?;
+    let mut conn = pool.acquire().await?;
+    let creatures = database::creatures::get_creatures(&mut conn, &payload).await?;
     Ok(Json(creatures))
 }
 
@@ -81,8 +79,9 @@ async fn get_creatures_search(
         )));
     }
 
+    let mut conn = pool.acquire().await?;
     let creatures: HashMap<String, Vec<LibraryCreature>> =
-        database::creatures::get_creatures_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+        database::creatures::get_creatures_search(&mut conn, &payload, DEFAULT_MAX_GROUP_LIMIT)
             .await?
             .into_iter()
             .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
@@ -94,8 +93,9 @@ async fn get_creature_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
+    let mut conn = pool.acquire().await?;
     let payload = CreatureFiltering::from_id(id);
-    let creature = database::creatures::get_creatures(&pool, &payload)
+    let creature = database::creatures::get_creatures(&mut conn, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -125,7 +125,8 @@ async fn get_items(
             DEFAULT_MAX_LIMIT
         )));
     }
-    let items = database::items::get_items(&pool, &payload).await?;
+    let mut conn = pool.acquire().await?;
+    let items = database::items::get_items(&mut conn, &payload).await?;
     Ok(Json(items))
 }
 
@@ -139,8 +140,9 @@ async fn get_items_search(
             DEFAULT_MAX_LIMIT
         )));
     }
+    let mut conn = pool.acquire().await?;
     let items: HashMap<String, Vec<LibraryItem>> =
-        database::items::get_items_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+        database::items::get_items_search(&mut conn, &payload, DEFAULT_MAX_GROUP_LIMIT)
             .await?
             .into_iter()
             .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
@@ -153,7 +155,8 @@ async fn get_item_id(
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
     let payload = ItemFiltering::from_id(id);
-    let item = database::items::get_items(&pool, &payload)
+    let mut conn = pool.acquire().await?;
+    let item = database::items::get_items(&mut conn, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -241,7 +244,8 @@ async fn get_hazards(
             DEFAULT_MAX_LIMIT
         )));
     }
-    let hazards = database::hazards::get_hazards(&pool, &payload).await?;
+    let mut conn = pool.acquire().await?;
+    let hazards = database::hazards::get_hazards(&mut conn, &payload).await?;
     Ok(Json(hazards))
 }
 
@@ -255,8 +259,9 @@ async fn get_hazards_search(
             DEFAULT_MAX_LIMIT
         )));
     }
+    let mut conn = pool.acquire().await?;
     let hazards: HashMap<String, Vec<LibraryHazard>> =
-        database::hazards::get_hazards_search(&pool, &payload, DEFAULT_MAX_GROUP_LIMIT)
+        database::hazards::get_hazards_search(&mut conn, &payload, DEFAULT_MAX_GROUP_LIMIT)
             .await?
             .into_iter()
             .map(|(k, v)| (k, v.into_iter().map(|(_, v)| v).collect()))
@@ -268,8 +273,9 @@ async fn get_hazard_id(
     State(pool): State<PgPool>,
     Path(id): Path<u32>,
 ) -> Result<impl IntoResponse, ServerError> {
+    let mut conn = pool.acquire().await?;
     let payload = HazardFiltering::from_id(id);
-    let hazard = database::hazards::get_hazards(&pool, &payload)
+    let hazard = database::hazards::get_hazards(&mut conn, &payload)
         .await?
         .pop()
         .ok_or(ServerError::NotFound)?;
@@ -329,4 +335,24 @@ async fn insert_classes(
     database::classes::insert_classes(&mut tx, &payload).await?;
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn insert_tags(
+    State(pool): State<PgPool>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Json(payload): Json<Vec<InsertTag>>,
+) -> Result<impl IntoResponse, ServerError> {
+    extract_admin_from_headers(&jar, &headers, &pool).await?;
+    let mut tx = pool.begin().await?;
+    database::tags::insert_tags(&mut tx, &payload).await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_tags(
+    State(pool): State<PgPool>,
+) -> Result<impl IntoResponse, ServerError> {
+    let tags = database::tags::get_tags(&pool).await?;
+    Ok(Json(tags))
 }

@@ -55,6 +55,7 @@ async fn get_encounter(
     Ok(Json(encounters[0].clone()))
 }
 
+#[axum_macros::debug_handler]
 async fn insert_encounter(
     State(pool): State<PgPool>,
     jar: CookieJar,

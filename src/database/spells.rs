@@ -4,11 +4,12 @@ use crate::models::ids::InternalId;
 use crate::models::library::{spell::LibrarySpell, GameSystem, Rarity};
 use crate::ServerError;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::models::query::CommaSeparatedVec;
 
-use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
+use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct SpellFiltering {
@@ -21,8 +22,8 @@ pub struct SpellFiltering {
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
@@ -53,8 +54,8 @@ pub struct SpellSearch {
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
@@ -73,7 +74,8 @@ impl From<SpellFiltering> for SpellSearch {
             max_rank: filter.max_rank,
             rarity: filter.rarity,
             game_system: filter.game_system,
-            tags: filter.tags,
+            traits_all: filter.traits_all,
+            traits_any: filter.traits_any,
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
@@ -88,10 +90,9 @@ pub struct InsertLibrarySpell {
     pub game_system: GameSystem,
     pub rarity: Rarity,
     pub rank: u8,
-    pub tags: Vec<String>,
+    pub tags: Vec<InternalId>,
     pub legacy: bool,
     pub remastering_alt_id: Option<InternalId>,
-    pub traits: Vec<String>,
 
     pub traditions: Vec<String>,
 
@@ -101,7 +102,7 @@ pub struct InsertLibrarySpell {
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     condition: &SpellFiltering,
 ) -> crate::Result<Vec<LibrarySpell>> {
     get_spells_search(
@@ -118,7 +119,7 @@ pub async fn get_spells(
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_spells_search(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres> + Copy,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
@@ -139,16 +140,18 @@ pub async fn get_spells_search(
             .collect::<Vec<i32>>()
     });
 
+    let matching_tags = tags::get_tag_matches(exec, &search.traits_all, &search.traits_any).await?;
+
     let query = sqlx::query!(
         r#"
         SELECT
             c.*, query as "query!"
-        FROM UNNEST($8::text[]) query
+        FROM UNNEST($9::text[]) query
         CROSS JOIN LATERAL (
             SELECT 
                 -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.
                 CASE
-                    WHEN $10::bool THEN 
+                    WHEN $11::bool THEN 
                         CASE
                             WHEN lo.name ILIKE query || '%' THEN 1.01
                             WHEN lo.name ILIKE '%' || query || '%' THEN 1.0
@@ -156,7 +159,7 @@ pub async fn get_spells_search(
                         END
                     ELSE SIMILARITY(lo.name, query)
                 END AS similarity,
-                CASE WHEN $10::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
+                CASE WHEN $11::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
                 lo.id,
                 lo.name,
                 lo.game_system,
@@ -165,32 +168,38 @@ pub async fn get_spells_search(
                 rarity,
                 rank,
                 traditions,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                tags.tags,
+                tags.traits,
                 legacy,
-                remastering_alt_id,
-                traits
+                remastering_alt_id
             FROM library_objects lo
             INNER JOIN library_spells lc ON lo.id = lc.id
-            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-            LEFT JOIN tags t ON lot.tag_id = t.id
-
+            LEFT JOIN (
+                SELECT
+                    library_object_id AS lo_id,
+                    ARRAY_AGG(t.tag) FILTER (WHERE t.trait) AS traits,
+                    ARRAY_AGG(t.tag) FILTER (WHERE NOT t.trait) AS tags
+                FROM library_objects_tags lot
+                INNER JOIN library_tags t ON lot.tag_id = t.id
+                GROUP BY lot.library_object_id
+            ) AS tags ON lo.id = tags.lo_id
             WHERE 1=1
                 AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND ($2::int IS NULL OR rarity = $2)
                 AND ($3::int IS NULL OR game_system = $3)
                 AND ($4::int IS NULL OR rank >= $4)
                 AND ($5::int IS NULL OR rank <= $5)
-                AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
-                AND ($7::int[] IS NULL OR lo.id = ANY($7))
-                AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
-                AND NOT (NOT $11::bool AND lo.legacy = FALSE)
-                AND NOT (NOT $12::bool AND lo.legacy = TRUE)
-                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
-                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND ($6::text[] IS NULL OR tags.traits::text[] && $6::text[])
+                AND ($7::text[] IS NULL OR tags.traits::text[] @> $7::text[])
+                AND ($8::int[] IS NULL OR lo.id = ANY($8))
+                AND (($11::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $10)
+                AND NOT (NOT $12::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $13::bool AND lo.legacy = TRUE)
+                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
 
-
-            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $15 OFFSET $16
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
+            LIMIT $16 OFFSET $17
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -199,7 +208,8 @@ pub async fn get_spells_search(
         search.game_system.as_ref().map(|gs| gs.as_i64() as i32),
         search.min_rank.map(|r| r as i32),
         search.max_rank.map(|r| r as i32),
-        search.tags.first(), // TODO: Incorrect, only returning one tag.
+        matching_tags.any_traits.as_deref(),
+        matching_tags.all_traits.as_deref(),
         &ids as _,
         &search.query,
         min_similarity as f64,
@@ -235,7 +245,7 @@ pub async fn get_spells_search(
                 description: row.description.unwrap_or_default(),
                 traditions: row.traditions,
                 legacy: row.legacy,
-                traits: row.traits,
+                traits: row.traits.unwrap_or_default(),
             };
             map.entry(query)
                 .or_default()
@@ -312,17 +322,33 @@ pub async fn insert_spells(
     for (id, spell) in spells.iter().enumerate() {
         sqlx::query!(
             r#"
-            INSERT INTO library_spells (id, rarity, rank, traditions, traits)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO library_spells (id, rarity, rank, traditions)
+            VALUES ($1, $2, $3, $4)
         "#,
             ids[id] as i32,
             spell.rarity.as_i64() as i32,
             spell.rank as i32,
             &spell.traditions,
-            &spell.traits
         )
         .execute(&mut **tx)
         .await?;
+
+        // Insert tags
+        if !spell.tags.is_empty() {
+            sqlx::query!(
+                r#"
+                INSERT INTO library_objects_tags (library_object_id, tag_id)
+                SELECT $1, unnest($2::int[])
+            "#,
+                ids[id] as i32,
+                &spell
+                    .tags
+                    .iter()
+                    .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+            )
+            .execute(&mut **tx)
+            .await?;
+        }
     }
 
     Ok(())

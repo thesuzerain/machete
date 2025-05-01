@@ -1,4 +1,5 @@
 use super::check_library_requested_ids;
+use super::tags;
 use super::LegacyStatus;
 use super::DEFAULT_MAX_LIMIT;
 use crate::models::ids::InternalId;
@@ -8,7 +9,9 @@ use crate::models::library::{
 };
 use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 use std::collections::HashMap;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -24,8 +27,8 @@ pub struct CreatureFiltering {
     pub alignment: Option<Alignment>,
     pub size: Option<Size>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
 
@@ -66,8 +69,8 @@ pub struct CreatureSearch {
     pub alignment: Option<Alignment>,
     pub size: Option<Size>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
 
@@ -89,7 +92,8 @@ impl From<CreatureFiltering> for CreatureSearch {
             alignment: filter.alignment,
             size: filter.size,
             game_system: filter.game_system,
-            tags: filter.tags,
+            traits_all: filter.traits_all,
+            traits_any: filter.traits_any,
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
@@ -105,12 +109,11 @@ pub struct InsertLibraryCreature {
     pub game_system: GameSystem,
     pub rarity: Rarity,
     pub level: i8,
-    pub tags: Vec<String>,
+    pub tags: Vec<InternalId>,
     pub alignment: Alignment,
     pub size: Size,
     pub legacy: bool,
     pub remastering_alt_id: Option<InternalId>,
-    pub traits: Vec<String>,
 
     pub url: Option<String>,
     pub description: String,
@@ -118,11 +121,11 @@ pub struct InsertLibraryCreature {
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     condition: &CreatureFiltering,
 ) -> crate::Result<Vec<LibraryCreature>> {
     get_creatures_search(
-        exec,
+        conn,
         &CreatureSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
@@ -135,13 +138,14 @@ pub async fn get_creatures(
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_creatures_search(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
     search: &CreatureSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
+
     // TODO: check on number of queries
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
@@ -156,16 +160,17 @@ pub async fn get_creatures_search(
             .collect::<Vec<i32>>()
     });
 
+    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
     let query = sqlx::query!(
         r#"
         SELECT
             c.*, query as "query!"
-        FROM UNNEST($10::text[]) query
+        FROM UNNEST($11::text[]) query
         CROSS JOIN LATERAL (
             SELECT 
                 -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.
                 CASE
-                    WHEN $12::bool THEN 
+                    WHEN $13::bool THEN 
                         CASE
                             WHEN lo.name ILIKE query || '%' THEN 1.01
                             WHEN lo.name ILIKE '%' || query || '%' THEN 1.0
@@ -173,7 +178,7 @@ pub async fn get_creatures_search(
                         END
                     ELSE SIMILARITY(lo.name, query)
                 END AS similarity,
-                CASE WHEN $12::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
+                CASE WHEN $13::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
                 lo.id,
                 lo.name,
                 lo.game_system,
@@ -183,15 +188,21 @@ pub async fn get_creatures_search(
                 level,
                 alignment,
                 size,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                tags.tags,
+                tags.traits,
                 lo.legacy,
-                lo.remastering_alt_id,
-                traits
+                lo.remastering_alt_id
             FROM library_objects lo
             INNER JOIN library_creatures lc ON lo.id = lc.id
-            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-            LEFT JOIN tags t ON lot.tag_id = t.id
-
+            LEFT JOIN (
+                SELECT
+                    library_object_id AS lo_id,
+                    ARRAY_AGG(t.tag) FILTER (WHERE t.trait) AS traits,
+                    ARRAY_AGG(t.tag) FILTER (WHERE NOT t.trait) AS tags
+                FROM library_objects_tags lot
+                INNER JOIN library_tags t ON lot.tag_id = t.id
+                GROUP BY lot.library_object_id
+            ) AS tags ON lo.id = tags.lo_id
             WHERE 
                 ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND ($2::int IS NULL OR rarity = $2)
@@ -200,16 +211,17 @@ pub async fn get_creatures_search(
                 AND ($5::int IS NULL OR level <= $5)
                 AND ($6::int IS NULL OR alignment = $6)
                 AND ($7::int IS NULL OR size = $7)
-                AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
-                AND ($9::int[] IS NULL OR lo.id = ANY($9))
-                AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
-                AND NOT (NOT $13::bool AND lo.legacy = FALSE)
-                AND NOT (NOT $14::bool AND lo.legacy = TRUE)
-                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
-                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND ($8::text[] IS NULL OR tags.traits::text[] && $8::text[])
+                AND ($9::text[] IS NULL OR tags.traits::text[] @> $9::text[])
+                AND ($10::int[] IS NULL OR lo.id = ANY($10))
+                AND (($13::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $12)
+                AND NOT (NOT $14::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $15::bool AND lo.legacy = TRUE)
+                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($17::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
 
-            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $17 OFFSET $18
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
+            LIMIT $18 OFFSET $19
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -220,7 +232,8 @@ pub async fn get_creatures_search(
         search.max_level.map(|l| l as i32),
         search.alignment.as_ref().map(|a| a.as_i64() as i32),
         search.size.as_ref().map(|s| s.as_i64() as i32),
-        search.tags.first(), // TODO: This is entirely incorrect, only returning one tag.
+        matching_tags.any_traits.as_deref() as _,
+        matching_tags.all_traits.as_deref() as _,
         &ids as _,
         &search.query,
         min_similarity,
@@ -241,7 +254,7 @@ pub async fn get_creatures_search(
         .collect::<HashMap<_, _>>();
 
     let creatures = query
-        .fetch_all(exec)
+        .fetch_all(&mut *conn)
         .await?
         .into_iter()
         .fold(hm, |mut map, row| {
@@ -259,7 +272,7 @@ pub async fn get_creatures_search(
                 description: row.description.unwrap_or_default(),
                 legacy: row.legacy,
                 remastering_alt_id: row.remastering_alt_id.map(|id| InternalId(id as u32)),
-                traits: row.traits,
+                traits: row.traits.unwrap_or_default(),
             };
 
             map.entry(query)
@@ -333,15 +346,25 @@ pub async fn insert_creatures(
     for (creature, id) in creatures.iter().zip(ids.iter()) {
         sqlx::query!(
             r#"
-            INSERT INTO library_creatures (id, rarity, level, alignment, size, traits)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO library_creatures (id, rarity, level, alignment, size)
+            VALUES ($1, $2, $3, $4, $5)
             "#,
             id,
             creature.rarity.as_i64() as i32,
             creature.level as i32,
             creature.alignment.as_i64() as i32,
             creature.size.as_i64() as i32,
-            &creature.traits,
+        )
+        .execute(&mut **tx)
+        .await?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO library_objects_tags (library_object_id, tag_id)
+            SELECT $1, id FROM UNNEST ($2::int[]) AS id
+            "#,
+            id,
+            &creature.tags.iter().map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;
