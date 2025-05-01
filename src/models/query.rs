@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+// TODO: With axum, can do multiple query params with the same name. Do we need this?
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct CommaSeparatedVec(pub Vec<u32>);
 

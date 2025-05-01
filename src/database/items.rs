@@ -7,9 +7,11 @@ use crate::models::library::{item::LibraryItem, GameSystem, Rarity};
 
 use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 
-use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
+use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct ItemFiltering {
@@ -24,8 +26,8 @@ pub struct ItemFiltering {
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
     pub relic_gift: Option<bool>,
@@ -73,8 +75,8 @@ pub struct ItemSearch {
     pub name: Option<String>,
     pub rarity: Option<Rarity>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
 
@@ -102,7 +104,8 @@ impl From<ItemFiltering> for ItemSearch {
             rarity: filter.rarity,
             game_system: filter.game_system,
             legacy: filter.legacy,
-            tags: filter.tags,
+            traits_all: filter.traits_all,
+            traits_any: filter.traits_any,
             limit: filter.limit,
             page: filter.page,
             relic_gift: filter.relic_gift,
@@ -120,13 +123,12 @@ pub struct InsertLibraryItem {
     pub game_system: GameSystem,
     pub rarity: Rarity,
     pub level: i8,
-    pub tags: Vec<String>,
     pub price: Option<f64>,
 
     pub url: Option<String>,
     pub description: String,
     pub item_categories: Vec<String>,
-    pub traits: Vec<String>,
+    pub tags: Vec<InternalId>,
     pub consumable: bool,
     pub magical: bool,
     pub legacy: bool,
@@ -152,11 +154,11 @@ pub struct InsertRune {
 }
 
 pub async fn get_items(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     condition: &ItemFiltering,
 ) -> crate::Result<Vec<LibraryItem>> {
     get_items_search(
-        exec,
+        conn,
         &ItemSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
@@ -169,7 +171,7 @@ pub async fn get_items(
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_items_search(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
@@ -189,18 +191,20 @@ pub async fn get_items_search(
             .map(|id| id as i32)
             .collect::<Vec<i32>>()
     });
-
+    
+    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
     // TODO: data type 'as'
+    // TODO: Consider meilisearch/elasticsearch for this
     let query = sqlx::query!(
         r#"
         SELECT
             c.*, query as "query!"
-        FROM UNNEST($10::text[]) query
+        FROM UNNEST($11::text[]) query
         CROSS JOIN LATERAL (
             SELECT 
                 -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.
                 CASE
-                    WHEN $12::bool THEN 
+                    WHEN $13::bool THEN 
                         CASE
                             WHEN lo.name ILIKE query || '%' THEN 1.01
                             WHEN lo.name ILIKE '%' || query || '%' THEN 1.0
@@ -208,7 +212,7 @@ pub async fn get_items_search(
                         END
                     ELSE SIMILARITY(lo.name, query)
                 END AS similarity,
-                CASE WHEN $12::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
+                CASE WHEN $13::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
                 lo.id,
                 lo.name,
                 lo.game_system,
@@ -217,9 +221,9 @@ pub async fn get_items_search(
                 li.rarity,
                 li.level,
                 li.price,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
                 li.item_categories,
-                li.traits,
+                any_value(tags.tags) AS tags,
+                any_value(tags.traits) AS traits,
                 li.consumable,
                 li.magical,
                 li.cursed,
@@ -232,12 +236,18 @@ pub async fn get_items_search(
                 JSON_AGG(JSON_BUILD_OBJECT('skill', sb.skill, 'bonus', sb.bonus)) FILTER (WHERE sb.bonus IS NOT NULL) AS skill_boosts
             FROM library_objects lo
             INNER JOIN library_items li ON lo.id = li.id
-            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-            LEFT JOIN tags t ON lot.tag_id = t.id
+            LEFT JOIN (
+                SELECT
+                    library_object_id AS lo_id,
+                    ARRAY_AGG(t.tag) FILTER (WHERE t.trait) AS traits,
+                    ARRAY_AGG(t.tag) FILTER (WHERE NOT t.trait) AS tags
+                FROM library_objects_tags lot
+                INNER JOIN library_tags t ON lot.tag_id = t.id
+                GROUP BY lot.library_object_id
+            ) AS tags ON lo.id = tags.lo_id
             LEFT JOIN library_items_runes lir ON lo.id = lir.item_id
             LEFT JOIN runes r ON lir.rune_id = r.id
             LEFT JOIN library_items_skill_boosts sb ON lo.id = sb.item_id
-
             WHERE
                 ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND ($2::int IS NULL OR rarity = $2)
@@ -246,19 +256,20 @@ pub async fn get_items_search(
                 AND ($5::int IS NULL OR level <= $5)
                 AND ($6::int IS NULL OR price >= $6)
                 AND ($7::int IS NULL OR price <= $7)
-                AND ($8::text IS NULL OR tag ILIKE '%' || $8 || '%')
-                AND ($9::int[] IS NULL OR lo.id = ANY($9))
-                AND (($12::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $11)
-                AND NOT (NOT $13::bool AND lo.legacy = FALSE)
-                AND NOT (NOT $14::bool AND lo.legacy = TRUE)
-                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
-                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-                AND ($17::bool IS NULL OR ($17::bool AND li.relic_gift_stage IS NOT NULL) OR ($17::bool = FALSE AND li.relic_gift_stage IS NULL))
-                AND ($18::bool IS NULL OR ($18::bool AND li.consumable = TRUE) OR ($18::bool = FALSE AND li.consumable = FALSE))
-                AND ($19::bool IS NULL OR ($19::bool AND li.magical = TRUE) OR ($19::bool = FALSE AND li.magical = FALSE))
-                AND ($20::bool IS NULL OR ($20::bool AND li.cursed = TRUE) OR ($20::bool = FALSE AND li.cursed = FALSE))
+                AND ($8::text[] IS NULL OR tags.traits::text[] && $8::text[])
+                AND ($9::text[] IS NULL OR tags.traits::text[] @> $9::text[])
+                AND ($10::int[] IS NULL OR lo.id = ANY($10))
+                AND (($13::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $12)
+                AND NOT (NOT $14::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $15::bool AND lo.legacy = TRUE)
+                AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($17::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND ($18::bool IS NULL OR ($18::bool AND li.relic_gift_stage IS NOT NULL) OR ($18::bool = FALSE AND li.relic_gift_stage IS NULL))
+                AND ($19::bool IS NULL OR ($19::bool AND li.consumable = TRUE) OR ($19::bool = FALSE AND li.consumable = FALSE))
+                AND ($20::bool IS NULL OR ($20::bool AND li.magical = TRUE) OR ($20::bool = FALSE AND li.magical = FALSE))
+                AND ($21::bool IS NULL OR ($21::bool AND li.cursed = TRUE) OR ($21::bool = FALSE AND li.cursed = FALSE))
             GROUP BY lo.id, li.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $21 OFFSET $22
+            LIMIT $22 OFFSET $23
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -269,7 +280,8 @@ pub async fn get_items_search(
         search.max_level.map(|l| l as i32),
         search.min_price.map(|p| p as i32),
         search.max_price.map(|p| p as i32),
-        search.tags.first(), // TODO: This is incorrect, only returning one tag.
+        matching_tags.any_traits.as_deref() as _,
+        matching_tags.all_traits.as_deref() as _,
         &ids as _,
         &search.query,
         min_similarity,
@@ -285,7 +297,7 @@ pub async fn get_items_search(
         limit as i64,
         offset as i64,
     )
-    .fetch_all(exec)
+    .fetch_all(&mut *conn)
     .await?;
 
     // create initial hm with empty vecs for each query
@@ -325,7 +337,7 @@ pub async fn get_items_search(
             url: row.url,
             description: row.description.unwrap_or_default(),
             item_categories: row.item_categories,
-            traits: row.traits,
+            traits: row.traits.unwrap_or_default(),
             consumable: row.consumable,
             legacy: row.legacy,
             magical: row.magical,
@@ -409,15 +421,14 @@ pub async fn insert_items(
         let apex_stat = item.apex_stat.as_ref().map(|s| s.to_string());
         sqlx::query!(
             r#"
-            INSERT INTO library_items (id, rarity, level, price, item_categories, traits, consumable, magical, cursed, relic_gift_stage, item_type, apex_stat)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            INSERT INTO library_items (id, rarity, level, price, item_categories, consumable, magical, cursed, relic_gift_stage, item_type, apex_stat)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         "#,
             id,
             item.rarity.as_i64() as i32,
             item.level as i32,
             item.price,
             &item.item_categories,
-            &item.traits,
             item.consumable,
             item.magical,
             item.cursed,
@@ -506,6 +517,21 @@ pub async fn insert_items(
                 .iter()
                 .map(|sb| sb.bonus as i32)
                 .collect::<Vec<i32>>(),
+        )
+        .execute(&mut **tx)
+        .await?;
+
+        // Insert tags
+        sqlx::query!(
+            r#"
+            INSERT INTO library_objects_tags (library_object_id, tag_id)
+            SELECT $1, tag_id FROM UNNEST ($2::int[]) tag_ids(tag_id)
+            "#,
+            *id as i32,
+            &item
+                .tags
+                .iter()
+                .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;

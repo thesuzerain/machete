@@ -59,7 +59,7 @@ pub struct InsertLibraryClass {
     pub rarity: Rarity,
     pub url: Option<String>,
     pub description: String,
-    pub tags: Vec<String>,
+    pub tags: Vec<InternalId>,
 
     pub legacy: bool,
     pub remastering_alt_id: Option<InternalId>,
@@ -126,7 +126,7 @@ pub async fn get_classes_search(
             FROM library_objects lo
             INNER JOIN library_classes lc ON lo.id = lc.id
             LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-            LEFT JOIN tags t ON lot.tag_id = t.id
+            LEFT JOIN library_tags t ON lot.tag_id = t.id
             WHERE 1=1
                 AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND (($4::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $3)

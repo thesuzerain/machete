@@ -8,9 +8,11 @@ use crate::models::library::{
 
 use crate::models::query::CommaSeparatedVec;
 use crate::ServerError;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 
-use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
+use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct HazardFiltering {
@@ -26,8 +28,8 @@ pub struct HazardFiltering {
     pub complex: Option<bool>,
     pub haunt: Option<bool>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
 
@@ -68,8 +70,8 @@ pub struct HazardSearch {
     pub complex: Option<bool>,
     pub haunt: Option<bool>,
     pub game_system: Option<GameSystem>,
-    #[serde(default)]
-    pub tags: Vec<String>,
+    pub traits_all: Option<Vec<String>>,
+    pub traits_any: Option<Vec<String>>,
     #[serde(default)]
     pub legacy: LegacyStatus,
 
@@ -92,7 +94,8 @@ impl From<HazardFiltering> for HazardSearch {
             complex: filter.complex,
             haunt: filter.haunt,
             game_system: filter.game_system,
-            tags: filter.tags,
+            traits_all: filter.traits_all,
+            traits_any: filter.traits_any,
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
@@ -107,7 +110,7 @@ pub struct InsertLibraryHazard {
     pub game_system: GameSystem,
     pub rarity: Rarity,
     pub level: i8,
-    pub tags: Vec<String>,
+    pub tags: Vec<InternalId>,
     pub legacy: bool,
     pub remastering_alt_id: Option<InternalId>,
 
@@ -120,11 +123,11 @@ pub struct InsertLibraryHazard {
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_hazards(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     condition: &HazardFiltering,
 ) -> crate::Result<Vec<LibraryHazard>> {
     get_hazards_search(
-        exec,
+        conn,
         &HazardSearch::from(condition.clone()),
         DEFAULT_MAX_LIMIT,
     )
@@ -137,7 +140,7 @@ pub async fn get_hazards(
 
 // TODO: May be prudent to make a separate models system for the database.
 pub async fn get_hazards_search(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    conn: &mut PgConnection,
     // TODO: Could this use be problematic?
     // A postgres alternative can be found here:
     // https://github.com/launchbadge/sqlx/issues/291
@@ -157,16 +160,18 @@ pub async fn get_hazards_search(
             .collect::<Vec<i32>>()
     });
 
+    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
+
     let query = sqlx::query!(
         r#"
         SELECT
             c.*, query as "query!"
-        FROM UNNEST($8::text[]) query
+        FROM UNNEST($9::text[]) query
         CROSS JOIN LATERAL (
             SELECT 
                 -- If we favour exact start, we set similarity to 1.0 if the name starts with the query.
                 CASE
-                    WHEN $10::bool THEN 
+                    WHEN $11::bool THEN 
                         CASE
                             WHEN lo.name ILIKE query || '%' THEN 1.01
                             WHEN lo.name ILIKE '%' || query || '%' THEN 1.0
@@ -174,7 +179,7 @@ pub async fn get_hazards_search(
                         END
                     ELSE SIMILARITY(lo.name, query)
                 END AS similarity,
-                CASE WHEN $10::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
+                CASE WHEN $11::bool THEN length(lo.name) ELSE 0 END AS favor_exact_start_length,
                 lo.id,
                 lo.name,
                 lo.game_system,
@@ -184,31 +189,39 @@ pub async fn get_hazards_search(
                 complex,
                 haunt,
                 level,
-                ARRAY_AGG(DISTINCT tag) FILTER (WHERE tag IS NOT NULL) AS tags,
+                tags.tags,
+                tags.traits,
                 legacy,
                 remastering_alt_id
             FROM library_objects lo
             INNER JOIN library_hazards lc ON lo.id = lc.id
-            LEFT JOIN library_objects_tags lot ON lo.id = lot.library_object_id
-            LEFT JOIN tags t ON lot.tag_id = t.id
-
+            LEFT JOIN (
+                SELECT
+                    library_object_id AS lo_id,
+                    ARRAY_AGG(t.tag) FILTER (WHERE t.trait) AS traits,
+                    ARRAY_AGG(t.tag) FILTER (WHERE NOT t.trait) AS tags
+                FROM library_objects_tags lot
+                INNER JOIN library_tags t ON lot.tag_id = t.id
+                GROUP BY lot.library_object_id
+            ) AS tags ON lo.id = tags.lo_id
             WHERE 1=1
                 AND ($1::text IS NULL OR lo.name ILIKE '%' || $1 || '%')
                 AND ($2::int IS NULL OR rarity = $2)
                 AND ($3::int IS NULL OR game_system = $3)
                 AND ($4::int IS NULL OR level >= $4)
                 AND ($5::int IS NULL OR level <= $5)
-                AND ($6::text IS NULL OR tag ILIKE '%' || $6 || '%')
-                AND ($7::int[] IS NULL OR lo.id = ANY($7))
-                AND (($10::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $9)
-                AND NOT (NOT $11::bool AND lo.legacy = FALSE)
-                AND NOT (NOT $12::bool AND lo.legacy = TRUE)
-                AND NOT ($13::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
-                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-                AND ($15::bool IS NULL OR lc.haunt = $15)
-                AND ($16::bool IS NULL OR lc.complex = $16)
-            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $17 OFFSET $18
+                AND ($6::text[] IS NULL OR tags.traits::text[] && $6::text[])
+                AND ($7::text[] IS NULL OR tags.traits::text[] @> $7::text[])
+                AND ($8::int[] IS NULL OR lo.id = ANY($8))
+                AND (($11::bool AND lo.name ILIKE '%' || query || '%') OR SIMILARITY(lo.name, query) >= $10)
+                AND NOT (NOT $12::bool AND lo.legacy = FALSE)
+                AND NOT (NOT $13::bool AND lo.legacy = TRUE)
+                AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
+                AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
+                AND ($16::bool IS NULL OR lc.haunt = $16)
+                AND ($17::bool IS NULL OR lc.complex = $17)
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
+            LIMIT $18 OFFSET $19
         ) c
         ORDER BY similarity DESC, favor_exact_start_length, c.name 
     "#,
@@ -217,7 +230,8 @@ pub async fn get_hazards_search(
         search.game_system.as_ref().map(|gs| gs.as_i64() as i32),
         search.min_level.map(|r| r as i32),
         search.max_level.map(|r| r as i32),
-        search.tags.first(), // TODO: Incorrect, only returning one tag.
+        matching_tags.any_traits.as_deref(),
+        matching_tags.all_traits.as_deref(),
         &ids as _,
         &search.query,
         min_similarity,
@@ -239,7 +253,7 @@ pub async fn get_hazards_search(
         .map(|q| (q.clone(), Vec::new()))
         .collect::<HashMap<_, _>>();
     let hazards = query
-        .fetch_all(exec)
+        .fetch_all(&mut *conn)
         .await?
         .into_iter()
         .fold(hm, |mut map, row| {
@@ -341,6 +355,23 @@ pub async fn insert_hazards(
     )
     .execute(&mut **tx)
     .await?;
+
+    // Add tags
+   for tag in hazards.iter() {
+        sqlx::query!(
+            r#"
+            INSERT INTO library_objects_tags (library_object_id, tag_id)
+            SELECT * FROM UNNEST ($1::int[], $2::int[])
+            "#,
+            &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
+            &tag
+                .tags
+                .iter()
+                .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
 
     Ok(())
 }

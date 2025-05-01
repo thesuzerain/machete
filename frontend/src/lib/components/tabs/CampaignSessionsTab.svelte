@@ -388,7 +388,6 @@
             };
         }
 
-        console.log("U;dating encounter links metadata with:", updatedCompiledRewards);
         await campaignSessionStore.updateEncounterLinksMetadata(selectedCampaignId,  
             selectedSession.id, {
             compiled_rewards: updatedCompiledRewards

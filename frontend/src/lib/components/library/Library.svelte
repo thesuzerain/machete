@@ -22,11 +22,15 @@
     import { creatureStore, hazardStore, itemStore } from '$lib/stores/libraryStore';
     import Button from '../core/Button.svelte';
     import { notificationStore } from '$lib/stores/notifications';
+    import MultiSelect from '../selectors/MultiSelect.svelte';
+    import { libraryTagsStore } from '$lib/stores/libraryTags';
+    import Card from '../core/Card.svelte';
 
     export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
     export let activeTab: LibraryEntityType  = allowedTabs[0];
     export let editingEncounter: CreateOrReplaceEncounter | null = null;
 
+    $: libraryTraits = $libraryTagsStore[activeTab]?.traits || [];
 
     let loading = false;
     let error: string | null = null;
@@ -34,6 +38,9 @@
     let filterRarity: string = '';
     let filterLegacy = 'remaster';
 
+    let searchTraits: string[] = [];
+    let searchRequiresAll = false;
+    
     let minLevel = -1;
     let maxLevel = 30;
     let minMinLevel: number = -1;
@@ -67,6 +74,7 @@
             { key: 'rarity', label: 'Rarity' },
             { key: 'level', label: 'Level' },
             { key: 'size', label: 'Size' },
+            { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
             { key: 'alignment', label: 'Alignment' },
             { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
@@ -96,9 +104,9 @@
     const defaultColumns: Record<LibraryEntityType, string[]> = {
         class: ['name', 'rarity', 'hp', 'traditions'],
         spell: ['name', 'rarity', 'rank', 'traditions'],
-        creature: ['name', 'rarity', 'level', 'size', 'alignment'],
+        creature: ['name', 'rarity', 'level', 'traits', 'alignment'],
         hazard: ['name', 'rarity', 'level', 'complex'],
-        item: ['name', 'rarity', 'level', 'price', 'item_categories', 'item_type', 'traits', 'runes', 'magical']
+        item: ['name', 'rarity', 'level', 'price', 'item_type', 'traits', 'runes', 'magical']
     };
 
     const ignoredColumns: Record<LibraryEntityType, string[]> = {
@@ -129,7 +137,7 @@
     let lockToCommonRange = false;
 
     // Add these near the top with other state variables
-    let showColumnSelector = false;
+    let showFilterDetails = false;
     let visibleColumns: Record<LibraryEntityType, Set<string>> = {
         class: new Set(defaultColumns.class),
         spell: new Set(defaultColumns.spell),
@@ -162,7 +170,11 @@
     }
 
     onMount(async () => {
-        await fetchLibraryData(true);
+
+        await Promise.all([
+            fetchLibraryData(true),
+            libraryTagsStore.fetch()
+        ]);
     });
 
     function handleRowClick(entity: LibraryEntity) {
@@ -222,7 +234,7 @@
 
         loading = true;
         try {
-            const params = new URLSearchParams({
+            let params = new URLSearchParams({
                 page: page.toString(),
                 limit: LIMIT.toString(),
                 ...(searchQuery && { name: searchQuery }),
@@ -231,6 +243,18 @@
                 ...(maxLevel && { max_level: maxLevel.toString() }),
                 legacy: filterLegacy
             });
+            if (searchTraits.length > 0) {
+                if (searchRequiresAll) {
+                    for (const trait of searchTraits) {
+                        params.append('traits_all', trait);
+                    }
+                } else {
+                    for (const trait of searchTraits) {
+                        params.append('traits_any', trait);
+                    }
+                }
+            }
+
 
             const pluralType = pluralizations[activeTab];
             const response = await fetch(`${API_URL}/library/${pluralType}?${params}`);
@@ -259,6 +283,7 @@
     $: {
         if (searchQuery !== undefined || filterRarity !== undefined || 
             minLevel !== undefined || maxLevel !== undefined || 
+            searchTraits.length > 0 ||
             filterLegacy !== undefined) {
             fetchLibraryData(true);
         }
@@ -286,6 +311,13 @@
 
     function toggleCommonRange() {
         lockToCommonRange = !lockToCommonRange;
+    }
+
+    function toggleAnyAllTraits() {
+        searchRequiresAll = !searchRequiresAll;
+        if (searchTraits.length > 0) {
+            fetchLibraryData(true);
+        }
     }
 
     function formatDetailLabel(key: string): string {
@@ -320,10 +352,13 @@
         <div class="filters">
             <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search name..."
                 bind:value={searchQuery}
                 class="search-input"
             />
+
+            <input type="number" bind:value={minLevel} min={-2} max={maxMaxLevel} placeholder="Min Level" />
+            <input type="number" bind:value={maxLevel} min={-2} max={maxMaxLevel} placeholder="Max Level" />
 
             <select bind:value={filterRarity}>
                 <option value="">All Rarities</option>
@@ -332,26 +367,9 @@
                 <option value="rare">Rare</option>
                 <option value="unique">Unique</option>
             </select>
-
-            <select bind:value={minLevel}>
-                <option value=-2>Min Level</option>
-                {#each Array(33) as _, i}
-                    {#if i-3 + 1 >= minMinLevel && i-3 + 1 <= maxMaxLevel}
-                        <option value={i-3 + 1}>{i-3 + 1}</option>
-                    {/if}
-                {/each}
-            </select>
-
-            <select bind:value={maxLevel}>
-                <option value=-2>Max Level</option>
-                {#each Array(33) as _, i}
-                    {#if i-3 + 1 >= minMinLevel && i-2 + 1 <= maxMaxLevel}
-                        <option value={i-2 + 1}>{i-2 + 1}</option>
-                    {/if}
-                {/each}
-            </select>
-
+            
             <select bind:value={filterLegacy}>
+            >
                 <option value="remaster">Remastered</option>
                 <option value="remaster">Legacy</option>
                 <option value="all">All Versions</option>
@@ -360,30 +378,43 @@
             </select>
         </div>
 
-        <div class="column-selector-container">
-            <Button colour='black' onclick={() => showColumnSelector = !showColumnSelector} >
-                {showColumnSelector ? 'Hide' : 'Show'} Column Selector
-                </Button>
+        <div class="filters">
+            <Button colour='black' onclick={() => showFilterDetails = !showFilterDetails} >
+                {showFilterDetails ? 'Hide' : 'Show'} details
+            </Button>
 
-
-            {#if showColumnSelector}
-                <div class="column-selector" transition:slide>
-                    <h4>Toggle Visible Columns</h4>
-                    <div class="column-options">
-                        {#each columns[activeTab] as column}
-                            <label class="column-option">
-                                <input
-                                    type="checkbox"
-                                    checked={visibleColumns[activeTab].has(column.key)}
-                                    on:change={() => toggleColumn(activeTab, column.key)}
-                                />
-                                {column.label}
-                            </label>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
+            <Button
+                colour='black'
+                onclick={toggleAnyAllTraits}
+            >
+                {searchRequiresAll ? 'Require ALL' : 'Require ANY'}
+            </Button>
+            <MultiSelect
+            bind:selected={searchTraits}
+            options={libraryTraits}
+        />
         </div>
+
+        <div class="filter-details">
+                {#if showFilterDetails}
+                    <Card>
+                        <h4>Toggle Visible Columns</h4>
+                        <div class="column-options">
+                            {#each columns[activeTab] as column}
+                                <label class="column-option">
+                                    <input
+                                        type="checkbox"
+                                        checked={visibleColumns[activeTab].has(column.key)}
+                                        on:change={() => toggleColumn(activeTab, column.key)}
+                                    />
+                                    {column.label}
+                                </label>
+                            {/each}
+                        </div>
+                    </Card>
+                {/if}
+        </div>
+        
 
     </div>
 
@@ -406,6 +437,14 @@
                 </tr>
             </thead>
             <tbody>
+                {#if entities.length === 0}
+                    <tr>
+                        <td colspan={columns[activeTab].length + (isEncounterMode && activeTab === 'creature' ? 1 : 0) + 2}>
+                            No results found.
+                        </td>
+                    </tr>
+                {:else}
+                    
                 {#each entities as entity (entity.id)}
                     <tr 
                         class:expanded={expandedRow === entity.id}
@@ -507,6 +546,8 @@
                         </tr>
                     {/if}
                 {/each}
+                {/if}
+
             </tbody>
         </table>
 
@@ -581,10 +622,20 @@
         margin-bottom: 1rem;
     }
 
+
+    .filters input[type="number"] {
+        max-width: 5rem;
+    }
+
+    .filters select {
+        max-width: 10rem;
+    }
+
     .search-input {
         flex: 1;
         padding: 0.5rem;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--color-bg-light-raised-border);
+
         border-radius: 0.375rem;
         font-size: 0.875rem;
     }
@@ -837,9 +888,10 @@
         background-color: var(--color-bg); /* Default background for odd rows */
     }
 
-    .column-selector-container {
-        margin-bottom: 1rem;
+    .filter-details {
+        display: flex;
     }
+
 
     .column-selector {
         background: var(--color-bg);
@@ -854,14 +906,16 @@
     }
 
     .column-options {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        display: flex;
+        flex-direction: column;
         gap: 0.5rem;
     }
 
     .column-option {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
+        justify-content: left;
+        width: fit-content;
         gap: 0.5rem;
         font-size: 0.875rem;
         cursor: pointer;
