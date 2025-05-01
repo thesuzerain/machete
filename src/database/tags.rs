@@ -127,7 +127,6 @@ pub async fn get_tags(
 ) -> crate::Result<TagList> {
 
     struct FetchRow {
-        id: InternalId,
         tag: String,
         r#trait: bool,
         any_creature: bool,
@@ -157,7 +156,6 @@ pub async fn get_tags(
     .await?
     .into_iter()
     .map(|x| FetchRow {
-        id: InternalId(x.id as u32),
         tag: x.tag,
         r#trait: x.r#trait,
         any_creature: x.any_creature,

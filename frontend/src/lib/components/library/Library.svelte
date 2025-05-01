@@ -357,7 +357,6 @@
                 class="search-input"
             />
 
-            <!-- input scroller for min level> -->
             <input type="number" bind:value={minLevel} min={-2} max={maxMaxLevel} placeholder="Min Level" />
             <input type="number" bind:value={maxLevel} min={-2} max={maxMaxLevel} placeholder="Max Level" />
 
