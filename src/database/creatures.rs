@@ -1,4 +1,6 @@
 use super::check_library_requested_ids;
+use super::sorts::Sortable;
+use super::sorts::SortableColumn;
 use super::tags;
 use super::LegacyStatus;
 use super::DEFAULT_MAX_LIMIT;
@@ -34,6 +36,8 @@ pub struct CreatureFiltering {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl CreatureFiltering {
@@ -76,6 +80,8 @@ pub struct CreatureSearch {
 
     pub page: Option<u64>,
     pub limit: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl From<CreatureFiltering> for CreatureSearch {
@@ -97,7 +103,19 @@ impl From<CreatureFiltering> for CreatureSearch {
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
+            sort_by: filter.sort_by,
+            order_by: filter.order_by,
         }
+    }
+}
+
+impl Sortable for LibraryCreature {
+    fn get_allowed_fields() -> &'static [&'static str] {
+        &["name", "level", "rarity", "size", "alignment"]
+    }
+
+    fn default_sort() -> Option<&'static str> {
+        Some("name")
     }
 }
 
@@ -150,6 +168,11 @@ pub async fn get_creatures_search(
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
+
+    let sort = SortableColumn::<LibraryCreature>::try_parse(
+        search.sort_by.as_deref(),
+        search.order_by.as_deref(),
+    )?;
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
@@ -219,11 +242,17 @@ pub async fn get_creatures_search(
                 AND NOT (NOT $15::bool AND lo.legacy = TRUE)
                 AND NOT ($16::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
                 AND NOT ($17::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-
-            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $18 OFFSET $19
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits 
+            ORDER BY similarity DESC, favor_exact_start_length,
+                CASE WHEN $18::text = 'name' AND $19::int = 1 THEN lo.name::text END ASC,
+                CASE WHEN $18::text = 'name' AND $19::int = -1 THEN lo.name::text END DESC,
+                CASE WHEN $18::text = 'level' THEN level::integer * $19::int END ASC,
+                CASE WHEN $18::text = 'rarity' THEN rarity::integer * $19::int END ASC,
+                CASE WHEN $18::text = 'size' THEN size::integer * $19::int END ASC,
+                CASE WHEN $18::text = 'alignment' THEN alignment::integer * $19::int END ASC
+            LIMIT $20 OFFSET $21
         ) c
-        ORDER BY similarity DESC, favor_exact_start_length, c.name 
+        ORDER BY similarity DESC, favor_exact_start_length 
     "#,
         search.name,
         search.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -242,6 +271,8 @@ pub async fn get_creatures_search(
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
         search.legacy.favor_legacy(),
+        sort.get_column(),
+        sort.get_sort_direction_i32(),
         limit as i64,
         offset as i64,
     );

@@ -6,6 +6,7 @@ use crate::models::ids::InternalId;
 use crate::ServerError;
 use serde::{Deserialize, Serialize};
 
+use super::sorts::{Sortable, SortableColumn};
 use super::{check_library_requested_ids, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -16,6 +17,8 @@ pub struct ClassFilters {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 // Full search functionality for class is maybe overkill, but if we extend to homebrew, etc, it may be useful.
@@ -34,17 +37,34 @@ pub struct ClassSearch {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl From<ClassFilters> for ClassSearch {
     fn from(filters: ClassFilters) -> Self {
         Self {
             query: vec!["".to_string()],
+            min_similarity: None,
+            favor_exact_start: None,
+
             name: filters.name,
+            legacy: filters.legacy,
             limit: filters.limit,
             page: filters.page,
-            ..Default::default()
+            sort_by: filters.sort_by,
+            order_by: filters.order_by,
         }
+    }
+}
+
+impl Sortable for LibraryClass {
+    fn get_allowed_fields() -> &'static [&'static str] {
+        &["name", "hp", "rarity"]
+    }
+
+    fn default_sort() -> Option<&'static str> {
+        Some("name")
     }
 }
 
@@ -93,6 +113,10 @@ pub async fn get_classes_search(
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
+    let sort = SortableColumn::<LibraryClass>::try_parse(
+        search.sort_by.as_deref(),
+        search.order_by.as_deref(),
+    )?;
 
     let query = sqlx::query!(
         r#"
@@ -134,11 +158,15 @@ pub async fn get_classes_search(
                 AND NOT (NOT $6::bool AND lo.legacy = TRUE)
                 AND NOT ($7::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
                 AND NOT ($8::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
-
-            GROUP BY lo.id, lc.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $9 OFFSET $10
+            GROUP BY lo.id, lc.id 
+            ORDER BY similarity DESC, favor_exact_start_length,
+                CASE WHEN $9::text = 'name' AND $10::int = 1 THEN lo.name::text END ASC,
+                CASE WHEN $9::text = 'name' AND $10::int = -1 THEN lo.name::text END DESC,
+                CASE WHEN $9::text = 'hp' THEN lc.hp::int * $10::int END ASC,
+                CASE WHEN $9::text = 'rarity' THEN lc.rarity::int * $10::int END ASC
+            LIMIT $11 OFFSET $12
         ) c
-        ORDER BY similarity DESC, favor_exact_start_length, c.name 
+        ORDER BY similarity DESC, favor_exact_start_length 
     "#,
         search.name,
         &search.query,
@@ -148,6 +176,8 @@ pub async fn get_classes_search(
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
         search.legacy.favor_legacy(),
+        sort.get_column(),
+        sort.get_sort_direction_i32(),
         limit as i64,
         offset as i64,
     );

@@ -6,6 +6,7 @@
         large? : boolean;
         tight? : boolean;
         left? : boolean;
+        outlined?: boolean;
         onclick? : () => void;
         selected? : boolean;
         disabled? : boolean;
@@ -20,6 +21,7 @@
         selected = false,
         tight = false,
         submit = false,
+        outlined = false,
         selectedColour,
         disabled = false,
         onclick
@@ -38,7 +40,7 @@
     }
 </script>
 
-<button type={submit ? "submit":"button"} onclick={(e) => onClick(e)} disabled={disabled ?? false} class="{classLargeness} {selected ? classSelectedColour : classColour}" class:selected={shouldSelectedColourVersion}
+<button type={submit ? "submit":"button"} onclick={(e) => onClick(e)} disabled={disabled ?? false} class:outlined={outlined ?? false} class="{classLargeness} {selected ? classSelectedColour : classColour}" class:selected={shouldSelectedColourVersion}
     class:disabled={disabled} class:tight={tight} 
 >
     <div class:left={left}>
@@ -90,13 +92,13 @@
 }
 
 .color-black {
-    background:var(--color-dark-grey);
+    background:var(--color-off-black);
 }
 .color-black.selected {
-    background-color: var(--color-dark-grey-selected);
+    background-color: var(--color-off-black-selected);
 }
 .color-black:hover {
-    background-color: var(--color-dark-grey-hover);
+    background-color: var(--color-off-black-hover);
 }
 
 .color-blue {
@@ -122,13 +124,16 @@
 }
 .color-grey {
     background: var(--color-grey);
-    color: var(--color-text-light);
+    color: var(--color-text-dark);
 }
 .color-grey.selected {
     background: var(--color-grey-selected);
 }
 .color-grey:hover {
     background: var(--color-grey-hover);
+}
+.color-grey.outlined {
+    border: 1px solid var(--color-grey-border);
 }
 
 .disabled {

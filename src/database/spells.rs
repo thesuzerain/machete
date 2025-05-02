@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::query::CommaSeparatedVec;
 
+use super::sorts::{Sortable, SortableColumn};
 use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -28,6 +29,8 @@ pub struct SpellFiltering {
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl SpellFiltering {
@@ -60,6 +63,8 @@ pub struct SpellSearch {
     pub legacy: LegacyStatus,
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl From<SpellFiltering> for SpellSearch {
@@ -79,7 +84,19 @@ impl From<SpellFiltering> for SpellSearch {
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
+            sort_by: filter.sort_by,
+            order_by: filter.order_by,
         }
+    }
+}
+
+impl Sortable for LibrarySpell {
+    fn get_allowed_fields() -> &'static [&'static str] {
+        &["name", "rank", "rarity"]
+    }
+
+    fn default_sort() -> Option<&'static str> {
+        Some("name")
     }
 }
 
@@ -130,6 +147,10 @@ pub async fn get_spells_search(
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
+    let sort = SortableColumn::<LibrarySpell>::try_parse(
+        search.sort_by.as_deref(),
+        search.order_by.as_deref(),
+    )?;
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
@@ -198,10 +219,15 @@ pub async fn get_spells_search(
                 AND NOT ($14::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = TRUE)
                 AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
 
-            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $16 OFFSET $17
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits 
+            ORDER BY similarity DESC, favor_exact_start_length,
+                CASE WHEN $16::text = 'name' AND $17::int = 1 THEN lo.name::text END ASC,
+                CASE WHEN $16::text = 'name' AND $17::int = -1 THEN lo.name::text END DESC,
+                CASE WHEN $16::text = 'rank' THEN rank::integer * $17::int END ASC,
+                CASE WHEN $16::text = 'rarity' THEN rarity::integer * $17::int END ASC
+            LIMIT $18 OFFSET $19
         ) c
-        ORDER BY similarity DESC, favor_exact_start_length, c.name 
+        ORDER BY similarity DESC, favor_exact_start_length
     "#,
         search.name,
         search.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -218,6 +244,8 @@ pub async fn get_spells_search(
         search.legacy.include_legacy(),
         search.legacy.favor_remaster(),
         search.legacy.favor_legacy(),
+        sort.get_column(),
+        sort.get_sort_direction_i32(),
         limit as i64,
         offset as i64,
     );

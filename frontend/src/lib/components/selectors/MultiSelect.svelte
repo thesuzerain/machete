@@ -14,7 +14,21 @@
     let selectedIndex = 0;
     let inputElement: HTMLInputElement;
 
-    $: filteredOptions = options
+    $: sortedOptions = options.sort((a, b) => {
+        if (a.toLowerCase().startsWith(searchTerm.toLowerCase()) && 
+            b.toLowerCase().startsWith(searchTerm.toLowerCase())) {
+            return a.localeCompare(b);
+        }
+        if (a.toLowerCase().startsWith(searchTerm.toLowerCase())) {
+            return -1;
+        }
+        if (b.toLowerCase().startsWith(searchTerm.toLowerCase())) {
+            return 1;
+        }
+        return a.localeCompare(b)
+    });
+
+    $: filteredOptions = sortedOptions
         .filter(option => 
             !selected.includes(option) && 
             option.toLowerCase().includes(searchTerm.toLowerCase())

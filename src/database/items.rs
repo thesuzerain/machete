@@ -11,6 +11,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sqlx::PgConnection;
 
+use super::sorts::{Sortable, SortableColumn};
 use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -37,6 +38,8 @@ pub struct ItemFiltering {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl ItemFiltering {
@@ -87,6 +90,8 @@ pub struct ItemSearch {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl From<ItemFiltering> for ItemSearch {
@@ -112,7 +117,19 @@ impl From<ItemFiltering> for ItemSearch {
             consumable: filter.consumable,
             magical: filter.magical,
             cursed: filter.cursed,
+            sort_by: filter.sort_by,
+            order_by: filter.order_by,
         }
+    }
+}
+
+impl Sortable for LibraryItem {
+    fn get_allowed_fields() -> &'static [&'static str] {
+        &["name", "level", "price", "rarity"]
+    }
+
+    fn default_sort() -> Option<&'static str> {
+        Some("name")
     }
 }
 
@@ -182,6 +199,10 @@ pub async fn get_items_search(
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
+    let sort = SortableColumn::<LibraryItem>::try_parse(
+        search.sort_by.as_deref(),
+        search.order_by.as_deref(),
+    )?;
 
     let min_similarity = search.min_similarity.unwrap_or(0.0);
 
@@ -268,10 +289,16 @@ pub async fn get_items_search(
                 AND ($19::bool IS NULL OR ($19::bool AND li.consumable = TRUE) OR ($19::bool = FALSE AND li.consumable = FALSE))
                 AND ($20::bool IS NULL OR ($20::bool AND li.magical = TRUE) OR ($20::bool = FALSE AND li.magical = FALSE))
                 AND ($21::bool IS NULL OR ($21::bool AND li.cursed = TRUE) OR ($21::bool = FALSE AND li.cursed = FALSE))
-            GROUP BY lo.id, li.id ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $22 OFFSET $23
+            GROUP BY lo.id, li.id 
+            ORDER BY similarity DESC, favor_exact_start_length,
+                CASE WHEN $22::text = 'name' AND $23::int = 1 THEN lo.name::text END ASC,
+                CASE WHEN $22::text = 'name' AND $23::int = -1 THEN lo.name::text END DESC,
+                CASE WHEN $22::text = 'level' THEN level::integer * $23::int END ASC,
+                CASE WHEN $22::text = 'price' THEN price::integer * $23::int END ASC,
+                CASE WHEN $22::text = 'rarity' THEN li.rarity::integer * $23::int END ASC
+            LIMIT $24 OFFSET $25
         ) c
-        ORDER BY similarity DESC, favor_exact_start_length, c.name 
+        ORDER BY similarity DESC, favor_exact_start_length 
     "#,
         search.name,
         search.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -294,6 +321,8 @@ pub async fn get_items_search(
         search.consumable,
         search.magical,
         search.cursed,
+        sort.get_column(),
+        sort.get_sort_direction_i32(),
         limit as i64,
         offset as i64,
     )

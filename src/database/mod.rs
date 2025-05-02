@@ -18,6 +18,7 @@ pub mod sessions;
 pub mod spells;
 pub mod stats;
 pub mod tags;
+pub mod sorts;
 
 pub const DEFAULT_MAX_LIMIT: u64 = 100;
 pub const DEFAULT_MAX_GROUP_LIMIT: u64 = 25;

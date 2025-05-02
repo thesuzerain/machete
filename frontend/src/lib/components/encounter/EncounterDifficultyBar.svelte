@@ -7,6 +7,10 @@
     }
     let { experience, partySize = 4 }: Props = $props();
 
+    function restrictMaxXp(exp: number): number {
+        return Math.min(exp, experience + 10);
+    }
+
 
     // TODO: modularize, along with css classes
     function getClassForDifficulty(difficulty: EncounterDifficulty): string {
@@ -33,7 +37,7 @@
         a.push([EncounterDifficulty.Low, experienceBoundaries.get(EncounterDifficulty.Low)![0], experienceBoundaries.get(EncounterDifficulty.Low)![1]])
         a.push([EncounterDifficulty.Moderate, experienceBoundaries.get(EncounterDifficulty.Moderate)![0], experienceBoundaries.get(EncounterDifficulty.Moderate)![1]])
         a.push([EncounterDifficulty.Severe, experienceBoundaries.get(EncounterDifficulty.Severe)![0], experienceBoundaries.get(EncounterDifficulty.Severe)![1]])
-        a.push([EncounterDifficulty.Extreme, experienceBoundaries.get(EncounterDifficulty.Extreme)![0], experienceBoundaries.get(EncounterDifficulty.Extreme)![1]])
+        a.push([EncounterDifficulty.Extreme, experienceBoundaries.get(EncounterDifficulty.Extreme)![0], restrictMaxXp(experienceBoundaries.get(EncounterDifficulty.Extreme)![1])])
         return a;
     });
     
@@ -132,6 +136,7 @@
         // If the right one is unknown, condense with middle
         if (difficulties[2] === EncounterDifficulty.Unknown) {
             let [leftXp, rightXp] = experienceBoundaries.get(difficulties[1])!;
+            rightXp = restrictMaxXp(rightXp);
             boundaries.push({
                 difficulty: difficulties[1], 
                 leftPercentage: 25, 
@@ -142,6 +147,7 @@
             experiencePercentage = 25 + (75 * (experience - leftXp) / (rightXp - leftXp));
         } else {
             let [leftXp, rightXp] = experienceBoundaries.get(difficulties[2])!;
+            rightXp = restrictMaxXp(rightXp);
             boundaries.push({
                 difficulty: difficulties[2], 
                 leftPercentage: 75, 
@@ -151,8 +157,7 @@
             });
         }
         
-        
-        
+    
         return [boundaries, experiencePercentage];
     })
 

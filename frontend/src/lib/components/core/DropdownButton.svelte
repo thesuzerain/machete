@@ -11,6 +11,7 @@
         large?: boolean;
         tight?: boolean;
         disabled?: boolean;
+        outlined?: boolean;
         label: string;
     }
 
@@ -19,6 +20,7 @@
         large = false,
         tight = false,
         disabled = false,
+        outlined = false,
         label
     }: Props = $props();
 
@@ -42,6 +44,7 @@ use:clickOutside={{ handler: closeDropdown }}>
         {large}
         {tight}
         {disabled}
+        {outlined}
         onclick={toggleDropdown}
     >
         <div class="button-content">
@@ -117,6 +120,6 @@ color: var(--color-text-light);
 
 .color-grey {
     background: var(--color-grey);
-    color: var(--color-text-light);
+    color: var(--color-text);
 }
 </style>

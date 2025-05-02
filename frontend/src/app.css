@@ -16,34 +16,46 @@
   --color-blue: #007bff;
   --color-blue-hover: #0056b3;
   --color-blue-selected: #1e40af;
+  --color-blue-border: var(--color-dark-grey);
 
   --color-green: #4CAF50;
   --color-green-text: #10b981;
   --color-green-hover: #43A047;
   --color-green-selected: #2d6a4f;
+  --color-green-border: var(--color-dark-grey);
 
   --color-red: #f44336;
   --color-red-text: #ef4444;
   --color-red-hover: #ef5350;
   --color-red-selected: #b71c1c;
   --color-red-bg: #fde8e8;
+  --color-red-border: var(--color-dark-grey);
 
   --color-yellow: #fbbf24;
   --color-yellow-text: #f59e0b;
   --color-yellow-hover: #f59e0b;
   --color-yellow-selected: #b45309;
+  --color-yellow-border: var(--color-dark-grey);
 
   --color-purple: #8b5cf6;
   --color-purple-hover: #7c3aed;
   --color-purple-selected: #521c66;
+  --color-purple-border: var(--color-dark-grey);
 
-  --color-dark-grey: #4b5563;
-  --color-dark-grey-hover: #374151;
-  --color-dark-grey-selected: #1f2937;
+  --color-off-black: #4b5563;
+  --color-off-black-hover: #374151;
+  --color-off-black-selected: #1f2937;
+  --color-off-black-border: #141415;
 
-  --color-grey: #cdd0d1;
+  --color-dark-grey: #a3a3a3;
+  --color-dark-grey-hover: #565c64;
+  --color-dark-grey-selected: #464a4f;
+  --color-dark-grey-border: var(--color-off-black);
+
+  --color-grey: #E9E9ED;
   --color-grey-hover: #9ca3af;
   --color-grey-selected: #374151;
+  --color-grey-border: var(--color-dark-grey);
 
   --color-light-grey: #f9fafb;
   --color-light-grey-hover: #666666;
@@ -89,7 +101,7 @@
   --color-text-error: var(--color-red);
   --color-bg-error: var(--color-red-bg);
   
-  --color-rarity-common: var(--color-grey);
+  --color-rarity-common: var(--color-dark-grey);
   --color-rarity-uncommon: var(--color-yellow);
   --color-rarity-rare: var(--color-blue);
   --color-rarity-unique: var(--color-purple);
@@ -149,7 +161,8 @@ select {
   flex: 1;
   padding: 0.5rem;
   font-size: 1rem;
-  border: 1px solid var(--color-bg-light-raised-border);
+  background-color: var(--color-bg-raised);
+  border: 1px solid var(--color-bg-raised-border);
   border-radius: 0.375rem;
   width: 100%;
 }

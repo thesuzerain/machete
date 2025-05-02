@@ -25,6 +25,9 @@
     import MultiSelect from '../selectors/MultiSelect.svelte';
     import { libraryTagsStore } from '$lib/stores/libraryTags';
     import Card from '../core/Card.svelte';
+    import { SolanaTokenListResolutionStrategy } from '@solana/spl-token-registry';
+    import { SvelteMap } from 'svelte/reactivity';
+    import DropdownButton from '../core/DropdownButton.svelte';
 
     export let allowedTabs: LibraryEntityType[] = ['class', 'spell', 'creature', 'hazard', 'item'];
     export let activeTab: LibraryEntityType  = allowedTabs[0];
@@ -46,6 +49,10 @@
     let minMinLevel: number = -1;
     let maxMaxLevel: number = 30;
 
+    let sortBy : SvelteMap<LibraryEntityType, string> = new SvelteMap();
+
+    let orderBy : SvelteMap<LibraryEntityType, 'asc' | 'desc' > = new SvelteMap();
+
     let page = 0;
     const LIMIT = 100;
 
@@ -57,40 +64,40 @@
     // Column definitions for each entity type
     const columns: Record<LibraryEntityType, TableColumn[]> = {
         class: [
-            { key: 'name', label: 'Name' },
-            { key: 'rarity', label: 'Rarity' },
-            { key: 'hp', label: 'HP' },
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'rarity', label: 'Rarity', sortable: true },
+            { key: 'hp', label: 'HP', sortable: true },
             { key: 'traditions', label: 'Traditions', formatter: (traditions: string[]) => traditions.join(', ') },
         ],
         spell: [
-            { key: 'name', label: 'Name' },
-            { key: 'rarity', label: 'Rarity' },
-            { key: 'rank', label: 'Level' },
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'rarity', label: 'Rarity', sortable: true },
+            { key: 'rank', label: 'Rank', sortable: true },
             { key: 'traditions', label: 'Traditions', formatter: (traditions: string[]) => traditions.join(', ') },
             { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         creature: [
-            { key: 'name', label: 'Name' },
-            { key: 'rarity', label: 'Rarity' },
-            { key: 'level', label: 'Level' },
-            { key: 'size', label: 'Size' },
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'rarity', label: 'Rarity', sortable: true},
+            { key: 'level', label: 'Level', sortable: true },
+            { key: 'size', label: 'Size', sortable: true},
             { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
-            { key: 'alignment', label: 'Alignment' },
+            { key: 'alignment', label: 'Alignment', sortable: true },
             { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         hazard: [
-            { key: 'name', label: 'Name' },
-            { key: 'rarity', label: 'Rarity' },
-            { key: 'level', label: 'Level' },
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'rarity', label: 'Rarity', sortable: true },
+            { key: 'level', label: 'Level', sortable: true },
             { key: 'complex', label: 'Complex', formatter: booleanFormatter },
             { key: 'haunt', label: 'Haunt', formatter: booleanFormatter },
             { key: 'legacy', label: 'Legacy', formatter: booleanFormatter },
         ],
         item: [
-            { key: 'name', label: 'Name' },
-            { key: 'rarity', label: 'Rarity' },
-            { key: 'level', label: 'Level' },
-            { key: 'price', label: 'Price', formatter: (price: any) => formatCurrency(price) },
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'rarity', label: 'Rarity', sortable: true },
+            { key: 'level', label: 'Level', sortable: true },
+            { key: 'price', label: 'Price', sortable: true, formatter: (price: any) => formatCurrency(price) },
             { key: 'item_categories', label: 'Categories', formatter: (categories: string[]) => categories.join(', ') },
             { key: 'item_type', label: 'Type' },
             { key: 'traits', label: 'Traits', formatter: (traits: string[]) => traits.join(', ') },
@@ -131,10 +138,20 @@
     let previewPosition = { x: 0, y: 0 };
 
     // Modify encounter state handling
+    // TODO: Simplify this- don't need the variable 'isEncounterMode' if we can just use the editingEncounter variable
     $: isEncounterMode = editingEncounter;
 
+    if (editingEncounter) {
+            minMinLevel = Math.max(editingEncounter.party_level - 4, -1);
+            maxMaxLevel = editingEncounter.party_level + 3;
 
-    let lockToCommonRange = false;
+            minLevel = Math.max(minLevel || minMinLevel, minMinLevel);
+            maxLevel = Math.min(maxLevel || maxMaxLevel, maxMaxLevel);
+        } else {
+            minMinLevel = -3;
+            maxMaxLevel = 30;
+    }
+
 
     // Add these near the top with other state variables
     let showFilterDetails = false;
@@ -241,6 +258,8 @@
                 ...(filterRarity && { rarity: filterRarity }),
                 ...(minLevel && { min_level: minLevel.toString() }),
                 ...(maxLevel && { max_level: maxLevel.toString() }),
+                ...(sortBy.get(activeTab) && { sort_by: sortBy.get(activeTab) }),
+                ...(orderBy.get(activeTab) && { order_by: orderBy.get(activeTab) }),
                 legacy: filterLegacy
             });
             if (searchTraits.length > 0) {
@@ -296,23 +315,6 @@
         }
     }
 
-    $: {
-        if (lockToCommonRange && editingEncounter) {
-            minMinLevel = Math.max(editingEncounter.party_level - 4, -1);
-            maxMaxLevel = editingEncounter.party_level + 3;
-
-            minLevel = Math.max(minLevel || minMinLevel, minMinLevel);
-            maxLevel = Math.min(maxLevel || maxMaxLevel, maxMaxLevel);
-        } else {
-            minMinLevel = -1;
-            maxMaxLevel = 100;
-        }
-    }
-
-    function toggleCommonRange() {
-        lockToCommonRange = !lockToCommonRange;
-    }
-
     function toggleAnyAllTraits() {
         searchRequiresAll = !searchRequiresAll;
         if (searchTraits.length > 0) {
@@ -360,13 +362,34 @@
             <input type="number" bind:value={minLevel} min={-2} max={maxMaxLevel} placeholder="Min Level" />
             <input type="number" bind:value={maxLevel} min={-2} max={maxMaxLevel} placeholder="Max Level" />
 
-            <select bind:value={filterRarity}>
-                <option value="">All Rarities</option>
-                <option value="common">Common</option>
-                <option value="uncommon">Uncommon</option>
-                <option value="rare">Rare</option>
-                <option value="unique">Unique</option>
-            </select>
+            <DropdownButton outlined colour='grey' label="Rarities">
+                <div class="dropdown-content">
+                    <Card tight>
+                        <label class="rarity-checkbox">
+                            <input type="checkbox" bind:group={filterRarity} value="common" />
+                        Common
+                        </label>
+                    </Card>
+                    <Card tight>
+                        <label class="rarity-checkbox">
+                            <input type="checkbox" bind:group={filterRarity} value="uncommon" />
+                        Uncommon
+                        </label>
+                    </Card>
+                    <Card tight>
+                        <label class="rarity-checkbox">
+                            <input type="checkbox" bind:group={filterRarity} value="rare" />
+                        Rare
+                        </label>
+                    </Card>
+                    <Card tight>
+                        <label class="rarity-checkbox">
+                            <input type="checkbox" bind:group={filterRarity} value="unique" />
+                        Unique
+                        </label>
+                    </Card>
+                </div>
+            </DropdownButton>
             
             <select bind:value={filterLegacy}>
             >
@@ -425,7 +448,36 @@
                     <th></th> <!-- Column for expand/collapse -->
                     {#each columns[activeTab] as column}
                         {#if visibleColumns[activeTab].has(column.key)}
-                            <th>{column.label}</th>
+                            <th>
+                                <span class="column-label-display">
+                                {column.label}
+                                {#if column.sortable}
+                                    <button
+                                        class="sort-button"
+                                        on:click={() => {
+                                            if (sortBy.get(activeTab) === column.key) {
+                                                orderBy.set(activeTab,orderBy.get(activeTab) === 'asc' ? 'desc' : 'asc');
+                                            } else {
+                                                sortBy.set(activeTab,column.key);
+                                                orderBy.set(activeTab,'desc');
+                                            }
+                                            fetchLibraryData(true);
+                                        }}
+                                    >
+                                        {#if sortBy.get(activeTab) === column.key}
+                                            {#if orderBy.get(activeTab) === 'asc'}
+                                                ↑
+                                            {:else}
+                                                ↓
+                                            {/if}
+                                        {:else}
+                                            ⇅
+                                        {/if}
+                                    </button>
+                                {/if}
+                            </span>
+
+                            </th>
                         {/if}
                     {/each}
                     {#if isEncounterMode && activeTab === 'creature'} <!-- Conditional rendering for Experience column -->
@@ -923,6 +975,31 @@
 
     .column-option input {
         cursor: pointer;
+    }
+
+    .column-label-display {
+        display: flex;
+        align-items: center;
+    }
+
+    .sort-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: var(--color-text);
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        overflow: hidden;
+    }
+
+.rarity-checkbox {
+        display: flex;
+        cursor: pointer;
+        gap: 0.5rem;
+        margin-right: 0.5rem;
+        margin-left: 0.5rem;
+        width: max-content;
     }
 
     .rarity-label {

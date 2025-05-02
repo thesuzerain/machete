@@ -12,6 +12,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sqlx::PgConnection;
 
+use super::sorts::{Sortable, SortableColumn};
 use super::{check_library_requested_ids, tags, LegacyStatus, DEFAULT_MAX_LIMIT};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -35,6 +36,8 @@ pub struct HazardFiltering {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl HazardFiltering {
@@ -77,6 +80,8 @@ pub struct HazardSearch {
 
     pub limit: Option<u64>,
     pub page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order_by: Option<String>,
 }
 
 impl From<HazardFiltering> for HazardSearch {
@@ -99,7 +104,19 @@ impl From<HazardFiltering> for HazardSearch {
             legacy: filter.legacy,
             limit: filter.limit,
             page: filter.page,
+            sort_by: filter.sort_by,
+            order_by: filter.order_by,
         }
+    }
+}
+
+impl Sortable for LibraryHazard {
+    fn get_allowed_fields() -> &'static [&'static str] {
+        &["name", "level", "rarity"]
+    }
+
+    fn default_sort() -> Option<&'static str> {
+        Some("name")
     }
 }
 
@@ -152,6 +169,10 @@ pub async fn get_hazards_search(
     let page = search.page.unwrap_or(0);
     let offset = page * limit;
     let min_similarity = search.min_similarity.unwrap_or(0.0);
+    let sort = SortableColumn::<LibraryHazard>::try_parse(
+        search.sort_by.as_deref(),
+        search.order_by.as_deref(),
+    )?;
 
     let ids = search.ids.clone().map(|t| {
         t.into_inner()
@@ -220,10 +241,15 @@ pub async fn get_hazards_search(
                 AND NOT ($15::bool AND lo.remastering_alt_id IS NOT NULL AND lo.legacy = FALSE)
                 AND ($16::bool IS NULL OR lc.haunt = $16)
                 AND ($17::bool IS NULL OR lc.complex = $17)
-            GROUP BY lo.id, lc.id, tags.tags, tags.traits ORDER BY similarity DESC, favor_exact_start_length, lo.name
-            LIMIT $18 OFFSET $19
+            GROUP BY lo.id, lc.id, tags.tags, tags.traits 
+            ORDER BY similarity DESC, favor_exact_start_length,
+                CASE WHEN $18::text = 'name' AND $19::int = 1 THEN lo.name::text END ASC,
+                CASE WHEN $18::text = 'name' AND $19::int = -1 THEN lo.name::text END DESC,
+                CASE WHEN $18::text = 'level' THEN level::integer * $19::int END ASC,
+                CASE WHEN $18::text = 'rarity' THEN rarity::integer * $19::int END ASC
+            LIMIT $20 OFFSET $21
         ) c
-        ORDER BY similarity DESC, favor_exact_start_length, c.name 
+        ORDER BY similarity DESC, favor_exact_start_length 
     "#,
         search.name,
         search.rarity.as_ref().map(|r| r.as_i64() as i32),
@@ -242,6 +268,8 @@ pub async fn get_hazards_search(
         search.legacy.favor_legacy(),
         search.haunt,
         search.complex,
+        sort.get_column(),
+        sort.get_sort_direction_i32(),
         limit as i64,
         offset as i64,
     );
