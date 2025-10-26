@@ -52,7 +52,7 @@
     let showAccomplishmentForm = $state(false);
 
     let canAddAccomplishment = $derived(
-        (useCustomXP && customXPAmount != 0) || accomplishmentType !== null || wipEncounter.treasure_items.length > 0
+        (useCustomXP && customXPAmount != 0) || accomplishmentType !== null || wipEncounter.treasure_items.length > 0 || wipEncounter.treasure_currency > 0
     );
 
     function setCustomXP() {

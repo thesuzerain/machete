@@ -20,7 +20,7 @@ ALTER TABLE library_items ADD COLUMN traits varchar(64)[] NOT NULL DEFAULT '{}';
 ALTER TABLE library_objects ADD COLUMN legacy boolean NOT NULL DEFAULT FALSE;
 
 -- Alternate item for pre/post remastering. If something was renamed, this connects them.
-ALTER TABLE library_objects ADD COLUMN remastering_alt_id int REFERENCES library_objects;
+ALTER TABLE library_objects ADD COLUMN remastering_alt_id INT;
 
 CREATE TABLE library_items_skill_boosts (
     item_id INT REFERENCES library_items(id),

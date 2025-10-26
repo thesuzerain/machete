@@ -45,6 +45,7 @@ pub async fn insert_tags(
     let items: Vec<InsertTag> = items
         .iter()
         .filter(|x| seen.insert(x.tag.clone()))
+        .sorted_by_key(|x| x.id.0)
         .cloned()
         .collect();
 
