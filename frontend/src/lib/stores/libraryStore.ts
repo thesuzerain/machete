@@ -25,6 +25,8 @@ function createLibraryStore<T extends LibraryEntity>(entityType: 'creature' | 'h
     const { subscribe, set, update } = writable(initialState);
 
     // TODO: Explicit type for params
+    // TODO: Filter out any ones that you don't need to fetch here. (eg: if we have item '1' already in the store, skip it from the fetch list. 
+    // May require an explicit ids param and to check all calls to this)
     async function fetchEntities(params: Record<string, string>) {
         const endpoint = routePart[entityType];
         const queryString = new URLSearchParams(params).toString();

@@ -1,5 +1,8 @@
 
 // TODO: Ensure these line up with the things currently being exported from the backend
+
+export type InternalId = number;
+
 export interface Campaign {
     id: number;
     name: string;

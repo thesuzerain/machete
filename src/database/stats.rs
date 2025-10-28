@@ -179,7 +179,9 @@ pub async fn get_campaign_stats(
             expected_consumable.expected_consumable_items_by_end_of_level,
             expected_permanent.expected_permanent_items_by_end_of_level,
             expected_combined_total_treasure_value_start_of_level,
-            expected_combined_total_treasure_value_end_of_level
+            expected_combined_total_treasure_value_end_of_level,
+            unassigned_item_rewards.items as unassigned_items,
+            unassigned_gold.unassigned_gold
         FROM campaigns c
         LEFT JOIN LATERAL (
             SELECT
@@ -209,9 +211,9 @@ pub async fn get_campaign_stats(
                 COUNT(DISTINCT e.id) filter (WHERE e.encounter_type_id = 3) as num_combat_encounters,
                 COUNT(DISTINCT e.id) filter (WHERE e.encounter_type_id = 4) as num_subsystem_encounters,
                 COUNT(DISTINCT cs.id) as num_sessions
-            FROM campaign_sessions cs
+            FROM campaign_sessions_enhanced cs
             LEFT JOIN encounters e ON e.session_id = cs.id
-            INNER JOIN expected_treasures_by_level ex ON ex.level = c.level
+            INNER JOIN expected_treasures_by_level ex ON ex.level = floor(cs.current_level)
             WHERE cs.campaign_id = c.id
         ) by_encounter ON true
         LEFT JOIN LATERAL (
@@ -270,6 +272,20 @@ pub async fn get_campaign_stats(
             ) cd
             WHERE etbl.level <= c.level
         ) expected ON true
+        LEFT JOIN LATERAL (
+            SELECT 
+                array_agg(item) as items
+            FROM (
+                SELECT unnest(cs.unassigned_item_rewards) AS item
+                FROM campaign_sessions cs
+            WHERE cs.campaign_id = c.id
+            ) unassigned_item_rewards   
+        ) unassigned_item_rewards ON true
+        LEFT JOIN LATERAL (
+            SELECT sum(cs.unassigned_gold_rewards) AS unassigned_gold
+            FROM campaign_sessions cs
+            WHERE cs.campaign_id = c.id
+        ) unassigned_gold ON true
         WHERE c.owner = $1 AND c.id = $2    
         "#,
         owner.0 as i32,
@@ -317,6 +333,13 @@ pub async fn get_campaign_stats(
         let treasure_over_level = expected_combined_total_treasure_value_end_of_level - expected_combined_total_treasure_value_start_of_level;
         let expected_combined_total_treasure_value = treasure_over_level * fraction_through_level + expected_combined_total_treasure_value_start_of_level;
         let expected_combined_total_treasure_value = expected_combined_total_treasure_value.round();
+
+        let unassigned_items: Vec<InternalId> = r.unassigned_items.unwrap_or_default()
+            .into_iter()
+            .map(|i| InternalId(i as u32))
+            .collect();
+        let unassigned_gold: f64 = r.unassigned_gold.unwrap_or(0.0);
+
         CampaignStats {
             level: r.level as u32,
             total_xp: r.total_experience.unwrap_or(0) as u32,
@@ -337,6 +360,9 @@ pub async fn get_campaign_stats(
             total_consumable_items_by_level: consumable_items_by_level,
             expected_consumable_items_by_end_of_level,
             character_stats: characters_query,
+            unassigned_items,
+            unassigned_gold,
+
         }
     }).ok_or_else(|| crate::ServerError::NotFound)?;
 

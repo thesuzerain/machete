@@ -13,6 +13,8 @@ export interface CampaignStats {
     total_combined_treasure: number;
     total_treasure_items_value: number;
     total_gold: number;
+    unassigned_items: InternalId[];
+    unassigned_gold: number;
 
     total_expected_combined_treasure: number;
     total_expected_combined_treasure_start_of_level: number;
@@ -25,7 +27,7 @@ export interface CampaignStats {
     expected_consumable_items_by_end_of_level: Record<number, number>;
 
     encounters: EncounterStats[];
-    character_stats: Record<InternalId, CharacterStats>;
+    character_stats: Record<number, CharacterStats>;
 }
 
 export interface CharacterStats {

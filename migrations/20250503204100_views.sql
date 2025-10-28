@@ -2,6 +2,7 @@ CREATE OR REPLACE VIEW campaign_sessions_enhanced AS
 SELECT
     o.id,
     o.campaign_id,
+    any_value(o.session_order) as session_order,
     any_value(session_experience) as session_experience,
     any_value(cumulative_experience) as cumulative_experience,
     any_value(current_level) as current_level,

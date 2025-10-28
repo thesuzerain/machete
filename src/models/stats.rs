@@ -20,6 +20,8 @@ pub struct CampaignStats {
     pub total_combined_treasure: u32,
     pub total_treasure_items_value: u32,
     pub total_gold: u32,
+    pub unassigned_items : Vec<InternalId>,
+    pub unassigned_gold: f64,
 
     pub total_expected_combined_treasure: f32,
     pub total_expected_combined_treasure_start_of_level: f32,

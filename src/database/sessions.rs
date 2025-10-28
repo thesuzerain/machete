@@ -715,7 +715,7 @@ pub async fn edit_encounter_session_character_assignments(
                 INNER JOIN encounters e ON eti.encounter = e.id
                 WHERE session_id = $1
 
-                EXCEPT
+                EXCEPT ALL
                     
                 SELECT item_id as item_reward
                 FROM campaign_session_character_items

@@ -659,7 +659,7 @@ pub async fn edit_encounter(
         encounter.party_size as u8,
     ) + encounter.extra_experience as i32;
     let derived_total_treasure_value =
-        treasure_values.iter().sum::<f32>() + encounter.treasure_currency;
+        treasure_values.iter().sum::<f32>();
 
     sqlx::query!(
         r#"
