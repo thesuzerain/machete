@@ -196,7 +196,8 @@ pub async fn delete_character(
 
     sqlx::query!(
         r#"
-        DELETE FROM campaign_session_character_items
+        UPDATE campaign_items
+        SET character_id = NULL
         WHERE character_id = $1
         "#,
         character_id.0 as i32,

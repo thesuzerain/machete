@@ -212,8 +212,9 @@ pub async fn get_items_search(
             .map(|id| id as i32)
             .collect::<Vec<i32>>()
     });
-    
-    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
+
+    let matching_tags =
+        tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
     // TODO: data type 'as'
     // TODO: Consider meilisearch/elasticsearch for this
     let query = sqlx::query!(
@@ -560,7 +561,9 @@ pub async fn insert_items(
             &item
                 .tags
                 .iter()
-                .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+                .map(|id| id.0 as i32)
+                .sorted()
+                .collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;

@@ -15,10 +15,10 @@ pub mod import;
 pub mod items;
 pub mod logs;
 pub mod sessions;
+pub mod sorts;
 pub mod spells;
 pub mod stats;
 pub mod tags;
-pub mod sorts;
 
 pub const DEFAULT_MAX_LIMIT: u64 = 100;
 pub const DEFAULT_MAX_GROUP_LIMIT: u64 = 25;
@@ -36,10 +36,10 @@ pub async fn connect() -> Result<PgPool, sqlx::Error> {
 #[serde(rename_all = "snake_case")] // TODO: Camelcase when everything is converted to camelcase
 pub enum LegacyStatus {
     #[default]
-    All,        // Includes both (duplicates)
-    Legacy,     // Includes legacy then remaster (but only where no duplicates)
-    LegacyOnly, // Only legacy, no remaster
-    Remaster, // Includes remaster then legacy (but only where no duplicates)
+    All, // Includes both (duplicates)
+    Legacy,       // Includes legacy then remaster (but only where no duplicates)
+    LegacyOnly,   // Only legacy, no remaster
+    Remaster,     // Includes remaster then legacy (but only where no duplicates)
     RemasterOnly, // Only remaster, no legacy
 }
 

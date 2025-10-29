@@ -124,8 +124,10 @@ pub async fn get_encounters(
             FROM encounter_hazards eh WHERE en.id = eh.encounter
         ) eh ON TRUE
         LEFT JOIN LATERAL (
-            SELECT ARRAY_AGG(item) FILTER (WHERE eti.item IS NOT NULL) as items
-            FROM encounter_treasure_items eti WHERE en.id = eti.encounter
+            SELECT 
+                JSONB_AGG(jsonb_build_object('id', ci.id, 'library_item_id', ci.library_item_id))
+             FILTER (WHERE ci.id IS NOT NULL) as items
+            FROM campaign_items ci WHERE en.id = ci.encounter_id
         ) eti ON TRUE
         LEFT JOIN LATERAL (
             SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
@@ -177,9 +179,8 @@ pub async fn get_encounters(
 
             let subsystem_rolls: Vec<EncounterSubsystemCheck> =
                 serde_json::from_value(row.subsystem_rolls.unwrap_or_default()).unwrap_or_default();
-            let encounter_subsystem_type = row
-                .subsystem_type_id
-                .map(EncounterSubsystemType::from_i32);
+            let encounter_subsystem_type =
+                row.subsystem_type_id.map(EncounterSubsystemType::from_i32);
             let encounter_type = EncounterType::from_id_and_parts(
                 row.encounter_type_id,
                 enemies,
@@ -187,6 +188,14 @@ pub async fn get_encounters(
                 encounter_subsystem_type,
                 subsystem_rolls,
             );
+
+            #[derive(serde::Deserialize, Debug)]
+            pub struct EncounterTreasureItem {
+                pub id: InternalId,
+                pub library_item_id: InternalId,
+            }
+            let treasure_items: Vec<EncounterTreasureItem> =
+                serde_json::from_value(row.treasure_items.unwrap_or_default()).unwrap_or_default();
 
             Ok(Encounter {
                 id: InternalId(row.id as u32),
@@ -198,12 +207,10 @@ pub async fn get_encounters(
                 party_size: row.party_size as u32,
                 owner: InternalId(row.owner as u32),
                 encounter_type,
-                treasure_items: row
-                    .treasure_items
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|id| InternalId(*id as u32))
-                    .collect(),
+                treasure_items: treasure_items
+                    .into_iter()
+                    .map(|item| InternalId(item.library_item_id.0))
+                    .collect(), // TODO: wrong need to adjust model as well
                 treasure_currency: row.treasure_currency.unwrap_or(0.0) as f32,
                 extra_experience: row.extra_experience,
                 total_experience: row.total_experience,
@@ -271,10 +278,10 @@ pub async fn insert_encounters(
             .map(|e| e.level_adjustment)
             .collect::<Vec<i16>>();
         let enemy_levels =
-            get_levels_enemies(&mut **tx, &enemy_ids, &enemy_level_adjustments).await?;
+            get_levels_enemies(tx, &enemy_ids, &enemy_level_adjustments).await?;
         let hazard_level_complexities =
-            get_levels_complexities_hazards(&mut **tx, &hazards).await?;
-        let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
+            get_levels_complexities_hazards(tx, &hazards).await?;
+        let treasure_values = get_values_items(tx, &encounter.treasure_items).await?;
 
         // TODO: Mofiy this so that it only does these db call if needed
         // (This may be redundant- it's related to the total_experience value)
@@ -340,7 +347,7 @@ pub async fn insert_encounters(
         // Insert new encounter_treasure_items
         sqlx::query!(
             r#"
-            INSERT INTO encounter_treasure_items (encounter, item)
+            INSERT INTO campaign_items (encounter_id, library_item_id)
             SELECT $1, item
             FROM UNNEST($2::int[]) AS t(item)
             "#,
@@ -530,11 +537,13 @@ pub async fn edit_encounter(
     }
 
     if let Some(treasure_items) = treasure_items {
-        // Drop all existing encounter_treasure_items
+        // Drop all existing campaign_items
+        // TODO: Should we be deleting here?
+        // TODO: This should be a patch
         sqlx::query!(
             r#"
-            DELETE FROM encounter_treasure_items
-            WHERE encounter = $1
+            DELETE FROM campaign_items
+            WHERE encounter_id = $1
             "#,
             encounter_id.0 as i32,
         )
@@ -545,7 +554,7 @@ pub async fn edit_encounter(
         for item in treasure_items {
             sqlx::query!(
                 r#"
-                INSERT INTO encounter_treasure_items (encounter, item)
+                INSERT INTO campaign_items (encounter_id, library_item_id)
                 VALUES ($1, $2)
                 "#,
                 encounter_id.0 as i32,
@@ -647,10 +656,10 @@ pub async fn edit_encounter(
         .iter()
         .map(|e| e.level_adjustment)
         .collect::<Vec<i16>>();
-    let enemy_levels = get_levels_enemies(&mut **tx, &enemy_ids, &enemy_level_adjustments).await?;
+    let enemy_levels = get_levels_enemies(tx, &enemy_ids, &enemy_level_adjustments).await?;
     let hazard_level_complexities =
-        get_levels_complexities_hazards(&mut **tx, &encounter.encounter_type.get_hazards()).await?;
-    let treasure_values = get_values_items(&mut **tx, &encounter.treasure_items).await?;
+        get_levels_complexities_hazards(tx, &encounter.encounter_type.get_hazards()).await?;
+    let treasure_values = get_values_items(tx, &encounter.treasure_items).await?;
 
     let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
         &enemy_levels,
@@ -658,8 +667,7 @@ pub async fn edit_encounter(
         encounter.party_level as u8,
         encounter.party_size as u8,
     ) + encounter.extra_experience as i32;
-    let derived_total_treasure_value =
-        treasure_values.iter().sum::<f32>();
+    let derived_total_treasure_value = treasure_values.iter().sum::<f32>();
 
     sqlx::query!(
         r#"
@@ -698,10 +706,11 @@ pub async fn delete_encounters(
     }
 
     // TODO: Check this again- may be easier to use cascade delete
+    // TODO: Should this be a delete
     sqlx::query!(
         r#"
-        DELETE FROM encounter_treasure_items
-        WHERE encounter = ANY($1::int[])
+        DELETE FROM campaign_items
+        WHERE encounter_id = ANY($1::int[])
         "#,
         &encounter_id
             .iter()

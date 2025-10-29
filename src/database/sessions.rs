@@ -80,9 +80,14 @@ pub async fn get_sessions(
             FROM (
                 SELECT
                     csc.session_id, csc.character_id, csc.gold_rewards, csc.present,
-                    ARRAY_AGG(item_id) FILTER (WHERE item_id IS NOT NULL) as item_rewards
+                    JSONB_AGG(
+                        JSONB_BUILD_OBJECT(
+                            'id', ci.id,
+                            'library_item_id', ci.library_item_id
+                        )                    
+                    ) FILTER (WHERE ci.id IS NOT NULL) as item_rewards
                 FROM campaign_session_characters csc
-                LEFT JOIN campaign_session_character_items csci ON csci.character_id = csc.character_id AND csci.session_id = csc.session_id
+                LEFT JOIN campaign_items ci ON ci.character_id = csc.character_id AND ci.session_id = csc.session_id
                 GROUP BY csc.session_id, csc.character_id
              ) csc
             GROUP BY csc.session_id
@@ -108,8 +113,14 @@ pub async fn get_sessions(
                 character_id: i32,
                 present: bool,
                 gold_rewards: f64,
-                item_rewards: Option<Vec<i32>>,
+                item_rewards: Option<Vec<RowCharacterItems>>,
                 session_id: i32,
+            }
+
+            #[derive(Deserialize, Debug)]
+            struct RowCharacterItems {
+                id: i32,
+                library_item_id: i32,
             }
 
             let character_rewards: Vec<RowCharacterRewards> = row
@@ -129,7 +140,7 @@ pub async fn get_sessions(
                                     .item_rewards
                                     .unwrap_or_default()
                                     .iter()
-                                    .map(|e| InternalId(*e as u32))
+                                    .map(|e| InternalId(e.library_item_id as u32))
                                     .collect(),
                                 present: row.present,
                                 gold: row.gold_rewards,
@@ -295,10 +306,11 @@ pub async fn delete_session(
     .execute(&mut **tx)
     .await?;
 
-    // First delete campaign_session_characters, campaign_session_character_items
+    // First delete campaign_session_characters, campaign_items
     sqlx::query!(
         r#"
-        DELETE FROM campaign_session_character_items
+        UPDATE campaign_items
+        SET session_id = NULL, character_id = NULL
         WHERE session_id = $1
         "#,
         session_id.0 as i32,
@@ -377,17 +389,12 @@ pub async fn link_encounter_to_session(
     .execute(&mut **tx)
     .await?;
 
-    // Add items and gold of linked encounter to unassigned rewards
+    // Add gold of linked encounter to unassigned rewards
     sqlx::query!(
         r#"
             UPDATE campaign_sessions
             SET 
-                unassigned_gold_rewards = unassigned_gold_rewards + e.treasure_currency,
-                unassigned_item_rewards = unassigned_item_rewards || ARRAY(
-                    SELECT item
-                    FROM encounter_treasure_items
-                    WHERE encounter = $2
-                )
+                unassigned_gold_rewards = unassigned_gold_rewards + e.treasure_currency
             FROM (SELECT * FROM encounters WHERE id = $2) e
             WHERE campaign_sessions.id = $1
         "#,
@@ -423,11 +430,9 @@ pub async fn unlink_encounter_from_session(
     // First, check if the encounter is linked to a session, and return some metadata. If not, return early.
     let res = sqlx::query!(
         r#"
-        SELECT session_id, treasure_currency, ARRAY_AGG(item) filter (where item is not null) as treasure_items
+        SELECT session_id, treasure_currency
         FROM encounters e
-        LEFT JOIN encounter_treasure_items eti ON e.id = eti.encounter
         WHERE id = $1
-        GROUP BY e.id
         "#,
         encounter_id.0 as i64,
     )
@@ -438,7 +443,7 @@ pub async fn unlink_encounter_from_session(
         return Ok(None);
     };
 
-    // Update encounter, getting the gold and items it contributed
+    // Update encounter to unlink it from the session
     sqlx::query!(
         r#"
         UPDATE encounters SET session_id = NULL WHERE id = $1
@@ -464,15 +469,12 @@ pub async fn unlink_encounter_from_session(
     .await?;
 
     let mut gold: f64 = res.treasure_currency.unwrap_or_default();
-    let mut items: Vec<i32> = res.treasure_items.unwrap_or_default();
-
     let gold_copy = gold;
-    let items_copy = items.clone();
 
     // Fetch unassigned gold and items
     let res = sqlx::query!(
         r#"
-        SELECT unassigned_gold_rewards, unassigned_item_rewards
+        SELECT unassigned_gold_rewards
         FROM campaign_sessions
         WHERE id = $1
         "#,
@@ -481,40 +483,32 @@ pub async fn unlink_encounter_from_session(
     .fetch_one(&mut **tx)
     .await?;
     let mut unassigned_gold_rewards: f64 = res.unassigned_gold_rewards;
-    let mut unassigned_item_rewards: Vec<i32> = res.unassigned_item_rewards;
 
     // Remove as much gold and items as the encounter contributed as possible from unassigned rewards
-    remove_contributions_from_character(
-        &mut gold,
-        &mut items,
-        &mut unassigned_gold_rewards,
-        &mut unassigned_item_rewards,
-    );
+    remove_contributions_from_character(&mut gold, &mut unassigned_gold_rewards);
 
     sqlx::query!(
         r#"
         UPDATE campaign_sessions
-        SET unassigned_gold_rewards = $1, unassigned_item_rewards = $2
-        WHERE id = $3
+        SET unassigned_gold_rewards = $1
+        WHERE id = $2
         "#,
         unassigned_gold_rewards,
-        &unassigned_item_rewards,
         session_id as i32,
     )
     .execute(&mut **tx)
     .await?;
 
     // Exit early if all gold and items were removed
-    if gold == 0.0 && items.is_empty() {
+    if gold == 0.0 {
         return Ok(Some(InternalId(session_id as u32)));
     }
 
     // Fetch total gold and items per character
-    let character_items = sqlx::query!(
+    let character_golds = sqlx::query!(
         r#"
-        SELECT csc.character_id, csc.gold_rewards, ARRAY_AGG(item_id) filter (where item_id is not null) as item_rewards
+        SELECT csc.character_id, csc.gold_rewards
         FROM campaign_session_characters csc
-        LEFT JOIN campaign_session_character_items csci ON csc.character_id = csci.character_id AND csc.session_id = csci.session_id
         WHERE csc.session_id = $1
         GROUP BY csc.character_id, csc.session_id
         "#,
@@ -524,22 +518,13 @@ pub async fn unlink_encounter_from_session(
     .await?
     .into_iter()
     .fold(HashMap::new(), |mut acc, row| {
-        acc.insert(
-            row.character_id as u64,
-            (row.gold_rewards, row.item_rewards.unwrap_or_default()),
-        );
+        acc.insert(row.character_id as u64, row.gold_rewards);
         acc
     });
-    let character_items_clone = character_items.clone();
 
-    // Remove as much gold and items as the encounter contributed as possible from character rewards
-    for (character_id, (mut character_gold, mut character_items)) in character_items {
-        remove_contributions_from_character(
-            &mut gold,
-            &mut items,
-            &mut character_gold,
-            &mut character_items,
-        );
+    // Remove as much gold as the encounter contributed as possible from character rewards
+    for (character_id, mut character_gold) in character_golds {
+        remove_contributions_from_character(&mut gold, &mut character_gold);
         sqlx::query!(
             r#"
             UPDATE campaign_session_characters SET gold_rewards = $1
@@ -551,58 +536,33 @@ pub async fn unlink_encounter_from_session(
         )
         .execute(&mut **tx)
         .await?;
-
-        sqlx::query!(
-            r#"
-            DELETE FROM campaign_session_character_items
-            WHERE session_id = $1 AND character_id = $2
-            "#,
-            session_id as i32,
-            character_id as i64,
-        )
-        .execute(&mut **tx)
-        .await?;
-
-        sqlx::query!(
-            r#"
-            INSERT INTO campaign_session_character_items (session_id, character_id, item_id)
-            SELECT $1, $2, item_id
-            FROM UNNEST($3::int[]) as item_id
-            "#,
-            session_id as i32,
-            character_id as i64,
-            &character_items
-        )
-        .execute(&mut **tx)
-        .await?;
     }
 
-    // Failure to remove all gold and items from rewards is an internal error
-    // It should be invariant that sum of gold and items from encounter == sum of gold and items from rewards
+    // Remove all items- by setting session_id to NULL for all items for which the session and encounter match
+    sqlx::query!(
+        r#"
+        UPDATE campaign_items
+        SET session_id = NULL, character_id = NULL
+        WHERE session_id = $1 AND encounter_id = $2
+        "#,
+        session_id as i32,
+        encounter_id.0 as i64,
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Failure to remove all gold from rewards is an internal error
+    // It should be invariant that sum of gold from encounter == sum of gold from rewards
     // Should not get into either of these blocks unless there is a bug in the code
     if gold > 0.0 {
         return Err(crate::ServerError::InternalError(format!("Could not unlink successfully: inconsistent number of gold. {} gold in characters/unassigned, {} gold in encounter.", gold_copy - gold, gold_copy)));
-    }
-
-    if !items.is_empty() {
-        let character_items = character_items_clone
-            .values()
-            .flat_map(|(_, items)| items)
-            .copied()
-            .collect::<Vec<i32>>();
-        return Err(crate::ServerError::InternalError(format!("Could not unlink successfully: inconsistent number of items. {:?} items in characters/unassigned, {:?} items in encounter.", character_items, items_copy)));
     }
 
     Ok(Some(InternalId(session_id as u32)))
 }
 
 // TODO: This function could be made more efficient- or perhaps moved entirely into Postgres
-fn remove_contributions_from_character(
-    remove_gold: &mut f64,
-    remove_items: &mut Vec<i32>,
-    character_gold: &mut f64,
-    character_items: &mut Vec<i32>,
-) {
+fn remove_contributions_from_character(remove_gold: &mut f64, character_gold: &mut f64) {
     // Remove as much gold as possible
     if remove_gold <= character_gold {
         *character_gold -= *remove_gold;
@@ -611,18 +571,10 @@ fn remove_contributions_from_character(
         *remove_gold -= *character_gold;
         *character_gold = 0.0;
     }
-
-    // Remove as many items as possible
-    // Backwards iteration to allow for removal of items (clone to allow for mutability)
-    for (remove_rx, remove_item) in remove_items.clone().iter().enumerate().rev() {
-        if let Some(pos) = character_items.iter().position(|e| e == remove_item) {
-            character_items.remove(pos);
-            remove_items.remove(remove_rx);
-        }
-    }
 }
 
 // TODO: This function needs to be revisited soon. A lot of updates (even when we are only updating a small part), and it uses unnest poorly. In addition, this route may get hit A LOT.
+// TODO: Update this route with new campaign_items logic
 pub async fn edit_encounter_session_character_assignments(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: InternalId,
@@ -640,7 +592,9 @@ pub async fn edit_encounter_session_character_assignments(
     // Delete all existing character assignments + character item assignments for the session
     sqlx::query!(
         r#"
-            DELETE FROM campaign_session_character_items WHERE session_id = $1
+            UPDATE campaign_items
+            SET session_id = NULL
+            WHERE session_id = $1
         "#,
         session_id.0 as i32,
     )
@@ -670,11 +624,13 @@ pub async fn edit_encounter_session_character_assignments(
         .execute(&mut **tx)
         .await?;
 
+        // TODO: Could be rewritten to use a single query with two-column unnest (For all users in one query)
         sqlx::query!(
             r#"
-            INSERT INTO campaign_session_character_items (session_id, character_id, item_id)
-            SELECT $1, $2, item_id
+            UPDATE campaign_items
+            SET session_id = $1, character_id = $2
             FROM UNNEST($3::int[]) as item_id
+            WHERE campaign_items.id = item_id
             "#,
             session_id.0 as i32,
             character_id.0 as i64,
@@ -695,8 +651,7 @@ pub async fn edit_encounter_session_character_assignments(
         r#"
         UPDATE campaign_sessions
         SET
-            unassigned_gold_rewards = COALESCE(teg.total_encounter_gold,0) - COALESCE(tcg.total_characters_gold,0),
-            unassigned_item_rewards = COALESCE(items_agg.items, '{}')
+            unassigned_gold_rewards = COALESCE(teg.total_encounter_gold,0) - COALESCE(tcg.total_characters_gold,0)
         FROM (
             SELECT SUM(e.treasure_currency) as total_encounter_gold
               FROM encounters e
@@ -706,22 +661,7 @@ pub async fn edit_encounter_session_character_assignments(
             SELECT SUM(csc.gold_rewards) as total_characters_gold
             FROM campaign_session_characters csc
             WHERE session_id = $1
-        ) tcg,
-       (
-            SELECT ARRAY_AGG(item_reward) as items 
-            FROM (
-                SELECT eti.item as item_reward
-                FROM encounter_treasure_items eti
-                INNER JOIN encounters e ON eti.encounter = e.id
-                WHERE session_id = $1
-
-                EXCEPT ALL
-                    
-                SELECT item_id as item_reward
-                FROM campaign_session_character_items
-                WHERE session_id = $1
-            ) all_remaining_items
-        ) items_agg
+        ) tcg
         WHERE campaign_sessions.id = $1
         "#,
         session_id.0 as i32,

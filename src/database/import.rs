@@ -189,13 +189,16 @@ pub async fn import_with_functions(
                 session_order: (ix * 1000) as u32,
                 play_date: s.date,
                 characters: Some(
-                    s.compiled_rewards.keys().map(|character_name| {
+                    s.compiled_rewards
+                        .keys()
+                        .map(|character_name| {
                             character_name_to_id
                                 .get(character_name)
                                 .ok_or(ServerError::BadRequest(format!(
                                     "Character {} not found in 'characters'",
                                     character_name
-                                ))).copied()
+                                )))
+                                .copied()
                         })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),

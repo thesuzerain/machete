@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use super::{characters::Skill, ids::InternalId};
 use crate::models::characters::skill_serialize;
@@ -141,19 +141,15 @@ impl EncounterDifficulty {
             .collect::<Vec<_>>();
 
         // Budgets are halfway between the difficulties
-        let boundary_points = std::iter::once(0).chain(budgets
-            .windows(2)
-            .map(|w| (w[0] + w[1]) / 2))
+        let boundary_points = std::iter::once(0)
+            .chain(budgets.windows(2).map(|w| (w[0] + w[1]) / 2))
             .chain(std::iter::once(i32::MAX))
             .collect::<Vec<_>>();
 
         difficulties
             .iter()
             .zip(boundary_points.iter().zip(boundary_points.iter().skip(1)))
-            .map(|(d, (start, end))| (
-                d.clone(),
-                (start.clone(), end.clone()),
-            ))
+            .map(|(d, (start, end))| (*d, (*start, *end)))
             .collect()
     }
 
@@ -299,15 +295,12 @@ pub fn calculate_total_adjusted_experience(
         }
     }
 
-    let difficulty = EncounterDifficulty::get_difficulty_from_raw_experience(
-        total_experience,
-        party_size,
-    );
+    let difficulty =
+        EncounterDifficulty::get_difficulty_from_raw_experience(total_experience, party_size);
 
     // Adjust the experience based on the difficulty
     let diff_off = party_size as i32 - 4;
-    total_experience - diff_off * difficulty.extra_player_experience_delta() 
-    
+    total_experience - diff_off * difficulty.extra_player_experience_delta()
 }
 
 pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
@@ -329,33 +322,71 @@ pub fn calculate_enemy_experience(level: i8, party_level: u8) -> i32 {
 mod tests {
     use super::{calculate_total_adjusted_experience, EncounterDifficulty};
 
-
     #[test]
     fn test_experience_calculation() {
-        // Basic test- simple when 4 players 
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5], &[], 5, 4), 160);
-        assert_eq!(calculate_total_adjusted_experience(&[7, 1, 1, 1, 1], &[], 5, 4), 120);
+        // Basic test- simple when 4 players
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5], &[], 5, 4),
+            160
+        );
+        assert_eq!(
+            calculate_total_adjusted_experience(&[7, 1, 1, 1, 1], &[], 5, 4),
+            120
+        );
         assert_eq!(calculate_total_adjusted_experience(&[7, 5], &[], 5, 4), 120);
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5], &[], 5, 4), 120);
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5], &[], 5, 4),
+            120
+        );
         assert_eq!(calculate_total_adjusted_experience(&[5, 5], &[], 5, 4), 80);
-        assert_eq!(calculate_total_adjusted_experience(&[5, 1, 1, 1, 1], &[], 5, 4), 80);
-        assert_eq!(calculate_total_adjusted_experience(&[5, 3, 3], &[], 5, 4), 80);
-        assert_eq!(calculate_total_adjusted_experience(&[1, 1, 1, 1, 1, 1], &[], 5, 4), 60);
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 1, 1, 1, 1], &[], 5, 4),
+            80
+        );
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 3, 3], &[], 5, 4),
+            80
+        );
+        assert_eq!(
+            calculate_total_adjusted_experience(&[1, 1, 1, 1, 1, 1], &[], 5, 4),
+            60
+        );
 
         // The basic budgets of each difficulty level for 5 players
         // 5 players increases budget by 40, 30, 20, 20
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5, 5], &[], 5, 5), 160); // New extreme budget: 200, results in 160
-        assert_eq!(calculate_total_adjusted_experience(&[7, 5, 4], &[], 5, 5), 120); // New severe budget: 150, results in 120
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 3], &[], 5, 5), 80); // New moderate budget: 100, results in 80
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5, 5], &[], 5, 5),
+            160
+        ); // New extreme budget: 200, results in 160
+        assert_eq!(
+            calculate_total_adjusted_experience(&[7, 5, 4], &[], 5, 5),
+            120
+        ); // New severe budget: 150, results in 120
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 3], &[], 5, 5),
+            80
+        ); // New moderate budget: 100, results in 80
 
         // The basic budgets of each difficulty level for 6 players
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5, 5, 5], &[], 5, 6), 160); // New extreme budget: 240, results in 160
-        assert_eq!(calculate_total_adjusted_experience(&[7, 5, 4, 4], &[], 5, 6), 120); // New severe budget: 200, results in 120
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 3, 3], &[], 5, 6), 80); // New moderate budget: 160, results in 80
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5, 5, 5], &[], 5, 6),
+            160
+        ); // New extreme budget: 240, results in 160
+        assert_eq!(
+            calculate_total_adjusted_experience(&[7, 5, 4, 4], &[], 5, 6),
+            120
+        ); // New severe budget: 200, results in 120
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 3, 3], &[], 5, 6),
+            80
+        ); // New moderate budget: 160, results in 80
 
         // The basic budgets of each difficulty level for 3 players
         // 3 players decreases budget by 40, 30, 20, 20
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5], &[], 5, 3), 160); // New extreme budget: 120, results in 160
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5], &[], 5, 3),
+            160
+        ); // New extreme budget: 120, results in 160
         assert_eq!(calculate_total_adjusted_experience(&[7, 1], &[], 5, 3), 120); // New severe budget: 90, results in 120
         assert_eq!(calculate_total_adjusted_experience(&[5, 3], &[], 5, 3), 80); // New moderate budget: 60, results in 80
 
@@ -372,28 +403,67 @@ mod tests {
 
         // 5 player tests on the edge of the budgets
         // 50 (0-65), 80 (65-90), 100 (90-125), 150 (125-175), 200 (175+)
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5, 3], &[], 5, 5), 140); // 180 raw- classified as extreme, meaning -40 penalty
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5, 2], &[], 5, 5), 135); // 175 raw- classified as extreme, meaning -40 penalty
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 5, 5, 1], &[], 5, 5), 140); // 170 raw- classified as severe, meaning -30 penalty, and amusingly, a higher total
-        
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 4, 3], &[], 5, 5), 100); // 130 raw- classified as severe, meaning -30 penalty
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 4, 2], &[], 5, 5), 95); // 125 raw- classified as severe, meaning -30 penalty
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 3, 3], &[], 5, 5), 100); // 120 raw- classified as moderate, meaning -20 penalty
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5, 3], &[], 5, 5),
+            140
+        ); // 180 raw- classified as extreme, meaning -40 penalty
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5, 2], &[], 5, 5),
+            135
+        ); // 175 raw- classified as extreme, meaning -40 penalty
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 5, 5, 1], &[], 5, 5),
+            140
+        ); // 170 raw- classified as severe, meaning -30 penalty, and amusingly, a higher total
+
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 4, 3], &[], 5, 5),
+            100
+        ); // 130 raw- classified as severe, meaning -30 penalty
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 4, 2], &[], 5, 5),
+            95
+        ); // 125 raw- classified as severe, meaning -30 penalty
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 3, 3], &[], 5, 5),
+            100
+        ); // 120 raw- classified as moderate, meaning -20 penalty
 
         // 3 player tests on the edge of the budgets
         // 30, 40, 60, 90, 120
         // So:
         // 30 (0-35), 40 (35-50), 60 (50-75), 90 (75-105), 120 (105+)
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 2, 2], &[], 5, 3), 150); // 110 raw- classified as extreme, meaning +40 reward
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 2, 1], &[], 5, 3), 145); // 105 raw- classified as extreme, meaning +40 reward
-        assert_eq!(calculate_total_adjusted_experience(&[5, 5, 1, 1], &[], 5, 3), 130); // 100 raw- classified as severe, meaning +30 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 2, 2], &[], 5, 3),
+            150
+        ); // 110 raw- classified as extreme, meaning +40 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 2, 1], &[], 5, 3),
+            145
+        ); // 105 raw- classified as extreme, meaning +40 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 5, 1, 1], &[], 5, 3),
+            130
+        ); // 100 raw- classified as severe, meaning +30 reward
 
-        assert_eq!(calculate_total_adjusted_experience(&[5, 3, 3], &[], 5, 3), 110); // 80 raw- classified as severe, meaning +30 reward
-        assert_eq!(calculate_total_adjusted_experience(&[5, 3, 2], &[], 5, 3), 105); // 75 raw- classified as severe, meaning +30 reward
-        assert_eq!(calculate_total_adjusted_experience(&[5, 2, 2], &[], 5, 3), 90); // 70 raw- classified as severe, meaning +20 reward
-    
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 3, 3], &[], 5, 3),
+            110
+        ); // 80 raw- classified as severe, meaning +30 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 3, 2], &[], 5, 3),
+            105
+        ); // 75 raw- classified as severe, meaning +30 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 2, 2], &[], 5, 3),
+            90
+        ); // 70 raw- classified as severe, meaning +20 reward
+
         // Some specific cases
-        assert_eq!(calculate_total_adjusted_experience(&[5, 3, 3], &[], 4, 3), 160); // 120 raw- classified as extreme, meaning 40 reward
+        assert_eq!(
+            calculate_total_adjusted_experience(&[5, 3, 3], &[], 4, 3),
+            160
+        ); // 120 raw- classified as extreme, meaning 40 reward
     }
 
     #[test]
@@ -401,22 +471,37 @@ mod tests {
         let party_4 = EncounterDifficulty::get_severity_boundaries(4);
         assert_eq!(party_4.get(&EncounterDifficulty::Trivial), Some(&(0, 50)));
         assert_eq!(party_4.get(&EncounterDifficulty::Low), Some(&(50, 70)));
-        assert_eq!(party_4.get(&EncounterDifficulty::Moderate), Some(&(70, 100)));
+        assert_eq!(
+            party_4.get(&EncounterDifficulty::Moderate),
+            Some(&(70, 100))
+        );
         assert_eq!(party_4.get(&EncounterDifficulty::Severe), Some(&(100, 140)));
-        assert_eq!(party_4.get(&EncounterDifficulty::Extreme), Some(&(140, i32::MAX)));
+        assert_eq!(
+            party_4.get(&EncounterDifficulty::Extreme),
+            Some(&(140, i32::MAX))
+        );
 
         let party_5 = EncounterDifficulty::get_severity_boundaries(5);
         assert_eq!(party_5.get(&EncounterDifficulty::Trivial), Some(&(0, 65)));
         assert_eq!(party_5.get(&EncounterDifficulty::Low), Some(&(65, 90)));
-        assert_eq!(party_5.get(&EncounterDifficulty::Moderate), Some(&(90, 125)));
+        assert_eq!(
+            party_5.get(&EncounterDifficulty::Moderate),
+            Some(&(90, 125))
+        );
         assert_eq!(party_5.get(&EncounterDifficulty::Severe), Some(&(125, 175)));
-        assert_eq!(party_5.get(&EncounterDifficulty::Extreme), Some(&(175, i32::MAX)));
+        assert_eq!(
+            party_5.get(&EncounterDifficulty::Extreme),
+            Some(&(175, i32::MAX))
+        );
 
         let party_3 = EncounterDifficulty::get_severity_boundaries(3);
         assert_eq!(party_3.get(&EncounterDifficulty::Trivial), Some(&(0, 35)));
         assert_eq!(party_3.get(&EncounterDifficulty::Low), Some(&(35, 50)));
         assert_eq!(party_3.get(&EncounterDifficulty::Moderate), Some(&(50, 75)));
         assert_eq!(party_3.get(&EncounterDifficulty::Severe), Some(&(75, 105)));
-        assert_eq!(party_3.get(&EncounterDifficulty::Extreme), Some(&(105, i32::MAX)));
+        assert_eq!(
+            party_3.get(&EncounterDifficulty::Extreme),
+            Some(&(105, i32::MAX))
+        );
     }
 }

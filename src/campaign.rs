@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_user_from_cookies,
     database::{
-        campaigns::ModifyCampaign, import::ImportCampaign, sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions}
+        campaigns::ModifyCampaign,
+        import::ImportCampaign,
+        sessions::{InsertSession, LinkEncounterSession, ModifySession, UpdateCharacterSessions},
     },
     models::ids::InternalId,
     AppState,

@@ -17,8 +17,7 @@ pub async fn get_campaign_stats(
         SELECT
             ch.id,
             items.total_treasure_item_value,
-            items.consumable_items,
-            items.permanent_items,
+            items.items,
             gold.total_gold,
             owned_boosts.assigned_boosts,
             expected_boosts.expected_boosts,
@@ -34,14 +33,18 @@ pub async fn get_campaign_stats(
         ) gold ON true
         LEFT JOIN LATERAL (
             SELECT 
-                ARRAY_AGG(item_id) filter (where consumable) consumable_items,
-                ARRAY_AGG(item_id) filter (where NOT consumable) permanent_items,
+                JSONB_AGG(
+                    json_build_object(
+                        'id', ci.id,
+                        'library_item_id', ci.library_item_id,
+                        'consumable', li.consumable
+                    )
+                ) filter (where ci.id is not null) as items,
                 SUM(li.price) as total_treasure_item_value
-            FROM campaign_session_character_items csci
-            INNER JOIN campaign_sessions cs ON csci.session_id = cs.id
-            INNER JOIN library_objects lo ON lo.id = csci.item_id
-            INNER JOIN library_items li ON li.id = csci.item_id
-            WHERE csci.character_id = ch.id
+            FROM campaign_items ci
+            INNER JOIN library_items li ON li.id = ci.library_item_id
+            INNER JOIN campaign_sessions cs ON ci.session_id = cs.id
+            WHERE ci.character_id = ch.id
         ) items ON true
         LEFT JOIN LATERAL (
             SELECT
@@ -54,30 +57,32 @@ pub async fn get_campaign_stats(
             FROM  campaign_session_characters csc
             INNER JOIN campaign_sessions cs ON csc.session_id = cs.id
             LEFT JOIN LATERAL (
-                SELECT SUM(li.price) as price_sum, ARRAY_AGG(csci.item_id) as items_group
-                FROM campaign_session_character_items csci
-                LEFT JOIN library_objects lo ON lo.id = csci.item_id
-                LEFT JOIN library_items li ON li.id = csci.item_id
-                WHERE csci.character_id = ch.id AND csci.session_id = cs.id
-                GROUP BY csci.session_id
+                SELECT SUM(li.price) as price_sum, JSONB_AGG(json_build_object(
+                    'id', ci.id,
+                    'library_item_id', ci.library_item_id
+                )) as items_group
+                FROM campaign_items ci
+                LEFT JOIN library_items li ON li.id = ci.library_item_id
+                WHERE ci.character_id = ch.id AND ci.session_id = cs.id
+                GROUP BY ci.session_id
             ) s ON true
             WHERE csc.character_id = ch.id
         ) reward_by_session ON true
         LEFT JOIN LATERAL (
             SELECT json_agg(
-                    json_build_object(
+                json_build_object(
                     'boost_category_id', sbct.id,
                     'boost_category_name', sbct.name,
                     'potency', r.potency
                     )
                 ) AS assigned_boosts
-            FROM campaign_session_character_items csci
-            INNER JOIN library_items li ON csci.item_id = li.id
+            FROM campaign_items ci
+            INNER JOIN library_items li ON ci.library_item_id = li.id
             INNER JOIN library_objects lo ON li.id = lo.id
             INNER JOIN library_items_runes lir ON li.id = lir.item_id
             INNER JOIN runes r ON lir.rune_id = r.id
             INNER JOIN stat_boost_category_types sbct ON r.stat_boost_category_id = sbct.id
-            WHERE csci.character_id = ch.id
+            WHERE ci.character_id = ch.id
         ) owned_boosts ON true
         LEFT JOIN LATERAL (
             SELECT json_agg(
@@ -105,17 +110,22 @@ pub async fn get_campaign_stats(
         let expected_boosts: Vec<AssignedBoost> =
             serde_json::from_value(row.expected_boosts.unwrap_or_default()).unwrap_or_default();
 
-        let consumable_items: Vec<InternalId> = row
-            .consumable_items
-            .unwrap_or_default()
-            .into_iter()
-            .map(|i| InternalId(i as u32))
+        #[derive(Deserialize, Debug)]
+        pub struct Item {
+            pub id: i32,
+            pub library_item_id: i32,
+            pub consumable: bool,
+        }
+        let items = serde_json::from_value::<Vec<Item>>(row.items.unwrap()).unwrap();
+        let consumable_items: Vec<InternalId> = items
+            .iter()
+            .filter(|i| i.consumable)
+            .map(|i| InternalId(i.library_item_id as u32))
             .collect();
-        let permanent_items: Vec<InternalId> = row
-            .permanent_items
-            .unwrap_or_default()
-            .into_iter()
-            .map(|i| InternalId(i as u32))
+        let permanent_items: Vec<InternalId> = items
+            .iter()
+            .filter(|i| !i.consumable)
+            .map(|i| InternalId(i.library_item_id as u32))
             .collect();
 
         let gold: f64 = row.total_gold.unwrap_or(0.0);
@@ -219,11 +229,10 @@ pub async fn get_campaign_stats(
         LEFT JOIN LATERAL (
             SELECT
                 SUM(li.price) total_treasure_items_value
-            FROM encounter_treasure_items eti
-            INNER JOIN encounters e ON eti.encounter = e.id
+            FROM campaign_items ci
+            INNER JOIN encounters e ON ci.encounter_id = e.id
             INNER JOIN campaign_sessions cs ON e.session_id = cs.id
-            INNER JOIN library_objects lo ON lo.id = eti.item
-            INNER JOIN library_items li ON li.id = eti.item
+            INNER JOIN library_items li ON li.id = ci.library_item_id
             WHERE cs.campaign_id = c.id
         ) items ON true
         LEFT JOIN LATERAL (
@@ -235,14 +244,13 @@ pub async fn get_campaign_stats(
                 li.level::text AS level,
                 li.consumable,
                 COUNT(*) AS total
-            FROM encounter_treasure_items eti
-            INNER JOIN encounters e ON eti.encounter = e.id
+            FROM campaign_items ci
+            INNER JOIN encounters e ON ci.encounter_id = e.id
             INNER JOIN campaign_sessions cs ON e.session_id = cs.id
-            INNER JOIN library_objects lo ON lo.id = eti.item
-            INNER JOIN library_items li ON li.id = eti.item
-            WHERE cs.campaign_id = 1
+            INNER JOIN library_items li ON li.id = ci.library_item_id
+            WHERE cs.campaign_id = c.id
             GROUP BY li.level, li.consumable
-            ) s
+        ) s
         ) items_2 ON true
         LEFT JOIN LATERAL (
             SELECT jsonb_object_agg(key, total) AS expected_consumable_items_by_end_of_level

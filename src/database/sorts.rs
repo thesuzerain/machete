@@ -11,7 +11,7 @@ pub trait Sortable {
 }
 
 #[derive(Debug, Clone)]
-pub struct SortableColumn<T : Sortable> {
+pub struct SortableColumn<T: Sortable> {
     column: Option<String>,
     sort_order: SortOrder,
     _marker: std::marker::PhantomData<T>,
@@ -40,7 +40,7 @@ impl<T: Sortable> SortableColumn<T> {
         sort_order: Option<&str>,
     ) -> Result<SortableColumn<T>, ServerError> {
         let column = column.or(T::default_sort());
-        
+
         let allowed_asc = ["asc", "ascending", "a", "1", "true"];
         let allowed_desc = ["desc", "descending", "d", "-1", "false"];
 
@@ -60,7 +60,7 @@ impl<T: Sortable> SortableColumn<T> {
             SortOrder::Ascending // Default to ascending if no order is provided
         };
 
-        if let Some(ref column) = column {       
+        if let Some(ref column) = column {
             if T::get_allowed_fields().contains(column) {
                 Ok(SortableColumn::<T> {
                     column: Some(column.to_string()),
@@ -83,6 +83,3 @@ impl<T: Sortable> SortableColumn<T> {
         }
     }
 }
-
-
-

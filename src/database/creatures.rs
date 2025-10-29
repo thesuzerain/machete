@@ -163,7 +163,6 @@ pub async fn get_creatures_search(
     search: &CreatureSearch,
     default_limit: u64,
 ) -> crate::Result<HashMap<String, Vec<(f32, LibraryCreature)>>> {
-
     // TODO: check on number of queries
     let limit = search.limit.unwrap_or(default_limit);
     let page = search.page.unwrap_or(0);
@@ -183,7 +182,8 @@ pub async fn get_creatures_search(
             .collect::<Vec<i32>>()
     });
 
-    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
+    let matching_tags =
+        tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
     let query = sqlx::query!(
         r#"
         SELECT
@@ -395,7 +395,12 @@ pub async fn insert_creatures(
             SELECT $1, id FROM UNNEST ($2::int[]) AS id
             "#,
             id,
-            &creature.tags.iter().map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+            &creature
+                .tags
+                .iter()
+                .map(|id| id.0 as i32)
+                .sorted()
+                .collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;

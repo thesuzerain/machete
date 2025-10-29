@@ -16,7 +16,6 @@ pub enum LibraryObjectType {
     Spell,
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum GameSystem {

@@ -372,7 +372,9 @@ pub async fn insert_spells(
                 &spell
                     .tags
                     .iter()
-                    .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+                    .map(|id| id.0 as i32)
+                    .sorted()
+                    .collect::<Vec<i32>>(),
             )
             .execute(&mut **tx)
             .await?;

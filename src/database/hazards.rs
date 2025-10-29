@@ -181,7 +181,8 @@ pub async fn get_hazards_search(
             .collect::<Vec<i32>>()
     });
 
-    let matching_tags = tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
+    let matching_tags =
+        tags::get_tag_matches(&mut *conn, &search.traits_all, &search.traits_any).await?;
 
     let query = sqlx::query!(
         r#"
@@ -385,17 +386,18 @@ pub async fn insert_hazards(
     .await?;
 
     // Add tags
-   for tag in hazards.iter() {
+    for tag in hazards.iter() {
         sqlx::query!(
             r#"
             INSERT INTO library_objects_tags (library_object_id, tag_id)
             SELECT * FROM UNNEST ($1::int[], $2::int[])
             "#,
             &ids.iter().map(|id| *id as i32).collect::<Vec<i32>>(),
-            &tag
-                .tags
+            &tag.tags
                 .iter()
-                .map(|id| id.0 as i32).sorted().collect::<Vec<i32>>(),
+                .map(|id| id.0 as i32)
+                .sorted()
+                .collect::<Vec<i32>>(),
         )
         .execute(&mut **tx)
         .await?;

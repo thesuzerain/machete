@@ -3,7 +3,13 @@ use std::collections::HashMap;
 use crate::{
     auth::extract_admin_from_headers,
     database::{
-        classes::{ClassSearch, InsertLibraryClass}, creatures::{CreatureFiltering, CreatureSearch, InsertLibraryCreature}, hazards::{HazardFiltering, HazardSearch, InsertLibraryHazard}, items::{InsertLibraryItem, ItemFiltering, ItemSearch}, spells::{InsertLibrarySpell, SpellFiltering, SpellSearch}, tags::InsertTag, DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT
+        classes::{ClassSearch, InsertLibraryClass},
+        creatures::{CreatureFiltering, CreatureSearch, InsertLibraryCreature},
+        hazards::{HazardFiltering, HazardSearch, InsertLibraryHazard},
+        items::{InsertLibraryItem, ItemFiltering, ItemSearch},
+        spells::{InsertLibrarySpell, SpellFiltering, SpellSearch},
+        tags::InsertTag,
+        DEFAULT_MAX_GROUP_LIMIT, DEFAULT_MAX_LIMIT,
     },
     models::library::{
         classes::LibraryClass, creature::LibraryCreature, hazard::LibraryHazard, item::LibraryItem,
@@ -350,9 +356,7 @@ async fn insert_tags(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_tags(
-    State(pool): State<PgPool>,
-) -> Result<impl IntoResponse, ServerError> {
+async fn get_tags(State(pool): State<PgPool>) -> Result<impl IntoResponse, ServerError> {
     let tags = database::tags::get_tags(&pool).await?;
     Ok(Json(tags))
 }

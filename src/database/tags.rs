@@ -15,7 +15,6 @@ pub struct InsertTag {
     pub r#trait: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagList {
     pub combined_tags: Vec<String>,
@@ -90,7 +89,7 @@ pub async fn get_tag_matches(
         .collect::<Vec<String>>();
 
     // TODO: This can be expanded/slightly refactored for close semantic matches
-    let tag_matches : Vec<String> = sqlx::query!(
+    let tag_matches: Vec<String> = sqlx::query!(
         r#"
         SELECT tag
         FROM library_tags
@@ -126,7 +125,6 @@ pub async fn get_tag_matches(
 pub async fn get_tags(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
 ) -> crate::Result<TagList> {
-
     struct FetchRow {
         tag: String,
         r#trait: bool,
@@ -136,7 +134,7 @@ pub async fn get_tags(
         any_spell: bool,
     }
 
-    let traits : (Vec<FetchRow>, Vec<FetchRow>) = sqlx::query!(
+    let traits: (Vec<FetchRow>, Vec<FetchRow>) = sqlx::query!(
         r#"
         SELECT
             lt.id, tag, "trait" as "trait!",
@@ -166,23 +164,87 @@ pub async fn get_tags(
     })
     .partition(|x| x.r#trait);
 
-    let creature_traits = traits.0.iter().filter(|x| x.any_creature).map(|x| x.tag.clone()).collect_vec();
-    let creature_tags = traits.1.iter().filter(|x| x.any_creature).map(|x| x.tag.clone()).collect_vec();
-    let item_traits = traits.0.iter().filter(|x| x.any_item).map(|x| x.tag.clone()).collect_vec();
-    let item_tags = traits.1.iter().filter(|x| x.any_item).map(|x| x.tag.clone()).collect_vec();
-    let hazard_traits = traits.0.iter().filter(|x| x.any_hazard).map(|x| x.tag.clone()).collect_vec();
-    let hazard_tags = traits.1.iter().filter(|x| x.any_hazard).map(|x| x.tag.clone()).collect_vec();
-    let spell_traits = traits.0.iter().filter(|x| x.any_spell).map(|x| x.tag.clone()).collect_vec();
-    let spell_tags = traits.1.iter().filter(|x| x.any_spell).map(|x| x.tag.clone()).collect_vec();
+    let creature_traits = traits
+        .0
+        .iter()
+        .filter(|x| x.any_creature)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let creature_tags = traits
+        .1
+        .iter()
+        .filter(|x| x.any_creature)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let item_traits = traits
+        .0
+        .iter()
+        .filter(|x| x.any_item)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let item_tags = traits
+        .1
+        .iter()
+        .filter(|x| x.any_item)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let hazard_traits = traits
+        .0
+        .iter()
+        .filter(|x| x.any_hazard)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let hazard_tags = traits
+        .1
+        .iter()
+        .filter(|x| x.any_hazard)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let spell_traits = traits
+        .0
+        .iter()
+        .filter(|x| x.any_spell)
+        .map(|x| x.tag.clone())
+        .collect_vec();
+    let spell_tags = traits
+        .1
+        .iter()
+        .filter(|x| x.any_spell)
+        .map(|x| x.tag.clone())
+        .collect_vec();
 
     Ok(TagList {
         combined_tags: traits.1.iter().map(|x| x.tag.clone()).collect(),
         combined_traits: traits.0.iter().map(|x| x.tag.clone()).collect(),
         subsets: HashMap::from([
-            (LibraryObjectType::Creature, TagSubset { tags: creature_tags, traits: creature_traits }),
-            (LibraryObjectType::Item, TagSubset { tags: item_tags, traits: item_traits }),
-            (LibraryObjectType::Hazard, TagSubset { tags: hazard_tags, traits: hazard_traits }),
-            (LibraryObjectType::Spell, TagSubset { tags: spell_tags, traits: spell_traits }),
+            (
+                LibraryObjectType::Creature,
+                TagSubset {
+                    tags: creature_tags,
+                    traits: creature_traits,
+                },
+            ),
+            (
+                LibraryObjectType::Item,
+                TagSubset {
+                    tags: item_tags,
+                    traits: item_traits,
+                },
+            ),
+            (
+                LibraryObjectType::Hazard,
+                TagSubset {
+                    tags: hazard_tags,
+                    traits: hazard_traits,
+                },
+            ),
+            (
+                LibraryObjectType::Spell,
+                TagSubset {
+                    tags: spell_tags,
+                    traits: spell_traits,
+                },
+            ),
         ]),
     })
 }

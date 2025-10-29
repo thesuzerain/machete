@@ -166,7 +166,6 @@ pub async fn insert_campaign(
     Ok(InternalId(id as u32))
 }
 
-
 pub async fn delete_campaign(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     campaign_id: InternalId,
@@ -190,7 +189,8 @@ pub async fn delete_campaign(
     // Then, delete all campaign_sessions, campaign_session_characters, campaign_session_character_items
     sqlx::query!(
         r#"
-        DELETE FROM campaign_session_character_items
+        UPDATE campaign_items
+        SET session_id = NULL
         WHERE session_id IN (
             SELECT id
             FROM campaign_sessions
