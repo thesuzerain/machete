@@ -127,7 +127,7 @@ pub async fn get_encounters(
             SELECT 
                 JSONB_AGG(jsonb_build_object('id', ci.id, 'library_item_id', ci.library_item_id))
              FILTER (WHERE ci.id IS NOT NULL) as items
-            FROM campaign_items ci WHERE en.id = ci.encounter_id
+            FROM item_instances ci WHERE en.id = ci.encounter_id
         ) eti ON TRUE
         LEFT JOIN LATERAL (
             SELECT JSONB_AGG(jsonb_build_object('skill', escr.roll, 'dc', escr.dc)) as roll_options, esc.name, esc.vp, esc.order_index
@@ -277,10 +277,8 @@ pub async fn insert_encounters(
             .iter()
             .map(|e| e.level_adjustment)
             .collect::<Vec<i16>>();
-        let enemy_levels =
-            get_levels_enemies(tx, &enemy_ids, &enemy_level_adjustments).await?;
-        let hazard_level_complexities =
-            get_levels_complexities_hazards(tx, &hazards).await?;
+        let enemy_levels = get_levels_enemies(tx, &enemy_ids, &enemy_level_adjustments).await?;
+        let hazard_level_complexities = get_levels_complexities_hazards(tx, &hazards).await?;
         let treasure_values = get_values_items(tx, &encounter.treasure_items).await?;
 
         // TODO: Mofiy this so that it only does these db call if needed
@@ -347,7 +345,7 @@ pub async fn insert_encounters(
         // Insert new encounter_treasure_items
         sqlx::query!(
             r#"
-            INSERT INTO campaign_items (encounter_id, library_item_id)
+            INSERT INTO item_instances (encounter_id, library_item_id)
             SELECT $1, item
             FROM UNNEST($2::int[]) AS t(item)
             "#,
@@ -537,12 +535,12 @@ pub async fn edit_encounter(
     }
 
     if let Some(treasure_items) = treasure_items {
-        // Drop all existing campaign_items
+        // Drop all existing item_instances
         // TODO: Should we be deleting here?
         // TODO: This should be a patch
         sqlx::query!(
             r#"
-            DELETE FROM campaign_items
+            DELETE FROM item_instances
             WHERE encounter_id = $1
             "#,
             encounter_id.0 as i32,
@@ -554,7 +552,7 @@ pub async fn edit_encounter(
         for item in treasure_items {
             sqlx::query!(
                 r#"
-                INSERT INTO campaign_items (encounter_id, library_item_id)
+                INSERT INTO item_instances (encounter_id, library_item_id)
                 VALUES ($1, $2)
                 "#,
                 encounter_id.0 as i32,
@@ -709,7 +707,7 @@ pub async fn delete_encounters(
     // TODO: Should this be a delete
     sqlx::query!(
         r#"
-        DELETE FROM campaign_items
+        DELETE FROM item_instances
         WHERE encounter_id = ANY($1::int[])
         "#,
         &encounter_id

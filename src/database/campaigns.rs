@@ -189,7 +189,7 @@ pub async fn delete_campaign(
     // Then, delete all campaign_sessions, campaign_session_characters, campaign_session_character_items
     sqlx::query!(
         r#"
-        UPDATE campaign_items
+        UPDATE item_instances
         SET session_id = NULL
         WHERE session_id IN (
             SELECT id

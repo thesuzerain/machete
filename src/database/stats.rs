@@ -41,7 +41,7 @@ pub async fn get_campaign_stats(
                     )
                 ) filter (where ci.id is not null) as items,
                 SUM(li.price) as total_treasure_item_value
-            FROM campaign_items ci
+            FROM item_instances ci
             INNER JOIN library_items li ON li.id = ci.library_item_id
             INNER JOIN campaign_sessions cs ON ci.session_id = cs.id
             WHERE ci.character_id = ch.id
@@ -61,7 +61,7 @@ pub async fn get_campaign_stats(
                     'id', ci.id,
                     'library_item_id', ci.library_item_id
                 )) as items_group
-                FROM campaign_items ci
+                FROM item_instances ci
                 LEFT JOIN library_items li ON li.id = ci.library_item_id
                 WHERE ci.character_id = ch.id AND ci.session_id = cs.id
                 GROUP BY ci.session_id
@@ -76,7 +76,7 @@ pub async fn get_campaign_stats(
                     'potency', r.potency
                     )
                 ) AS assigned_boosts
-            FROM campaign_items ci
+            FROM item_instances ci
             INNER JOIN library_items li ON ci.library_item_id = li.id
             INNER JOIN library_objects lo ON li.id = lo.id
             INNER JOIN library_items_runes lir ON li.id = lir.item_id
@@ -229,7 +229,7 @@ pub async fn get_campaign_stats(
         LEFT JOIN LATERAL (
             SELECT
                 SUM(li.price) total_treasure_items_value
-            FROM campaign_items ci
+            FROM item_instances ci
             INNER JOIN encounters e ON ci.encounter_id = e.id
             INNER JOIN campaign_sessions cs ON e.session_id = cs.id
             INNER JOIN library_items li ON li.id = ci.library_item_id
@@ -244,7 +244,7 @@ pub async fn get_campaign_stats(
                 li.level::text AS level,
                 li.consumable,
                 COUNT(*) AS total
-            FROM campaign_items ci
+            FROM item_instances ci
             INNER JOIN encounters e ON ci.encounter_id = e.id
             INNER JOIN campaign_sessions cs ON e.session_id = cs.id
             INNER JOIN library_items li ON li.id = ci.library_item_id

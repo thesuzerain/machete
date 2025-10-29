@@ -87,7 +87,7 @@ pub async fn get_sessions(
                         )                    
                     ) FILTER (WHERE ci.id IS NOT NULL) as item_rewards
                 FROM campaign_session_characters csc
-                LEFT JOIN campaign_items ci ON ci.character_id = csc.character_id AND ci.session_id = csc.session_id
+                LEFT JOIN item_instances ci ON ci.character_id = csc.character_id AND ci.session_id = csc.session_id
                 GROUP BY csc.session_id, csc.character_id
              ) csc
             GROUP BY csc.session_id
@@ -306,10 +306,10 @@ pub async fn delete_session(
     .execute(&mut **tx)
     .await?;
 
-    // First delete campaign_session_characters, campaign_items
+    // First delete campaign_session_characters, item_instances
     sqlx::query!(
         r#"
-        UPDATE campaign_items
+        UPDATE item_instances
         SET session_id = NULL, character_id = NULL
         WHERE session_id = $1
         "#,
@@ -541,7 +541,7 @@ pub async fn unlink_encounter_from_session(
     // Remove all items- by setting session_id to NULL for all items for which the session and encounter match
     sqlx::query!(
         r#"
-        UPDATE campaign_items
+        UPDATE item_instances
         SET session_id = NULL, character_id = NULL
         WHERE session_id = $1 AND encounter_id = $2
         "#,
@@ -574,7 +574,7 @@ fn remove_contributions_from_character(remove_gold: &mut f64, character_gold: &m
 }
 
 // TODO: This function needs to be revisited soon. A lot of updates (even when we are only updating a small part), and it uses unnest poorly. In addition, this route may get hit A LOT.
-// TODO: Update this route with new campaign_items logic
+// TODO: Update this route with new item_instances logic
 pub async fn edit_encounter_session_character_assignments(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: InternalId,
@@ -592,7 +592,7 @@ pub async fn edit_encounter_session_character_assignments(
     // Delete all existing character assignments + character item assignments for the session
     sqlx::query!(
         r#"
-            UPDATE campaign_items
+            UPDATE item_instances
             SET session_id = NULL
             WHERE session_id = $1
         "#,
@@ -627,10 +627,10 @@ pub async fn edit_encounter_session_character_assignments(
         // TODO: Could be rewritten to use a single query with two-column unnest (For all users in one query)
         sqlx::query!(
             r#"
-            UPDATE campaign_items
+            UPDATE item_instances
             SET session_id = $1, character_id = $2
             FROM UNNEST($3::int[]) as item_id
-            WHERE campaign_items.id = item_id
+            WHERE item_instances.id = item_id
             "#,
             session_id.0 as i32,
             character_id.0 as i64,
