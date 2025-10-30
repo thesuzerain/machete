@@ -34,29 +34,29 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_campaigns))
         .route("/", post(insert_campaign))
-        .route("/:id", patch(edit_campaign))
-        .route("/:id", delete(delete_campaign))
+        .route("/{id}", patch(edit_campaign))
+        .route("/{id}", delete(delete_campaign))
         .route("/import", post(import_campaign)) // TODO: Does this need to differ from generic 'insert'?
-        .route("/:id/export", get(export_campaign))
-        .route("/:id/stats", get(get_stats))
-        .route("/:id/characters", get(get_characters))
-        .route("/:id/characters", post(insert_characters))
-        .route("/:id/characters/:id", put(edit_character))
-        .route("/:id/characters/:id", delete(delete_character))
-        .route("/:id/sessions", get(get_sessions))
-        .route("/:id/sessions", post(insert_sessions))
-        .route("/:id/sessions", patch(edit_sessions))
-        .route("/:id/sessions/:id", delete(delete_session))
+        .route("/{id}/export", get(export_campaign))
+        .route("/{id}/stats", get(get_stats))
+        .route("/{id}/characters", get(get_characters))
+        .route("/{id}/characters", post(insert_characters))
+        .route("/{id}/characters/{id}", put(edit_character))
+        .route("/{id}/characters/{id}", delete(delete_character))
+        .route("/{id}/sessions", get(get_sessions))
+        .route("/{id}/sessions", post(insert_sessions))
+        .route("/{id}/sessions", patch(edit_sessions))
+        .route("/{id}/sessions/{id}", delete(delete_session))
         .route(
-            "/:id/sessions/:session_id/encounters",
+            "/{id}/sessions/{session_id}/encounters",
             post(link_sessions_encounters),
         )
         .route(
-            "/:id/sessions/:session_id/encounters",
+            "/{id}/sessions/{session_id}/encounters",
             patch(update_link_session_encounters),
         )
         .route(
-            "/:id/sessions/:session_id/encounters/:encounter_id",
+            "/{id}/sessions/{session_id}/encounters/{encounter_id}",
             delete(unlink_session_encounters),
         )
 }

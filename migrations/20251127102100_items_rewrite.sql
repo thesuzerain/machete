@@ -19,21 +19,30 @@ CREATE INDEX idx_item_instances_library_item_id ON item_instances(library_item_i
 CREATE INDEX idx_item_instances_campaign_id ON item_instances(campaign_id);
 CREATE INDEX idx_item_instances_parent_item_id ON item_instances(parent_item_id);
 
-
--- INSERT INTO item_instances (library_item_id, campaign_id, 
---     parent_item_id, encounter_id, character_id, session_id, is_reward, nickname, quantity, notes)
--- SELECT 
---     unnest(cs.unassigned_item_rewards) as library_item_id,
---     cs.campaign_id,
---     NULL as parent_item_id,
-
--- FROM campaign_sessions cs
-
-
-INSERT INTO item_instances (library_item_id, campaign_id, 
+INSERT INTO item_instances (library_item_id, campaign_id,
     parent_item_id, encounter_id, character_id, session_id, is_reward, nickname, quantity, notes)
-SELECT 
+SELECT
+    eti.item as library_item_id,
+    cs.campaign_id as campaign_id,
+    null as parent_item_id,
+    e.id as encounter_id,
+    csci.character_id as character_id,
+    cs.id as session_id,
+    false is_reward,
+    null as nickname,
+    1 as quantity,
+    null as notes
 
-    
-FROM encounter_treasure_items eti
-INNER JOIN campaign_sessions cs
+FROM (
+    SELECT encounter, item, row_number() over (partition by encounter, item) r
+    from encounter_treasure_items
+) eti
+INNER JOIN encounters e ON eti.encounter = e.id
+LEFT JOIN campaign_sessions cs ON e.session_id = cs.id
+LEFT JOIN (
+    SELECT session_id, character_id, item_id, row_number() over (partition by session_id, character_id, item_id) r
+    from campaign_session_character_items
+) csci
+    ON cs.id = csci.session_id
+    AND csci.item_id = eti.item
+    AND eti.r = csci.r;

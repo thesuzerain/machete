@@ -22,10 +22,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_encounters))
         .route("/", post(insert_encounter))
-        .route("/:id", get(get_encounter))
-        .route("/:id", patch(edit_encounter))
-        .route("/:id", delete(delete_encounter))
-        .route("/:id/session", delete(delete_session_link))
+        .route("/{id}", get(get_encounter))
+        .route("/{id}", patch(edit_encounter))
+        .route("/{id}", delete(delete_encounter))
+        .route("/{id}/session", delete(delete_session_link))
 }
 
 async fn get_encounters(

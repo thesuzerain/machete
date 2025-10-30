@@ -30,10 +30,24 @@ pub async fn run_server() {
     let pool = database::connect().await.unwrap();
     log::info!("Connected to database");
 
+    // build our application with a route
+    let app = app(pool.clone());
+
+    // run our app with hyper, listening globally on port 3000
+    let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
+    let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
+
+    log::info!("Listening on: {}", bind_addr);
+    axum::serve(listener, app).await.unwrap();
+}
+
+pub fn app(
+    pool:sqlx::Pool<sqlx::Postgres>
+) -> Router {
+
     let app_state = AppState { pool: pool.clone() };
 
-    // build our application with a route
-    let app = Router::new()
+    Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
         .nest("/auth", auth::router())
@@ -65,14 +79,7 @@ pub async fn run_server() {
                         "http://localhost:5173".parse::<HeaderValue>().unwrap(),
                     ]),
             ),
-        );
-
-    // run our app with hyper, listening globally on port 3000
-    let bind_addr = dotenvy::var("BIND_URL").expect("BIND_URL must be set");
-    let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
-
-    log::info!("Listening on: {}", bind_addr);
-    axum::serve(listener, app).await.unwrap();
+        )
 }
 
 #[derive(Clone)]
