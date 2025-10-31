@@ -23,7 +23,6 @@ import { statsStore } from '$lib/stores/stats';
     let showNewNewCampaignModal = false;
     let editingCampaign: Campaign | null = null;
     let activeTab: 'summary' | 'sessions' | 'characters' | 'export' = 'summary';
-    let campaignLogs: Log[] = [];
 
     // Subscribe to stores
     $: selectedCampaignId = $selectedCampaignStore;
@@ -46,28 +45,12 @@ import { statsStore } from '$lib/stores/stats';
         }
     }
 
-
-    async function fetchLogs() {
-        if (!selectedCampaignId) return;
-        
-        try {
-            const response = await fetch(`${API_URL}/campaign/${selectedCampaignId}/logs`, {
-                credentials: 'include',
-            });
-            if (!response.ok) throw new Error('Failed to fetch logs');
-            campaignLogs = await response.json();
-        } catch (e) {
-            error = e instanceof Error ? e.message : 'Failed to fetch logs';
-        }
-    }
-
     // Update the watch for campaign changes
     $: if (selectedCampaignId) {
         Promise.all([
             characterStore.fetchCharacters(selectedCampaignId),
             campaignSessionStore.fetchCampaignSessions(selectedCampaignId),
             encounterStore.fetchEncounters(),
-            fetchLogs(),
             statsStore.fetchStats(selectedCampaignId),
         ]).catch(e => {
             error = e instanceof Error ? e.message : 'An error occurred';

@@ -46,3 +46,8 @@ LEFT JOIN (
     ON cs.id = csci.session_id
     AND csci.item_id = eti.item
     AND eti.r = csci.r;
+
+-- TODO: Maybe get rid of encounters.total_items_value as well? It seems unnecessary and can cause issues.
+ALTER TABLE campaign_sessions DROP COLUMN unassigned_item_rewards;
+DROP TABLE campaign_session_character_items;
+DROP TABLE encounter_treasure_items;

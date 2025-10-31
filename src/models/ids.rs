@@ -42,4 +42,14 @@ impl InternalId {
         souce.hash(&mut hasher);
         InternalId(hasher.finish() as u32)
     }
+
+    pub fn from_i32(id: i32) -> Self {
+        InternalId(id as u32)
+    }
+}
+
+impl From<i32> for InternalId {
+    fn from(id: i32) -> Self {
+        InternalId::from_i32(id)
+    }
 }

@@ -56,7 +56,7 @@ pub async fn get_sessions(
             s.play_date,
             ARRAY_AGG(e.id) filter (where e.id is not null) as encounter_ids,
             unassigned_gold_rewards,
-            unassigned_item_rewards,
+            unassigned_items.unassigned_items,
             csc.character_rewards,
             SUM(e.total_items_value + e.treasure_currency) as total_combined_treasure_value,
             SUM(e.total_experience) as total_experience,
@@ -64,7 +64,12 @@ pub async fn get_sessions(
         FROM campaign_sessions s
         LEFT JOIN campaigns ca ON s.campaign_id = ca.id
         LEFT JOIN encounters e ON s.id = e.session_id
-
+        LEFT JOIN LATERAL (
+            SELECT session_id, ARRAY_AGG(library_item_id) filter (where library_item_id is not null) as unassigned_items
+            FROM item_instances ii
+            WHERE ii.character_id IS NULL
+            GROUP BY ii.session_id
+        ) unassigned_items ON unassigned_items.session_id = s.id
         LEFT JOIN LATERAL (
             SELECT
                 csc.session_id,
@@ -85,9 +90,9 @@ pub async fn get_sessions(
                             'id', ci.id,
                             'library_item_id', ci.library_item_id
                         )                    
-                    ) FILTER (WHERE ci.id IS NOT NULL) as item_rewards
+                    ) FILTER (WHERE ci.id IS NOT NULL) as item_rewards                     
                 FROM campaign_session_characters csc
-                LEFT JOIN item_instances ci ON ci.character_id = csc.character_id AND ci.session_id = csc.session_id
+                FULL OUTER JOIN item_instances ci ON ci.character_id = csc.character_id AND ci.session_id = csc.session_id
                 GROUP BY csc.session_id, csc.character_id
              ) csc
             GROUP BY csc.session_id
@@ -96,7 +101,7 @@ pub async fn get_sessions(
         WHERE 
             ca.id = $1
             AND ca.owner = $2
-        GROUP BY s.id, character_rewards
+        GROUP BY s.id, character_rewards, unassigned_items.unassigned_items
         ORDER BY s.session_order, s.id ASC
     "#,
         campaign_id.0 as i32,
@@ -170,9 +175,10 @@ pub async fn get_sessions(
                 compiled_rewards,
                 unassigned_gold_rewards: row.unassigned_gold_rewards,
                 unassigned_item_rewards: row
-                    .unassigned_item_rewards
+                    .unassigned_items
+                    .unwrap_or_default()
                     .iter()
-                    .map(|e| InternalId(*e as u32))
+                    .map(|e| InternalId::from_i32(*e))
                     .collect(),
                 total_experience: row.total_experience.map(|e| e as u64).unwrap_or_default(),
                 experience_at_end,
@@ -404,12 +410,26 @@ pub async fn link_encounter_to_session(
     .execute(&mut **tx)
     .await?;
 
+    // Add items of linked encounter to unassigned rewards
+    sqlx::query!(
+        r#"
+        UPDATE item_instances
+        SET session_id = $1, character_id = NULL, 
+            campaign_id = (SELECT campaign_id FROM campaign_sessions WHERE id = $1)
+        WHERE encounter_id = $2 AND session_id IS NULL
+        "#,
+        session_id.0 as i32,
+        encounter_id.0 as i64,
+    )
+    .execute(&mut **tx)
+    .await?;
+
     // Update campaign experience to be sum of all encounters
     // TODO: Trigger in db? Just to ensure it recalculates correctly
     sqlx::query!(
         r#"
         UPDATE campaigns
-        SET total_experience = campaigns.total_experience + e.total_experience
+            SET total_experience = campaigns.total_experience + e.total_experience
         FROM (SELECT * FROM encounters WHERE id = $1) e
         WHERE campaigns.id = (SELECT campaign_id FROM campaign_sessions WHERE id = $2)
         "#,
@@ -575,6 +595,7 @@ fn remove_contributions_from_character(remove_gold: &mut f64, character_gold: &m
 
 // TODO: This function needs to be revisited soon. A lot of updates (even when we are only updating a small part), and it uses unnest poorly. In addition, this route may get hit A LOT.
 // TODO: Update this route with new item_instances logic
+// TODO: This is no longer working because the ids no longer refer to the library but to the item
 pub async fn edit_encounter_session_character_assignments(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: InternalId,
@@ -593,7 +614,7 @@ pub async fn edit_encounter_session_character_assignments(
     sqlx::query!(
         r#"
             UPDATE item_instances
-            SET session_id = NULL
+            SET character_id = NULL
             WHERE session_id = $1
         "#,
         session_id.0 as i32,
@@ -628,12 +649,14 @@ pub async fn edit_encounter_session_character_assignments(
         sqlx::query!(
             r#"
             UPDATE item_instances
-            SET session_id = $1, character_id = $2
+            SET character_id = $1
             FROM UNNEST($3::int[]) as item_id
-            WHERE item_instances.id = item_id
+            WHERE library_item_id = item_id AND session_id = $2
+            -- TODO: Reinstate this
+            -- WHERE item_instances.id = item_id
             "#,
-            session_id.0 as i32,
             character_id.0 as i64,
+            session_id.0 as i32,
             &update
                 .items
                 .iter()

@@ -17,7 +17,7 @@ pub async fn get_campaign_stats(
         SELECT
             ch.id,
             items.total_treasure_item_value,
-            items.items,
+            coalesce(items.items, '[]'::jsonb) as items,
             gold.total_gold,
             owned_boosts.assigned_boosts,
             expected_boosts.expected_boosts,
@@ -282,12 +282,9 @@ pub async fn get_campaign_stats(
         ) expected ON true
         LEFT JOIN LATERAL (
             SELECT 
-                array_agg(item) as items
-            FROM (
-                SELECT unnest(cs.unassigned_item_rewards) AS item
-                FROM campaign_sessions cs
-            WHERE cs.campaign_id = c.id
-            ) unassigned_item_rewards   
+                array_agg(ii.library_item_id) AS items
+            FROM item_instances ii
+            WHERE ii.campaign_id = c.id AND ii.character_id IS NULL
         ) unassigned_item_rewards ON true
         LEFT JOIN LATERAL (
             SELECT sum(cs.unassigned_gold_rewards) AS unassigned_gold
@@ -315,7 +312,7 @@ pub async fn get_campaign_stats(
             pub calculated_expected_total_treasure: f32,
             pub pf_expected_total_treasure: f32,
         }
-        let encounters : Vec<OneEncounter> = serde_json::from_value(r.stats_by_encounter.unwrap_or_default()).unwrap();
+        let encounters : Vec<OneEncounter> = serde_json::from_value(r.stats_by_encounter.unwrap_or_default()).unwrap_or_default();
         let mut acc = 0;
         let encounters = encounters.into_iter().map(|e| {
             let stats = EncounterStats {

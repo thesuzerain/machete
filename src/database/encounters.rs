@@ -191,8 +191,8 @@ pub async fn get_encounters(
 
             #[derive(serde::Deserialize, Debug)]
             pub struct EncounterTreasureItem {
-                pub id: InternalId,
-                pub library_item_id: InternalId,
+                pub id: i32,
+                pub library_item_id: i32,
             }
             let treasure_items: Vec<EncounterTreasureItem> =
                 serde_json::from_value(row.treasure_items.unwrap_or_default()).unwrap_or_default();
@@ -209,7 +209,7 @@ pub async fn get_encounters(
                 encounter_type,
                 treasure_items: treasure_items
                     .into_iter()
-                    .map(|item| InternalId(item.library_item_id.0))
+                    .map(|item| InternalId::from_i32(item.library_item_id))
                     .collect(), // TODO: wrong need to adjust model as well
                 treasure_currency: row.treasure_currency.unwrap_or(0.0) as f32,
                 extra_experience: row.extra_experience,
@@ -787,6 +787,78 @@ pub async fn delete_encounters(
     .execute(&mut **tx)
     .await?;
 
+    Ok(())
+}
+
+// TODO: Antipattern, but not sure what the best way about it is now that items are seaparate. Postgres function, MV?
+pub async fn recalculate_encounter_summary(
+    conn: &mut PgConnection,
+    owner: InternalId,
+    encounter_ids: &[InternalId],
+) -> crate::Result<()> {
+    if encounter_ids.is_empty() {
+        return Ok(());
+    }
+
+    let list_of_all_encounters = sqlx::query!(
+        r#"
+        SELECT *
+        FROM encounters
+        "#,
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+
+    for encounter_id in encounter_ids {
+        let encounter = get_encounters(
+            &mut *conn,
+            owner,
+            &EncounterFilters::from_ids(&[*encounter_id]),
+        )
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(crate::ServerError::NotFound)?;
+
+        let enemy_ids = encounter
+            .encounter_type
+            .get_enemies()
+            .iter()
+            .map(|e| e.id)
+            .collect::<Vec<InternalId>>();
+        let enemy_level_adjustments = encounter
+            .encounter_type
+            .get_enemies()
+            .iter()
+            .map(|e| e.level_adjustment)
+            .collect::<Vec<i16>>();
+        let enemy_levels = get_levels_enemies(conn, &enemy_ids, &enemy_level_adjustments).await?;
+        let hazard_level_complexities =
+            get_levels_complexities_hazards(conn, &encounter.encounter_type.get_hazards()).await?;
+        let treasure_values = get_values_items(conn, &encounter.treasure_items).await?;
+
+        let derived_total_experience = models::encounter::calculate_total_adjusted_experience(
+            &enemy_levels,
+            &hazard_level_complexities,
+            encounter.party_level as u8,
+            encounter.party_size as u8,
+        ) + encounter.extra_experience as i32;
+        let derived_total_treasure_value = treasure_values.iter().sum::<f32>();
+
+        sqlx::query!(
+            r#"
+            UPDATE encounters
+            SET total_experience = $1,
+                total_items_value = $2
+            WHERE id = $3
+            "#,
+            derived_total_experience as i64,
+            derived_total_treasure_value as f64,
+            encounter_id.0 as i64,
+        )
+        .execute(&mut *conn)
+        .await?;
+    }
     Ok(())
 }
 

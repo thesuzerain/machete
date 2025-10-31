@@ -16,6 +16,7 @@ pub mod database;
 pub mod encounters;
 pub mod library;
 pub mod models;
+pub mod v2;
 
 pub async fn run_server() {
     env_logger::builder()
@@ -50,6 +51,7 @@ pub fn app(
     Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
+        .nest("/v2", v2::routes::router())
         .nest("/auth", auth::router())
         .nest("/library", library::router())
         .nest("/campaign", campaign::router())
